@@ -1,0 +1,3 @@
+﻿{"mode": "Mode 1", "bandwidth": 20, "ack": "delivered", "received_text": "Hello world - Mode 1 WebSocket test", "received_audio": true, "received_audio_chars": 516234}
+{"mode": "Mode 2", "bandwidth": 6, "ack": "delivered", "received_text": "Hello world - Mode 2 WebSocket test", "received_audio": true, "received_audio_chars": 516234}
+{"mode": "Mode 3", "bandwidth": 1, "ack": "delivered", "received_text": "Hello world - Mode 3 WebSocket test", "received_audio": false, "received_audio_chars": 0}
