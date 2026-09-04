@@ -174,9 +174,11 @@ export default function FieldUserDashboard() {
     ]));
   };
 
-  // Pipeline Animation State
-    // Phone Role Toggle: 'victim' (Phone 1) or 'relay' (Phone 2)
-  const [deviceRole, setDeviceRole] = useState<'relay' | 'victim'>('relay');
+  // Phone Role Toggle: 'victim' (Phone 1) or 'relay' (Phone 2)
+  const [deviceRole, setDeviceRole] = useState<'relay' | 'victim'>(() => {
+    const saved = localStorage.getItem('node_role');
+    return saved === 'rescue_volunteer_2' ? 'relay' : 'victim';
+  });
   const [pipelineStage, setPipelineStage] = useState<'idle' | 'queued' | 'compressing' | 'encrypting' | 'transmitting' | 'delivered'>('idle');
   const [currentMsgStats, setCurrentMsgStats] = useState<MessageStats | null>(null);
   const [activeCipherCode, setActiveCipherCode] = useState<string>('AUDIO#4G-HD');
@@ -254,20 +256,38 @@ export default function FieldUserDashboard() {
   const relayedPacketIdsRef = useRef<Set<string>>(new Set());
 
   // 📡 Central Air Mesh Interceptor & Relay Handler
-  // User Directive: "நான் மொபைல் 1 டிவைஸிலிருந்து அனுப்பும் மெசேஜ் மொபைல் 2-க்கு ரிலே ஆகிதான் சிஸ்டத்திற்குப் போக வேண்டும். மொபைல் 2-க்கு அனுப்பிவிட்டு, மொபைல் 2-ல் என்கிரிப்டட் கீயைக் காட்ட வேண்டும். அதைக் காட்டிவிட்டுத்தான் போக வேண்டும்."
+  // User Directive: "Speech text ஆ மாறுன உடனே Bluetooth/Wi-Fi மூலமா Phone 2 க்கு ரிலே ஆகணும். Phone 2 ல என்கிரிப்டட் கீயைக் காட்டிட்டு Command Center க்கு போகணும்."
   const handleIncomingMeshPacket = async (parsed: any, channel = 'AIR_BLE_WIFI') => {
     if (!parsed || !parsed.id) return;
+
+    // 0. Handle ACK from Phone 2 confirming delivery to Command Center
+    if (parsed.type === 'mesh_relay_ack') {
+      setSentMessages(prev => prev.map(m => m.id === parsed.id ? { ...m, status: 'delivered', relayed_via_mesh: true } : m));
+      setLastDeliveryToast(`✓✓ Relayed via Phone 2 to Command Center! (Hop 2)`);
+      return;
+    }
+
+    // If packet already processed/relayed, avoid duplicate relay loops
     if (relayedPacketIdsRef.current.has(parsed.id)) return;
 
-    // Do not relay packets originally created by myself (unless acting as dedicated Relay Phone 2)
     const myClean = normalizeName(myUsername);
     const senderClean = normalizeName(parsed.sender_username);
-    if (deviceRole !== 'relay' && senderClean && senderClean === myClean && myClean) return;
+
+    // If message was already relayed (Hop >= 2), update status on Phone 1 if it's our message
+    if (parsed.hop_count >= 2) {
+      setSentMessages(prev => prev.map(m => m.id === parsed.id ? { ...m, status: 'delivered', relayed_via_mesh: true } : m));
+    }
+
+    // Role check: Phone 1 (Victim) MUST NOT relay its own packets
+    if (nodeRole === 'victim_citizen_1' || deviceRole === 'victim') {
+      if (senderClean && senderClean === myClean && myClean) return;
+      if (sentMessages.some(m => m.id === parsed.id)) return;
+    }
 
     relayedPacketIdsRef.current.add(parsed.id);
 
     const cipherKey = parsed.cipher_code || 'KEY#ENC-4954-015F';
-    const sender = parsed.sender_username || 'Phone 1 (@victim_1)';
+    const sender = parsed.sender_username || '📱 Phone 1 (@victim_1)';
     const text = parsed.text || '';
 
     // Register Peer in Mesh Uniqueness Registry
@@ -310,7 +330,7 @@ export default function FieldUserDashboard() {
       return updated;
     });
 
-    // 1. Prominently display the Encrypted Key & Relay Modal on Mobile 2!
+    // 1. Prominently display the Encrypted Key & Relay Modal on Phone 2!
     setIncomingAirRelay({
       id: parsed.id,
       sender,
@@ -323,7 +343,7 @@ export default function FieldUserDashboard() {
     setCipherRelayActive(true);
     setLastDeliveryToast(`📡 Air Packet Captured from ${sender}! Key: ${cipherKey}`);
 
-    // 2. Wait 1.5s so user/judges see the encrypted key on Mobile 2 screen before forwarding
+    // 2. Wait 1.5s so user/judges see the encrypted key on Phone 2 screen before forwarding
     setTimeout(async () => {
       setIncomingAirRelay(prev => prev && prev.id === parsed.id ? { ...prev, stage: 'relaying' } : prev);
 
@@ -331,7 +351,7 @@ export default function FieldUserDashboard() {
         ...parsed,
         session_id: 'DEMO_GLOBAL_SESSION_01',
         network_mode: parsed.network_mode || 'mode-3-ai-mesh',
-        gateway_node: `📱 Phone 2: Relay (${myUsername || '@relay_node'})`,
+        gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
         hop_count: (parsed.hop_count || 1) + 1,
         cipher_code: cipherKey,
         status: 'relayed',
@@ -343,6 +363,25 @@ export default function FieldUserDashboard() {
 
       setIncomingAirRelay(prev => prev && prev.id === parsed.id ? { ...prev, stage: 'delivered' } : prev);
       setLastDeliveryToast(`✅ Relayed to Command Center via Gateway! (Hop 2)`);
+
+      // 3. Broadcast ACK packet back into the air so Phone 1 marks as delivered
+      const ackObj = {
+        type: 'mesh_relay_ack',
+        id: parsed.id,
+        status: 'delivered',
+        hop_count: 2,
+        gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
+        timestamp: new Date().toISOString()
+      };
+      const ackStr = JSON.stringify(ackObj);
+
+      if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
+        try {
+          (window as any).AndroidBleMeshBridge.broadcastMeshPacket(ackStr);
+        } catch (e) {}
+      }
+      const airTargets = getReliableEndpoints('/api/mesh/air-broadcast');
+      sendPayloadSingle(airTargets, ackStr);
 
       // Update record in Relayed Air Packets
       setRelayedAirPackets(prev => prev.map(r => r.id === parsed.id ? { ...r, status: '✅ Relayed (Hop 2)' } : r));
@@ -495,8 +534,15 @@ export default function FieldUserDashboard() {
   useEffect(() => {
     if (!lastMessage) return;
 
-    // Delivery confirmation: update status to 'delivered' (✓✓ Relayed to Command Center)
-    if (lastMessage.id) {
+    // 0. Handle ACK from Phone 2 confirming delivery to Command Center
+    if (lastMessage.type === 'mesh_relay_ack') {
+      setSentMessages(prev => prev.map(m => m.id === lastMessage.id ? { ...m, status: 'delivered', relayed_via_mesh: true } : m));
+      setLastDeliveryToast(`✓✓ Relayed via Phone 2 to Command Center! (Hop 2)`);
+      return;
+    }
+
+    // Delivery confirmation: update status to 'delivered' when relayed (Hop >= 2 or via Phone 2)
+    if (lastMessage.id && (lastMessage.hop_count >= 2 || lastMessage.gateway_node?.includes('Phone 2'))) {
       setSentMessages(prev => prev.map(m => m.id === lastMessage.id ? { ...m, status: 'delivered', relayed_via_mesh: true } : m));
     }
 
@@ -1027,20 +1073,10 @@ export default function FieldUserDashboard() {
       const airTargets = getReliableEndpoints('/api/mesh/air-broadcast');
       sendPayloadSingle(airTargets, airPayloadStr);
 
-      setLastDeliveryToast(`📡 Air Packet Broadcasted! (Tossed into BLE/Wi-Fi air radius, waiting for Phone 2 relay...)`);
+      // Mode 3 Authentic Air Broadcast: Phone 1 broadcasts exclusively into the air (BLE / Wi-Fi / UDP).
+      // Phone 1 DOES NOT call Command Center directly! Phone 2 will catch and relay it.
+      setLastDeliveryToast(`📡 Air Packet Broadcasted (BLE / Wi-Fi)! Waiting for Phone 2 to catch & relay...`);
       setOfflineMessages((prev: any) => [airPayloadObj, ...prev]);
-
-      // 3. Snappy relay to Command Center (1.4s) simulating Phone 2 hop & updating delivered tick
-      setTimeout(async () => {
-        const directTargets = getReliableEndpoints('/api/messages/send');
-        await sendPayloadSingle(directTargets, JSON.stringify({
-          ...airPayloadObj,
-          gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
-          hop_count: 2
-        }));
-        setSentMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, status: 'delivered', relayed_via_mesh: true } : m));
-        setLastDeliveryToast(`✓✓ Relayed to Command Center (HQ)!`);
-      }, 1400);
 
       // Once sent, erase text immediately as requested by user ("அது ஒன்ஸ் சென்ட் ஆன உடனே டெக்ஸ்ட் எரேஸ் ஆகிடணும்")
       setTextInput('');
@@ -1239,6 +1275,7 @@ export default function FieldUserDashboard() {
             onClick={() => {
               const nextRole = nodeRole === 'victim_citizen_1' ? 'rescue_volunteer_2' : 'victim_citizen_1';
               setNodeRole(nextRole);
+              setDeviceRole(nextRole === 'rescue_volunteer_2' ? 'relay' : 'victim');
               localStorage.setItem('node_role', nextRole);
               setLastDeliveryToast(`Switched Role: ${nextRole === 'victim_citizen_1' ? '📱 Phone 1 (Victim/Sender)' : '🔄 Phone 2 (Relay Node)'}`);
             }}
@@ -1498,6 +1535,7 @@ export default function FieldUserDashboard() {
             <button
               onClick={() => {
                 setNodeRole('victim_citizen_1');
+                setDeviceRole('victim');
                 localStorage.setItem('node_role', 'victim_citizen_1');
               }}
               className={`flex-1 py-1.5 rounded-xl font-mono text-[10px] font-bold border transition-all ${
@@ -1511,6 +1549,7 @@ export default function FieldUserDashboard() {
             <button
               onClick={() => {
                 setNodeRole('rescue_volunteer_2');
+                setDeviceRole('relay');
                 localStorage.setItem('node_role', 'rescue_volunteer_2');
               }}
               className={`flex-1 py-1.5 rounded-xl font-mono text-[10px] font-bold border transition-all ${

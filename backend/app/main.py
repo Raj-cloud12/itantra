@@ -751,15 +751,17 @@ async def air_broadcast_mesh(payload: dict):
     Broadcasts directly to peer listening devices (e.g. Phone 2) via WebSockets.
     """
     air_packet = {
-        "type": "air_mesh_packet",
+        "type": payload.get("type") or "air_mesh_packet",
         "is_air_broadcast": True,
         "id": payload.get("id") or str(uuid.uuid4()),
         "sender_username": payload.get("sender_username", "@victim_1"),
         "target_username": payload.get("target_username", "@command_center"),
         "cipher_code": payload.get("cipher_code") or "KEY#ENC-4954-015F",
         "text": payload.get("text", ""),
-        "network_mode": "mode-3-ai-mesh",
-        "hop_count": 1,
+        "network_mode": payload.get("network_mode") or "mode-3-ai-mesh",
+        "hop_count": payload.get("hop_count") or 1,
+        "gateway_node": payload.get("gateway_node"),
+        "status": payload.get("status"),
         "timestamp": payload.get("timestamp") or datetime.utcnow().isoformat(),
         "display_time": payload.get("display_time") or datetime.now().strftime("%I:%M %p")
     }

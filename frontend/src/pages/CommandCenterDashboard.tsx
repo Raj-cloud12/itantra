@@ -376,7 +376,7 @@ export default function CommandCenterDashboard() {
             network_mode: latest.network_mode || (isMode4 ? 'mode-4-satellite-beacon' : 'mode-2-compressed-voice'),
             cipher_code: cipherCode,
             gateway_node: latest.gateway_node || (isMode4 ? '🛰️ ISRO NavIC Gateway' : '@civ_mesh_relay'),
-            hop_count: isMode4 ? 1 : 3,
+            hop_count: isMode4 ? 1 : (latest.hop_count || 2),
             stats: latest.stats || {
               raw_bytes: 45000,
               compressed_bytes: isMode4 ? 16 : isMode3 ? 24 : 1200,
@@ -443,7 +443,7 @@ export default function CommandCenterDashboard() {
             network_mode: m.network_mode || (isMode4 ? 'mode-4-satellite-beacon' : 'mode-2-compressed-voice'),
             cipher_code: cipherCode,
             gateway_node: m.gateway_node || (isMode4 ? '🛰️ ISRO NavIC (S-Band / 2492MHz) & LoRa 865MHz Gateway' : '@civ_mesh_relay (BLE 20m / Wi-Fi 100m)'),
-            hop_count: isMode4 ? 1 : 3,
+            hop_count: isMode4 ? 1 : (m.hop_count || 2),
             stats: {
               raw_bytes: m.audio_size ? Math.round(m.audio_size * 28.5) : 45000,
               compressed_bytes: isMode4 ? 16 : isMode3 ? (m.text?.length || 24) : (m.audio_size || 1200),
@@ -1113,7 +1113,7 @@ export default function CommandCenterDashboard() {
                         {msg.gateway_node && (
                           <span className="bg-emerald-950 px-2 py-0.5 rounded text-[10px] text-emerald-300 font-mono font-bold border border-emerald-600 shadow-[0_0_8px_rgba(16,185,129,0.3)] flex items-center gap-1">
                             <span>📡</span>
-                            <span>RELAYED VIA {msg.gateway_node.slice(0, 9)} ({msg.hop_count || 2} HOPS)</span>
+                            <span>RELAYED VIA {msg.gateway_node} ({msg.hop_count || 2} HOPS)</span>
                           </span>
                         )}
                         <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-black border ${
