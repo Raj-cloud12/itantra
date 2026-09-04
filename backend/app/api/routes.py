@@ -170,8 +170,8 @@ async def post_message(msg: MessageCreatePayload):
     global recent_mesh_messages
     final_audio = msg.audio_url.strip() if isinstance(msg.audio_url, str) and msg.audio_url.strip() else None
     
-    # 🧠 Neural Whisper Auto-Transcription if audio is present
-    if final_audio and (not msg.text or msg.text.startswith("குரல் செய்தி") or "Spoken Voice" in msg.text or "Transcribing" in msg.text):
+    # 🧠 Neural Whisper Auto-Transcription if audio is present (Mode 1 & 2 only, Mode 3 backend STT removed)
+    if msg.network_mode != 'mode-3-ai-mesh' and final_audio and (not msg.text or msg.text.startswith("குரல் செய்தி") or "Spoken Voice" in msg.text or "Transcribing" in msg.text):
         whisper_text, detected_lang = transcribe_audio_base64(final_audio)
         if whisper_text:
             msg.text = whisper_text

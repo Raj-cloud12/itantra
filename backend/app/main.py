@@ -289,27 +289,6 @@ def transcribe_indic_neural_base64(audio_base64: str, preferred_lang: Optional[s
             except Exception as ge:
                 print(f"[Groq Whisper Exception]: {ge}", flush=True)
 
-        # 2. Fallback: Google Speech Recognition
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp:
-            tmp.write(audio_bytes)
-            tmp_path = tmp.name
-
-        try:
-            r = sr.Recognizer()
-            with sr.AudioFile(tmp_path) as source:
-                audio_data = r.record(source)
-            lang_bcp47 = "ta-IN" if preferred_lang == "ta" else f"{preferred_lang}-IN"
-            text = r.recognize_google(audio_data, language=lang_bcp47)
-            if text and text.strip():
-                print(f"[Google ASR Fallback]: {text}", flush=True)
-                return text.strip(), preferred_lang or "ta"
-        except Exception:
-            pass
-        finally:
-            if os.path.exists(tmp_path):
-                try: os.unlink(tmp_path)
-                except: pass
-
         return "", preferred_lang or "ta"
     except Exception as e:
         print(f"[Indic Audio Decode Error]: {e}", flush=True)
@@ -830,13 +809,7 @@ async def send_message(payload: MessagePayload):
         if not final_text or final_text.strip() == '':
             final_text = "🎙️ 4G/5G HD Direct Voice Note"
     elif mode == 'mode-3-ai-mesh':
-        # Mode 3: 24-byte AI Mesh Text (Zero Audio Transmitted)
-        if payload.audio_url and not final_text:
-            t, l = transcribe_indic_neural_base64(payload.audio_url, payload.language or "ta")
-            if t and t.strip():
-                final_text = t.strip()
-                final_lang = l
-        # Strip audio for Mode 3 so only compact text is stored & relayed
+        # Mode 3: 24-byte AI Mesh Text (Zero Audio Transmitted, backend STT removed)
         payload.audio_url = None
         payload.audio_size = 24
 

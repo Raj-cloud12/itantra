@@ -859,30 +859,6 @@ export default function FieldUserDashboard() {
     }
   };
 
-  // ⚡ Fast Indic STT Transcriber with Parallel Racing
-  const runOfflineAiTranscription = async (audioBase64: string, preferredLang = 'ta'): Promise<{ text: string; lang: string; translations?: Record<string, string> }> => {
-    const sttEndpoints = getReliableEndpoints('/api/stt/base64');
-    const requests = sttEndpoints.map(async (ep) => {
-      const res = await fetch(ep, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio_base64: audioBase64, language: preferredLang }),
-        signal: AbortSignal.timeout(3500)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data && data.text && data.text.trim()) {
-        return { text: data.text.trim(), lang: data.language || preferredLang };
-      }
-      throw new Error('Empty text');
-    });
-
-    try {
-      return await Promise.any(requests);
-    } catch {
-      return { text: '', lang: preferredLang };
-    }
-  };
 
   const sendVoiceOrText = async (
     text: string,
@@ -912,33 +888,10 @@ export default function FieldUserDashboard() {
         finalText = '🎙️ 2G CELT Compressed Voice Note (1.2 KB)';
       }
     } else if (networkMode === 'mode-3-ai-mesh') {
-      // 🚨 MODE 3: VOICE-TO-TEXT FOR OFFLINE MESH RELAY
-      // 1. Try offline AI transcription if audioBase64 exists
-      if (!finalText && audioBase64) {
-        try {
-          const aiResult = await runOfflineAiTranscription(audioBase64, selectedTransLang || 'ta');
-          if (aiResult && aiResult.text && aiResult.text.trim()) {
-            finalText = aiResult.text.trim();
-          }
-        } catch (e) {}
+      // 🚨 MODE 3: Backend STT, Google/Hindi STT, and fallback messages completely removed as requested
+      if (!finalText && textInput && textInput.trim()) {
+        finalText = textInput.trim();
       }
-
-      // 2. OFFLINE ASR RESILIENCE: If offline without internet, NEVER drop or blank the voice!
-      if (!finalText || !finalText.trim()) {
-        if (textInput && textInput.trim()) {
-          finalText = textInput.trim();
-        } else {
-          const dur = durationSec || 2;
-          if (dur >= 4) {
-            finalText = '🚨 அவசர மருத்துவ சிகிச்சை தேவை, மாடியில் சிக்கியுள்ளோம்!';
-          } else if (dur >= 2) {
-            finalText = '🚨 வெள்ளம் சூழ்ந்துள்ளது, உடனடியாக படகு உதவி தேவை!';
-          } else {
-            finalText = '🚨 அவசர உதவி தேவை! காப்பாற்றவும் (ஆஃப்லைன் மெஷ்)';
-          }
-        }
-      }
-      // Set the final Tamil text in the compact live box
       setSpokenSpeechText(finalText);
     }
 
@@ -950,6 +903,11 @@ export default function FieldUserDashboard() {
     let rawInputText = (finalText && finalText.trim()) ? finalText.trim() : (textInput && textInput.trim()) ? textInput.trim() : '';
 
     if (!rawInputText && !audioBase64 && !audioBlob) {
+      return;
+    }
+
+    if (networkMode === 'mode-3-ai-mesh' && (!rawInputText || !rawInputText.trim())) {
+      setSpokenSpeechText('');
       return;
     }
 
@@ -1173,14 +1131,7 @@ export default function FieldUserDashboard() {
     const effectiveSender = normalizeName(myUsername);
     let finalText = (text && text.trim()) ? text.trim() : '';
 
-    // 🧠 LOCAL MESH MODE 3: Run Offline AI Transcriber for 24-byte P2P mesh
-    if (localMeshMode === 'mode-3-p2p-nan' && audioBase64 && !finalText) {
-      setLastDeliveryToast('🧠 உள்ளூர் குரல் தமிழில் டிரான்ஸ்லேட் ஆகிறது...');
-      const aiResult = await runOfflineAiTranscription(audioBase64, selectedTransLang || 'ta');
-      if (aiResult && aiResult.text && aiResult.text.trim()) {
-        finalText = aiResult.text.trim();
-      }
-    }
+    // Local Mesh Mode 3: backend STT removed as requested
 
     if (!finalText) {
       if (localMeshMode === 'mode-1-p2p-hd') {
