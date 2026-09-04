@@ -388,6 +388,15 @@ class MainActivity : AppCompatActivity() {
             val res = rec.getResult(stream)
             val recognizedText = res.text.trim()
             stream.release()
+
+            // Filter Whisper silence hallucinations (e.g. "(Bell)", "[Music]", etc.)
+            val lower = recognizedText.lowercase()
+            if (lower == "(bell)" || lower == "[bell]" || lower == "(music)" || lower == "[music]" ||
+                lower == "[applause]" || lower == "(applause)" || lower == "[silence]" ||
+                recognizedText.matches(Regex("^[(\\[].*?[)\\]]$"))) {
+                Log.w("SHERPA_ASR", "Filtered silence hallucination: '$recognizedText'")
+                return ""
+            }
             recognizedText
         } catch (e: Exception) {
             Log.e("SHERPA_ASR", "Error in Sherpa decode: ${e.message}", e)
@@ -552,32 +561,42 @@ class MainActivity : AppCompatActivity() {
         if (bleAdvertiser == null) return
         try {
             val json = JSONObject(payloadJson)
-            val cipher = json.optString("cipher_code", "CIPHER#AI-0000").replace(" ", "").take(6)
+            val cipher = json.optString("cipher_code", "CIPHER#AI-0000").filter { it.isLetterOrDigit() }.take(6).uppercase()
             val hop = json.optInt("hop_count", 1)
             val emergency = if (json.optBoolean("is_emergency", false)) "1" else "0"
             val text = json.optString("text", "")
-            val compressedText = text.take(6)
 
-            val bleToken = "P:$cipher:H$hop:E$emergency:$compressedText"
-            val tokenBytes = bleToken.toByteArray(StandardCharsets.UTF_8).take(20).toByteArray()
+            val prefix = "P:$cipher:H$hop:E$emergency:"
+            val prefixBytes = prefix.toByteArray(StandardCharsets.UTF_8)
+            val maxTextBytes = Math.max(0, 20 - prefixBytes.size)
+
+            var subText = text
+            var textBytes = subText.toByteArray(StandardCharsets.UTF_8)
+            while (textBytes.size > maxTextBytes && subText.isNotEmpty()) {
+                subText = subText.dropLast(1)
+                textBytes = subText.toByteArray(StandardCharsets.UTF_8)
+            }
+            val finalBytes = ByteArray(prefixBytes.size + textBytes.size)
+            System.arraycopy(prefixBytes, 0, finalBytes, 0, prefixBytes.size)
+            System.arraycopy(textBytes, 0, finalBytes, prefixBytes.size, textBytes.size)
 
             val settings = AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
                 .setConnectable(false)
-                .setTimeout(3000)
+                .setTimeout(8000)
                 .build()
 
             val data = AdvertiseData.Builder()
                 .setIncludeDeviceName(false)
                 .setIncludeTxPowerLevel(false)
-                .addServiceData(MESH_16BIT_UUID, tokenBytes)
+                .addServiceData(MESH_16BIT_UUID, finalBytes)
                 .build()
 
             currentBleCallback?.let { bleAdvertiser?.stopAdvertising(it) }
             currentBleCallback = object : AdvertiseCallback() {
                 override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
-                    Log.i("BLE_MESH", "SUCCESS: BLE Mesh Beacon Active!")
+                    Log.i("BLE_MESH", "SUCCESS: BLE Mesh Beacon Active! (20B token bytes=${finalBytes.size})")
                 }
                 override fun onStartFailure(errorCode: Int) {
                     Log.e("BLE_MESH", "BLE Advertise Failed: code=$errorCode")
@@ -631,20 +650,20 @@ class MainActivity : AppCompatActivity() {
                 val cipher = parts[1]
                 val hop = parts[2].replace("H", "").toIntOrNull() ?: 1
                 val isEmerg = parts[3] == "E1"
-                val textPreview = if (parts.size >= 5) parts[4] else "SOS"
+                val textPreview = if (parts.size >= 5) parts.subList(4, parts.size).joinToString(":") else ""
 
                 val packetObj = JSONObject().apply {
                     put("id", "ble_" + System.currentTimeMillis())
                     put("cipher_code", cipher)
                     put("hop_count", hop + 1)
                     put("is_emergency", isEmerg)
-                    put("text", "📡 Relayed via BLE Mesh: $textPreview")
+                    put("text", if (textPreview.isNotBlank()) textPreview else "🚨 அவசர உதவி தேவை! (Mode 3 BLE Mesh)")
                     put("network_mode", "mode-3-ai-mesh")
                     put("gateway_node", "📱 Phone 2 (BLE Mesh Relay Node)")
                     put("timestamp", System.currentTimeMillis())
                     if (isEmerg) put("type", "emergency_alert") else put("type", "voice_message")
                     put("sender_role", "field")
-                    put("sender_username", "@field_user")
+                    put("sender_username", "@victim_phone_1")
                 }
 
                 runOnUiThread {
@@ -658,7 +677,23 @@ class MainActivity : AppCompatActivity() {
         Thread {
             try {
                 val data = payload.toByteArray(StandardCharsets.UTF_8)
-                val targetBroadcastIps = mutableSetOf("255.255.255.255")
+                val targetBroadcastIps = mutableSetOf("255.255.255.255", "127.0.0.1")
+
+                // Dynamically discover all active broadcast IP addresses across Wi-Fi, Hotspot, and P2P
+                try {
+                    val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+                    while (interfaces.hasMoreElements()) {
+                        val iface = interfaces.nextElement()
+                        if (!iface.isLoopback && iface.isUp) {
+                            for (ifaceAddr in iface.interfaceAddresses) {
+                                val bcast = ifaceAddr.broadcast
+                                if (bcast != null && bcast.hostAddress != null) {
+                                    targetBroadcastIps.add(bcast.hostAddress)
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {}
 
                 try {
                     val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
@@ -678,7 +713,7 @@ class MainActivity : AppCompatActivity() {
                         udpSocket?.send(packet)
                     } catch (e: Exception) {}
                 }
-                Log.i("UDP_MESH", "SUCCESS: Dispatched UDP Multi-Subnet Packet (${data.size} bytes)")
+                Log.i("UDP_MESH", "SUCCESS: Dispatched UDP Multi-Subnet Packet (${data.size} bytes to ${targetBroadcastIps.size} destinations)")
             } catch (e: Exception) {
                 Log.e("UDP_MESH", "UDP Broadcast Error: ${e.message}")
             }
@@ -709,6 +744,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun notifyWebviewPacketReceived(rawPayload: String, channel: String) {
+        try {
+            // Hardware Haptic Vibration (Phone shakes physically when air packet arrives)
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            if (vibrator != null && vibrator.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 250), -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(longArrayOf(0, 200, 100, 250), -1)
+                }
+            }
+            // Hardware Tone Generator
+            val toneGen = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 90)
+            toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 300)
+        } catch (e: Exception) {
+            Log.e("MESH_AIR", "Error in haptic/tone: ${e.message}")
+        }
+
         val safeJson = rawPayload.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
         val jsCode = "if (window.onNativeMeshPacketReceived) { window.onNativeMeshPacketReceived(\"$safeJson\", \"$channel\"); }"
         webView.evaluateJavascript(jsCode, null)

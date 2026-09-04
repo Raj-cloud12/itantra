@@ -255,6 +255,40 @@ export default function FieldUserDashboard() {
   const [cipherRelayText, setCipherRelayText] = useState<string>("");
   const relayedPacketIdsRef = useRef<Set<string>>(new Set());
 
+  const playRelayChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, now); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5 chime
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+    } catch (e) {}
+    try {
+      if (navigator.vibrate) {
+        navigator.vibrate([250, 100, 250]);
+      }
+    } catch (e) {}
+  };
+
+  const isSilenceHallucination = (t: string) => {
+    if (!t) return true;
+    const trimmed = t.trim().toLowerCase();
+    if (['(bell)', '[bell]', '(music)', '[music]', '[applause]', '(applause)', '[silence]'].includes(trimmed)) return true;
+    if (/^[\(\[\{].*?[\)\]\}]$/.test(trimmed) && trimmed.length < 15) return true;
+    return false;
+  };
+
   // 📡 Central Air Mesh Interceptor & Relay Handler
   // User Directive: "Speech text ஆ மாறுன உடனே Bluetooth/Wi-Fi மூலமா Phone 2 க்கு ரிலே ஆகணும். Phone 2 ல என்கிரிப்டட் கீயைக் காட்டிட்டு Command Center க்கு போகணும்."
   const handleIncomingMeshPacket = async (parsed: any, channel = 'AIR_BLE_WIFI') => {
@@ -270,6 +304,10 @@ export default function FieldUserDashboard() {
     // If packet already processed/relayed, avoid duplicate relay loops
     if (relayedPacketIdsRef.current.has(parsed.id)) return;
 
+    // Reject if originated by this device
+    const isMySentPacket = sentMessages.some(m => m.id === parsed.id);
+    if (isMySentPacket) return;
+
     const myClean = normalizeName(myUsername);
     const senderClean = normalizeName(parsed.sender_username);
 
@@ -281,7 +319,6 @@ export default function FieldUserDashboard() {
     // Role check: Phone 1 (Victim) MUST NOT relay its own packets
     if (nodeRole === 'victim_citizen_1' || deviceRole === 'victim') {
       if (senderClean && senderClean === myClean && myClean) return;
-      if (sentMessages.some(m => m.id === parsed.id)) return;
     }
 
     relayedPacketIdsRef.current.add(parsed.id);
@@ -289,6 +326,9 @@ export default function FieldUserDashboard() {
     const cipherKey = parsed.cipher_code || 'KEY#ENC-4954-015F';
     const sender = parsed.sender_username || '📱 Phone 1 (@victim_1)';
     const text = parsed.text || '';
+
+    // Play Alert Chime & Haptic Vibration on Phone 2 immediately
+    playRelayChime();
 
     // Register Peer in Mesh Uniqueness Registry
     if (parsed.sender_username && parsed.node_id) {
@@ -386,8 +426,8 @@ export default function FieldUserDashboard() {
       // Update record in Relayed Air Packets
       setRelayedAirPackets(prev => prev.map(r => r.id === parsed.id ? { ...r, status: '✅ Relayed (Hop 2)' } : r));
 
+      // Leave the card visible on Phone 2 screen with manual close button
       setTimeout(() => {
-        setIncomingAirRelay(prev => prev && prev.id === parsed.id ? null : prev);
         setCipherRelayActive(false);
       }, 7000);
     }, 1500);
@@ -952,7 +992,7 @@ export default function FieldUserDashboard() {
       return;
     }
 
-    if (networkMode === 'mode-3-ai-mesh' && (!rawInputText || !rawInputText.trim())) {
+    if (networkMode === 'mode-3-ai-mesh' && (!rawInputText || !rawInputText.trim() || isSilenceHallucination(rawInputText))) {
       setSpokenSpeechText('');
       return;
     }
@@ -1601,15 +1641,24 @@ export default function FieldUserDashboard() {
                 </span>
               </div>
             </div>
-            <span className={`text-[8px] px-2 py-0.5 rounded-full font-black border ${
-              incomingAirRelay.stage === 'captured'
-                ? 'bg-amber-950 text-amber-300 border-amber-500 animate-pulse'
-                : incomingAirRelay.stage === 'relaying'
-                ? 'bg-blue-950 text-cyan-300 border-cyan-500 animate-pulse'
-                : 'bg-emerald-950 text-emerald-300 border-emerald-500'
-            }`}>
-              {incomingAirRelay.stage === 'captured' ? 'CAPTURED 📡' : incomingAirRelay.stage === 'relaying' ? 'RELAYING 🚀' : 'DELIVERED ✓'}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-[8px] px-2 py-0.5 rounded-full font-black border ${
+                incomingAirRelay.stage === 'captured'
+                  ? 'bg-amber-950 text-amber-300 border-amber-500 animate-pulse'
+                  : incomingAirRelay.stage === 'relaying'
+                  ? 'bg-blue-950 text-cyan-300 border-cyan-500 animate-pulse'
+                  : 'bg-emerald-950 text-emerald-300 border-emerald-500'
+              }`}>
+                {incomingAirRelay.stage === 'captured' ? 'CAPTURED 📡' : incomingAirRelay.stage === 'relaying' ? 'RELAYING 🚀' : 'DELIVERED ✓'}
+              </span>
+              <button
+                onClick={() => setIncomingAirRelay(null)}
+                className="text-[9px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold"
+                title="Dismiss Card"
+              >
+                ✕ Close
+              </button>
+            </div>
           </div>
 
           {/* Route visualization */}
@@ -1739,6 +1788,99 @@ export default function FieldUserDashboard() {
                   <div className="text-emerald-100 text-xs font-sans font-bold min-h-[24px] flex items-center justify-center break-words px-1">
                     {spokenSpeechText || <span className="text-slate-500 text-[11px] font-normal">மைக்கை அழுத்திப் பேசவும்...</span>}
                   </div>
+                </div>
+              )}
+
+              {/* 📡 LIVE MODE 3 AIR STREAM ON TAB 1 (PHONE 1 & PHONE 2 SYNC) */}
+              {networkMode === 'mode-3-ai-mesh' && (
+                <div className="w-full max-w-sm mt-3 space-y-2 font-mono">
+                  {/* PHONE 2 (RELAY NODE): DISPLAY INCOMING / RELAYED STREAM */}
+                  {(nodeRole === 'rescue_volunteer_2' || relayedAirPackets.length > 0) && (
+                    <div className="p-3 rounded-2xl bg-[#06152b] border-2 border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.25)] space-y-2">
+                      <div className="flex items-center justify-between text-[9px] font-bold border-b border-emerald-800/60 pb-1">
+                        <span className="text-emerald-300 uppercase flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                          <span>📡 MESH RELAY STREAM (PHONE 2)</span>
+                        </span>
+                        <span className="text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-700 text-[8px]">
+                          {relayedAirPackets.length} PACKETS
+                        </span>
+                      </div>
+
+                      {relayedAirPackets.length === 0 ? (
+                        <div className="text-center py-3 text-slate-400 text-[9.5px]">
+                          📡 Ready & listening for air packets from Phone 1 (Wi-Fi / BLE)...
+                        </div>
+                      ) : (
+                        <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                          {relayedAirPackets.slice(0, 5).map((pkt) => (
+                            <div key={pkt.id} className="p-2 rounded-xl bg-black/70 border border-emerald-600/50 text-[9px] space-y-1">
+                              <div className="flex items-center justify-between text-slate-400">
+                                <span className="text-amber-300 font-bold">📱 {pkt.sender}</span>
+                                <span className="text-[8px] text-slate-500">{pkt.timestamp}</span>
+                              </div>
+                              <div className="text-cyan-300 font-bold font-mono text-[8.5px] truncate">
+                                🔐 {pkt.cipherKey}
+                              </div>
+                              <div className="text-slate-100 font-sans font-bold text-[10.5px] break-words">
+                                "{pkt.text}"
+                              </div>
+                              <div className="text-emerald-400 font-bold text-[8px] flex items-center justify-between pt-0.5 border-t border-slate-800">
+                                <span>✅ Relayed to HQ (Hop 2)</span>
+                                <span className="text-slate-500">📱 Phone 2 Node</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PHONE 1 (VICTIM NODE): DISPLAY DISPATCHED AIR PACKETS */}
+                  {nodeRole === 'victim_citizen_1' && (
+                    <div className="p-3 rounded-2xl bg-[#091830] border-2 border-blue-500/60 shadow-[0_0_20px_rgba(59,130,246,0.25)] space-y-2">
+                      <div className="flex items-center justify-between text-[9px] font-bold border-b border-blue-800/60 pb-1">
+                        <span className="text-cyan-300 uppercase flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                          <span>📡 DISPATCHED AIR PACKETS (PHONE 1)</span>
+                        </span>
+                        <span className="text-amber-300 bg-amber-950 px-1.5 py-0.5 rounded border border-amber-700 text-[8px]">
+                          OFFLINE AIR TOSS
+                        </span>
+                      </div>
+
+                      {sentMessages.filter(m => m.network_mode === 'mode-3-ai-mesh').length === 0 ? (
+                        <div className="text-center py-3 text-slate-400 text-[9.5px]">
+                          🎙️ Hold mic above to speak. Packet will toss into the air for Phone 2 to catch & forward!
+                        </div>
+                      ) : (
+                        <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                          {sentMessages.filter(m => m.network_mode === 'mode-3-ai-mesh').slice(0, 5).map((m) => {
+                            const isRelayed = m.status === 'delivered' || (m as any).relayed_via_mesh;
+                            return (
+                              <div key={m.id} className={`p-2 rounded-xl bg-black/70 border ${isRelayed ? 'border-emerald-500/70 shadow-[0_0_12px_rgba(16,185,129,0.3)]' : 'border-amber-500/50'} text-[9px] space-y-1`}>
+                                <div className="flex items-center justify-between text-slate-400">
+                                  <span className="text-slate-300 font-bold">{m.display_time || formatTimeIST()}</span>
+                                  <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${isRelayed ? 'bg-emerald-950 text-emerald-300 border border-emerald-600' : 'bg-amber-950 text-amber-300 border border-amber-600 animate-pulse'}`}>
+                                    {isRelayed ? '✓✓ RELAYED (HOP 2)' : '⏳ IN AIR'}
+                                  </span>
+                                </div>
+                                <div className="text-slate-100 font-sans font-bold text-[10.5px] break-words">
+                                  "{m.text}"
+                                </div>
+                                <div className="text-[8px] flex items-center justify-between pt-0.5 border-t border-slate-800">
+                                  <span className="text-cyan-300 font-mono truncate max-w-[60%]">🔐 {m.stats?.ciphertext_hex || 'KEY#ENC-AIR'}</span>
+                                  <span className={isRelayed ? 'text-emerald-400 font-bold' : 'text-amber-400'}>
+                                    {isRelayed ? 'Forwarded via Phone 2' : 'Waiting for Relay Node...'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1985,10 +2127,10 @@ export default function FieldUserDashboard() {
           </div>
         )}
 
-        {/* TAB 3: AIR RELAY - CLEAN ENCRYPTED CIPHER TOKEN ONLY */}
+        {/* TAB 3: AIR RELAY - ENCRYPTED CIPHER TOKEN & COMPLETE RELAY HISTORY */}
         {activeTab === 'relay' && (
-          <div className="flex-1 flex flex-col justify-center items-center p-4 font-mono animate-fadeIn">
-            <div className="w-full max-w-sm p-5 rounded-3xl bg-gradient-to-br from-[#0c1a2e] via-[#091522] to-[#060c14] border-2 border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.35)] space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 font-mono space-y-4 animate-fadeIn">
+            <div className="w-full max-w-sm mx-auto p-5 rounded-3xl bg-gradient-to-br from-[#0c1a2e] via-[#091522] to-[#060c14] border-2 border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.35)] space-y-3">
               <div className="flex items-center justify-between border-b border-amber-900/60 pb-2">
                 <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
                   <span>🔐</span>
@@ -2005,6 +2147,47 @@ export default function FieldUserDashboard() {
                 <span>Algorithm: 24B Dynamic Token</span>
                 <span className="text-emerald-400 font-bold">🔒 Encrypted in Transit</span>
               </div>
+            </div>
+
+            {/* RELAY LOG HISTORY (PHONE 2 GATEWAY) */}
+            <div className="w-full max-w-sm mx-auto space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-400 px-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span>📡 AIR RELAY LOG ({relayedAirPackets.length})</span>
+                </span>
+                <span className="text-[9px] text-cyan-300 font-mono">PHONE 2 GATEWAY</span>
+              </div>
+
+              {relayedAirPackets.length === 0 ? (
+                <div className="p-5 rounded-2xl bg-[#071322] border border-slate-800 text-center text-slate-400 text-xs">
+                  📡 No packets relayed yet. When Phone 1 tosses an air packet, Phone 2 captures it and displays the complete route and status here!
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                  {relayedAirPackets.map((pkt) => (
+                    <div key={pkt.id} className="p-3.5 rounded-2xl bg-gradient-to-br from-[#071426] to-black border-2 border-emerald-500/60 shadow-lg space-y-2 text-xs font-mono">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-amber-300 font-black">📱 {pkt.sender}</span>
+                        <span className="text-slate-400">{pkt.timestamp}</span>
+                      </div>
+                      <div className="bg-black/80 px-2 py-1 rounded-xl border border-amber-600/40 text-cyan-300 font-bold text-[9.5px] break-all">
+                        🔐 {pkt.cipherKey}
+                      </div>
+                      <div className="text-slate-100 font-sans font-bold text-xs py-0.5 break-words">
+                        "{pkt.text}"
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] text-emerald-400 font-bold border-t border-slate-800 pt-1.5">
+                        <span className="flex items-center gap-1">
+                          <span>✅</span>
+                          <span>{pkt.status || 'Relayed to HQ (Hop 2)'}</span>
+                        </span>
+                        <span className="text-slate-400">Route: Hop {pkt.hopCount || 2}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
