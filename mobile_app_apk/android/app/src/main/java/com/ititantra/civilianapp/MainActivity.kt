@@ -17,6 +17,10 @@ import android.os.Looper
 import android.os.ParcelUuid
 import android.util.Log
 import android.webkit.*
+import android.content.Intent
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -30,6 +34,7 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private var speechRecognizer: SpeechRecognizer? = null
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bleAdvertiser: BluetoothLeAdvertiser? = null
     private var bleScanner: BluetoothLeScanner? = null
@@ -95,7 +100,7 @@ class MainActivity : AppCompatActivity() {
         webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest?) {
                 runOnUiThread { request?.grant(request.resources) }
-            }.
+            }
 
             override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback?) {
                 callback?.invoke(origin, true, false)
@@ -224,10 +229,76 @@ class MainActivity : AppCompatActivity() {
     // 4. JAVASCRIPT BRIDGE
     inner class BleMeshBridge {
         @JavascriptInterface
-        fun startSpeechRecognition(lang: String) {}
+        fun startSpeechRecognition(lang: String) {
+            Log.i("STT", "Starting native speech recognition for language: $lang")
+            runOnUiThread {
+                try {
+                    speechRecognizer?.destroy()
+                    speechRecognizer = null
+
+                    if (!SpeechRecognizer.isRecognitionAvailable(this@MainActivity)) {
+                        Log.w("STT", "SpeechRecognizer not available on device")
+                        return@runOnUiThread
+                    }
+                    speechRecognizer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && SpeechRecognizer.isOnDeviceRecognitionAvailable(this@MainActivity)) {
+                        SpeechRecognizer.createOnDeviceSpeechRecognizer(this@MainActivity)
+                    } else {
+                        SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
+                    }
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        val targetLang = if (lang == "ta" || lang.startsWith("ta")) "ta-IN" else if (lang == "en" || lang.startsWith("en")) "en-IN" else "${lang}-IN"
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, targetLang)
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLang)
+                        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    }
+                    speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                        override fun onReadyForSpeech(params: Bundle?) {
+                            Log.i("STT", "Ready for speech")
+                        }
+                        override fun onBeginningOfSpeech() {}
+                        override fun onRmsChanged(rmsdB: Float) {}
+                        override fun onBufferReceived(buffer: ByteArray?) {}
+                        override fun onEndOfSpeech() {}
+                        override fun onError(error: Int) {
+                            Log.w("STT", "Speech recognition error code: $error")
+                        }
+                        override fun onResults(results: Bundle?) {
+                            val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                            if (!matches.isNullOrEmpty()) {
+                                val text = matches[0]
+                                Log.i("STT", "Final recognized: $text")
+                                notifyWebviewSpeechResult(text, true)
+                            }
+                        }
+                        override fun onPartialResults(partialResults: Bundle?) {
+                            val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                            if (!matches.isNullOrEmpty()) {
+                                val text = matches[0]
+                                Log.i("STT", "Partial recognized: $text")
+                                notifyWebviewSpeechResult(text, false)
+                            }
+                        }
+                        override fun onEvent(eventType: Int, params: Bundle?) {}
+                    })
+                    speechRecognizer?.startListening(intent)
+                } catch (e: Exception) {
+                    Log.e("STT", "Failed to start speech recognition: ${e.message}")
+                }
+            }
+        }
 
         @JavascriptInterface
-        fun stopSpeechRecognition() {}
+        fun stopSpeechRecognition() {
+            runOnUiThread {
+                try {
+                    speechRecognizer?.stopListening()
+                } catch (e: Exception) {
+                    Log.w("STT", "Error stopping speech recognition: ${e.message}")
+                }
+            }
+        }
 
         @JavascriptInterface
         fun broadcastMeshPacket(payloadJson: String) {
@@ -424,10 +495,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun notifyWebviewSpeechResult(text: String, isFinal: Boolean) {
+        val escaped = JSONObject.quote(text)
+        val jsCode = "if (window.onNativeSpeechResult) { window.onNativeSpeechResult($escaped, $isFinal); }"
+        webView.evaluateJavascript(jsCode, null)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         isListeningUdp = false
         udpSocket?.close()
+        try {
+            speechRecognizer?.destroy()
+            speechRecognizer = null
+        } catch (e: Exception) {}
         try {
             if (multicastLock?.isHeld == true) multicastLock?.release()
         } catch (e: Exception) {}

@@ -45,6 +45,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 import base64
+import uuid
 import tempfile
 import socket
 import speech_recognition as sr
@@ -79,8 +80,19 @@ app.add_middleware(
 recent_mesh_messages: List[Dict[str, Any]] = []
 
 # Active Network Mode State
-active_network_mode = "mode-1-hd-call"
+active_network_mode = "mode-3-ai-mesh"
 active_local_mode = "mode-2-p2p-2g"
+
+@app.get("/")
+@app.get("/api/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "iTiTantra Tactical Offline Backend",
+        "active_network_mode": active_network_mode,
+        "active_local_mode": active_local_mode,
+        "version": "2.0.0"
+    }
 
 
 
@@ -325,8 +337,10 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     c = conn.cursor()
+    c.execute("PRAGMA journal_mode=WAL;")
+    c.execute("PRAGMA synchronous=NORMAL;")
     c.execute("""
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -737,7 +751,7 @@ def create_session():
 
 @app.get("/api/messages/all")
 def get_all_messages():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("SELECT * FROM messages ORDER BY id DESC LIMIT 60")
@@ -750,6 +764,28 @@ def get_all_messages():
 def get_mesh_messages():
     global recent_mesh_messages
     return recent_mesh_messages[-50:]
+
+@app.post("/api/mesh/air-broadcast")
+async def air_broadcast_mesh(payload: dict):
+    """
+    Mode 3 Air Broadcast: Mobile 1 broadcasts packet into local air radius (BLE/Wi-Fi/UDP).
+    Broadcasts directly to peer listening devices (e.g. Phone 2) via WebSockets.
+    """
+    air_packet = {
+        "type": "air_mesh_packet",
+        "is_air_broadcast": True,
+        "id": payload.get("id") or str(uuid.uuid4()),
+        "sender_username": payload.get("sender_username", "@victim_1"),
+        "target_username": payload.get("target_username", "@command_center"),
+        "cipher_code": payload.get("cipher_code") or "KEY#ENC-4954-015F",
+        "text": payload.get("text", ""),
+        "network_mode": "mode-3-ai-mesh",
+        "hop_count": 1,
+        "timestamp": payload.get("timestamp") or datetime.utcnow().isoformat(),
+        "display_time": payload.get("display_time") or datetime.now().strftime("%I:%M %p")
+    }
+    await manager.broadcast(air_packet)
+    return {"status": "broadcasted_to_air", "packet": air_packet}
 
 # In-Memory Message Deduplication Cache (Ensures single delivery)
 processed_message_ids = set()
@@ -768,7 +804,7 @@ async def send_message(payload: MessagePayload):
     if len(processed_message_ids) > 1000:
         processed_message_ids.clear()
     final_text = payload.text or ""
-    final_lang = payload.language or "en"
+    final_lang = payload.language or "ta"
     
     # Precise mode resolution with strict Priority:
     # 1. Mode 4 / Satellite SOS has highest priority
@@ -786,15 +822,13 @@ async def send_message(payload: MessagePayload):
     else:
         mode = active_network_mode
 
-    # Mode 1 & Mode 2: Real Voice Note Messages (Audio preserved)
+    # Mode 1 & Mode 2: Real Voice Note Messages (Audio preserved, text preserved)
     if mode == 'mode-2-compressed-voice':
         if not final_text or final_text.strip() == '':
             final_text = "🎙️ 2G CELT Compressed Voice Note (1.2 KB)"
-        final_lang = "en"
     elif mode == 'mode-1-hd-call':
         if not final_text or final_text.strip() == '':
             final_text = "🎙️ 4G/5G HD Direct Voice Note"
-        final_lang = "en"
     elif mode == 'mode-3-ai-mesh':
         # Mode 3: 24-byte AI Mesh Text (Zero Audio Transmitted)
         if payload.audio_url and not final_text:
@@ -811,7 +845,7 @@ async def send_message(payload: MessagePayload):
     target_name = payload.target_username or "@all_friends"
 
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH, timeout=10.0)
         c = conn.cursor()
         c.execute("""
         INSERT INTO messages (session_id, sender_role, sender_username, target_username, type, text, network_mode, audio_size, audio_url, is_emergency, language, latitude, longitude, address_name, cipher_code, gateway_node, hop_count, display_time)
@@ -886,7 +920,7 @@ async def send_message(payload: MessagePayload):
 
 @app.post("/api/messages/clear")
 def clear_messages():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10.0)
     c = conn.cursor()
     c.execute("DELETE FROM messages")
     conn.commit()
