@@ -4,9 +4,11 @@ plugins {
 }
 
 android {
+    androidResources {
+        noCompress 'onnx', 'txt'
+    }
     aaptOptions {
-        noCompress "onnx"
-        noCompress "txt"
+        noCompress 'onnx', 'txt'
     }
 
     namespace 'com.ititantra.civilianapp'

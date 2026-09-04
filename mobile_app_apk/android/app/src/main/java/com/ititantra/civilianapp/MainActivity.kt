@@ -9,6 +9,11 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.wifi.WifiManager
 import android.net.wifi.aware.*
+import android.net.wifi.p2p.WifiP2pManager
+import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceInfo
+import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest
+import android.location.LocationManager
+import androidx.core.location.LocationManagerCompat
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
@@ -71,20 +76,42 @@ class MainActivity : AppCompatActivity() {
     private var subscribeDiscoverySession: SubscribeDiscoverySession? = null
     private val AWARE_SERVICE_NAME = "iTiTantra_Local_Mesh"
 
+    // Wi-Fi Neighbor Direct (DNS-SD 802.11 Action Frames - 100m Range, Zero Hotspot, Zero Router)
+    private var wifiP2pManager: WifiP2pManager? = null
+    private var wifiP2pChannel: WifiP2pManager.Channel? = null
+    private var wifiP2pServiceRequest: WifiP2pDnsSdServiceRequest? = null
+    @Volatile
+    private var isP2pListening = false
+
     private val MESH_16BIT_UUID = ParcelUuid.fromString("0000180D-0000-1000-8000-00805F9B34FB")
     private val UDP_PORT = 8888
 
-    private val requiredPermissions = arrayOf(
-        Manifest.permission.RECORD_AUDIO,
-        Manifest.permission.MODIFY_AUDIO_SETTINGS,
-        Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION,
-        Manifest.permission.ACCESS_WIFI_STATE,
-        Manifest.permission.CHANGE_WIFI_STATE,
-        Manifest.permission.BLUETOOTH_SCAN,
-        Manifest.permission.BLUETOOTH_ADVERTISE,
-        Manifest.permission.BLUETOOTH_CONNECT
-    )
+    private val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.MODIFY_AUDIO_SETTINGS,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_WIFI_STATE,
+            Manifest.permission.CHANGE_WIFI_STATE,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_ADVERTISE,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.NEARBY_WIFI_DEVICES
+        )
+    } else {
+        arrayOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.MODIFY_AUDIO_SETTINGS,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_WIFI_STATE,
+            Manifest.permission.CHANGE_WIFI_STATE,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_ADVERTISE,
+            Manifest.permission.BLUETOOTH_CONNECT
+        )
+    }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,6 +119,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         requestAllPermissions()
+        requestLocationServices()
         try {
             val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             multicastLock = wifi?.createMulticastLock("iTiTantra_multicast_lock")
@@ -144,6 +172,7 @@ class MainActivity : AppCompatActivity() {
 
         initBluetooth()
         initWifiAware()
+        initWifiDirectNeighbor()
         ensureBleScannerPeriodic()
         startUdpMeshListener()
         initSherpaModelAssets()
@@ -245,6 +274,149 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("WIFI_AWARE", "Error subscribing NAN: ${e.message}")
             }
+        }
+    }
+
+    // 1b. WI-FI NEIGHBOR (DIRECT DNS-SD 802.11 ACTION FRAMES - ZERO HOTSPOT, 100M RANGE)
+    private var isP2pInitialized = false
+    private var p2pRetryCount = 0
+
+    private fun initWifiDirectNeighbor() {
+        if (isP2pInitialized) return
+        isP2pInitialized = true
+        try {
+            wifiP2pManager = getSystemService(Context.WIFI_P2P_SERVICE) as? WifiP2pManager
+            wifiP2pChannel = wifiP2pManager?.initialize(this, mainLooper, null)
+            Log.i("WIFI_NEIGHBOR", "Wi-Fi Direct P2P Initialized successfully")
+
+            // Wait 2.5s for P2P HAL/driver to stabilize before issuing service requests
+            Handler(Looper.getMainLooper()).postDelayed({
+                startWifiNeighborListener()
+            }, 2500)
+        } catch (e: Exception) {
+            Log.e("WIFI_NEIGHBOR", "Error initializing Wi-Fi Direct: ${e.message}")
+        }
+    }
+
+    private fun startWifiNeighborListener() {
+        val manager = wifiP2pManager ?: return
+        val channel = wifiP2pChannel ?: return
+        if (isP2pListening) return
+
+        try {
+            manager.setDnsSdResponseListeners(
+                channel,
+                { instanceName, _, srcDevice ->
+                    Log.i("WIFI_NEIGHBOR", "Discovered Air Service: $instanceName from ${srcDevice.deviceName}")
+                },
+                { _, txtRecordMap, srcDevice ->
+                    Log.i("WIFI_NEIGHBOR", "CAPTURED WI-FI AIR TWEET from ${srcDevice.deviceName}: $txtRecordMap")
+                    if (txtRecordMap != null && txtRecordMap.containsKey("c")) {
+                        val cipher = txtRecordMap["c"] ?: ""
+                        val text = txtRecordMap["t"] ?: ""
+                        val hop = txtRecordMap["h"]?.toIntOrNull() ?: 1
+                        val sender = txtRecordMap["s"] ?: "@victim_phone_1"
+                        val id = txtRecordMap["id"] ?: ("p2p_" + System.currentTimeMillis())
+
+                        val packetObj = JSONObject().apply {
+                            put("id", id)
+                            put("cipher_code", cipher)
+                            put("hop_count", hop + 1)
+                            put("text", if (text.isNotBlank()) text else "🚨 அவசர உதவி தேவை! (Mode 3 Wi-Fi Neighbor)")
+                            put("sender_username", sender)
+                            put("network_mode", "mode-3-ai-mesh")
+                            put("gateway_node", "📱 Phone 2 (Wi-Fi Neighbor Relay)")
+                            put("timestamp", System.currentTimeMillis())
+                            put("type", "voice_message")
+                            put("sender_role", "field")
+                        }
+                        runOnUiThread {
+                            notifyWebviewPacketReceived(packetObj.toString(), "WIFI_NEIGHBOR_AIR")
+                        }
+                    }
+                }
+            )
+
+            addServiceRequestAndDiscover(manager, channel)
+        } catch (e: Exception) {
+            Log.e("WIFI_NEIGHBOR", "Error starting Wi-Fi Neighbor listener: ${e.message}")
+        }
+    }
+
+    private fun addServiceRequestAndDiscover(manager: WifiP2pManager, channel: WifiP2pManager.Channel) {
+        val req = WifiP2pDnsSdServiceRequest.newInstance()
+        wifiP2pServiceRequest = req
+
+        manager.addServiceRequest(channel, req, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() {
+                isP2pListening = true
+                Log.i("WIFI_NEIGHBOR", "addServiceRequest OK, starting discoverServices...")
+                manager.discoverServices(channel, object : WifiP2pManager.ActionListener {
+                    override fun onSuccess() {
+                        Log.i("WIFI_NEIGHBOR", "SUCCESS: Wi-Fi Neighbor Air Radius Listener Active! (100m, Zero Hotspot)")
+                    }
+                    override fun onFailure(code: Int) {
+                        Log.w("WIFI_NEIGHBOR", "discoverServices failed: code=$code")
+                    }
+                })
+            }
+            override fun onFailure(code: Int) {
+                Log.w("WIFI_NEIGHBOR", "addServiceRequest code=$code (retry=$p2pRetryCount/8)")
+                if (p2pRetryCount < 8) {
+                    p2pRetryCount++
+                    val delay = (p2pRetryCount * 1500).toLong()
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        addServiceRequestAndDiscover(manager, channel)
+                    }, delay)
+                }
+            }
+        })
+    }
+
+    private fun broadcastWifiNeighborTweet(payloadJson: String) {
+        val manager = wifiP2pManager ?: return
+        val channel = wifiP2pChannel ?: return
+        try {
+            val json = JSONObject(payloadJson)
+            val cipher = json.optString("cipher_code", "KEY#ENC-4954-015F")
+            val text = json.optString("text", "")
+            val hop = json.optInt("hop_count", 1)
+            val sender = json.optString("sender_username", "@victim_phone_1")
+            val id = json.optString("id", "air_" + System.currentTimeMillis())
+
+            val txtRecord = HashMap<String, String>()
+            txtRecord["c"] = cipher
+            txtRecord["h"] = hop.toString()
+            txtRecord["s"] = sender
+            txtRecord["id"] = id
+            // Store text safely for DNS-SD TXT field limit
+            txtRecord["t"] = text.take(120)
+
+            val serviceInfo = WifiP2pDnsSdServiceInfo.newInstance(
+                "itan_" + (System.currentTimeMillis() % 100000),
+                "_itantra_mesh._tcp",
+                txtRecord
+            )
+
+            manager.clearLocalServices(channel, object : WifiP2pManager.ActionListener {
+                override fun onSuccess() {
+                    manager.addLocalService(channel, serviceInfo, object : WifiP2pManager.ActionListener {
+                        override fun onSuccess() {
+                            Log.i("WIFI_NEIGHBOR", "SUCCESS: Wi-Fi Radius Tweet Broadcasted via 802.11 Action Frames! (Zero Hotspot)")
+                            manager.discoverServices(channel, object : WifiP2pManager.ActionListener {
+                                override fun onSuccess() {}
+                                override fun onFailure(code: Int) {}
+                            })
+                        }
+                        override fun onFailure(code: Int) {
+                            Log.e("WIFI_NEIGHBOR", "addLocalService failed: $code")
+                        }
+                    })
+                }
+                override fun onFailure(reason: Int) {}
+            })
+        } catch (e: Exception) {
+            Log.e("WIFI_NEIGHBOR", "Error broadcasting Wi-Fi Neighbor Tweet: ${e.message}")
         }
     }
 
@@ -539,7 +711,8 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun broadcastMeshPacket(payloadJson: String) {
-            Log.i("BLE_MESH_BRIDGE", "Broadcasting mesh packet across Wi-Fi Aware + BLE + UDP Radio: $payloadJson")
+            Log.i("AIR_MESH_BRIDGE", "Broadcasting mesh packet across Wi-Fi Neighbor + BLE + Aware + UDP: $payloadJson")
+            broadcastWifiNeighborTweet(payloadJson)
             broadcastBlePacket(payloadJson)
             broadcastUdpPacket(payloadJson)
         }
@@ -612,10 +785,16 @@ class MainActivity : AppCompatActivity() {
     private fun ensureBleScannerPeriodic() {
         Thread {
             while (true) {
-                Thread.sleep(5000)
+                Thread.sleep(8000)
                 if (bleScanner == null) {
                     startBleScanner()
                 }
+                try {
+                    wifiP2pManager?.discoverServices(wifiP2pChannel, object : WifiP2pManager.ActionListener {
+                        override fun onSuccess() {}
+                        override fun onFailure(code: Int) {}
+                    })
+                } catch (e: Exception) {}
             }
         }.start()
     }
@@ -776,6 +955,67 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun requestLocationServices() {
+        try {
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            val isLocationEnabled = locationManager?.let { LocationManagerCompat.isLocationEnabled(it) } ?: false
+
+            val hasLocationPermission = ContextCompat.checkSelfPermission(
+                this, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+            Log.i("WIFI_NEIGHBOR", "Location Status: DeviceEnabled=$isLocationEnabled, PermissionGranted=$hasLocationPermission")
+
+            if (!hasLocationPermission) {
+                Log.w("WIFI_NEIGHBOR", "Location Permission missing — requesting permission")
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ),
+                    101
+                )
+                return
+            }
+
+            if (!isLocationEnabled) {
+                Log.w("WIFI_NEIGHBOR", "Device Location Services OFF — prompting user to turn ON")
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("📍 Location தேவை — Wi-Fi Mesh Relay")
+                    .setMessage(
+                        "Wi-Fi Neighbor & BLE Mesh Relay மூலம் மெசேஜ் அனுப்பவும் பெறவும் போனில் Location ON ஆக இருக்கணும்.\n\n" +
+                        "இது இருப்பிடத்தைக் கண்காணிக்க அல்ல — Android Wi-Fi Direct மற்றும் BLE அலைவரிசை மூலம் பிற போன்களுடன் ஹாட்ஸ்பாட் இன்றி இணைய Location தேவைப்படுகிறது.\n\n" +
+                        "தயவுசெய்து Location-ஐ இயக்கவும்."
+                    )
+                    .setPositiveButton("📍 Location ON பண்ணு") { _, _ ->
+                        startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    }
+                    .setNegativeButton("பின்னர்", null)
+                    .setCancelable(false)
+                    .show()
+            } else {
+                Log.i("WIFI_NEIGHBOR", "Location Services already ON")
+            }
+        } catch (e: Exception) {
+            Log.e("WIFI_NEIGHBOR", "Error checking location services: ${e.message}")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        try {
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            val isLocationEnabled = locationManager?.let { LocationManagerCompat.isLocationEnabled(it) } ?: false
+            if (isLocationEnabled && !isP2pListening) {
+                Log.i("WIFI_NEIGHBOR", "onResume: Location is ON, starting Wi-Fi Direct Neighbor...")
+                initWifiDirectNeighbor()
+            }
+        } catch (e: Exception) {
+            Log.e("WIFI_NEIGHBOR", "onResume check failed: ${e.message}")
+        }
+    }
+
     private fun notifyWebviewSpeechResult(text: String, isFinal: Boolean) {
         val escaped = JSONObject.quote(text)
         val jsCode = "if (window.onNativeSpeechResult) { window.onNativeSpeechResult($escaped, $isFinal); }"
@@ -811,6 +1051,8 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 101) {
             initBluetooth()
+            initWifiDirectNeighbor()
+            requestLocationServices()
         }
     }
 }

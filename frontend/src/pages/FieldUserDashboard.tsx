@@ -399,10 +399,21 @@ export default function FieldUserDashboard() {
       };
 
       const gatewayTargets = getReliableEndpoints('/api/messages/send');
-      await sendPayloadSingle(gatewayTargets, JSON.stringify(relayPayload));
+      const relayedSuccessfully = await sendPayloadSingle(gatewayTargets, JSON.stringify(relayPayload));
 
-      setIncomingAirRelay(prev => prev && prev.id === parsed.id ? { ...prev, stage: 'delivered' } : prev);
-      setLastDeliveryToast(`✅ Relayed to Command Center via Gateway! (Hop 2)`);
+      if (relayedSuccessfully) {
+        setIncomingAirRelay(prev => prev && prev.id === parsed.id ? { ...prev, stage: 'delivered' } : prev);
+        setLastDeliveryToast(`✅ Relayed to Command Center via Gateway! (Hop ${relayPayload.hop_count})`);
+      } else {
+        // Multi-Hop Chain: If this phone is ALSO offline (Phone 2 -> Phone 3 -> Phone 4), re-toss into air with hop+1!
+        if ((window as any).AndroidBleMeshBridge?.broadcastMeshPacket) {
+          try {
+            (window as any).AndroidBleMeshBridge.broadcastMeshPacket(JSON.stringify(relayPayload));
+            setIncomingAirRelay(prev => prev && prev.id === parsed.id ? { ...prev, stage: 'relaying' } : prev);
+            setLastDeliveryToast(`📡 Offline Node: Re-tossed into air for next node (Hop ${relayPayload.hop_count})`);
+          } catch (e) {}
+        }
+      }
 
       // 3. Broadcast ACK packet back into the air so Phone 1 marks as delivered
       const ackObj = {
