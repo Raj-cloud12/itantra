@@ -42,6 +42,7 @@ export default function FieldUserDashboard() {
   // Navigation Tabs: talk (Main/Govt) | sos | relay (Air Relay & Judge Demo Hub) | mesh (Local Mesh Friends P2P)
   const [activeTab, setActiveTab] = useState<'talk' | 'sos' | 'relay' | 'mesh'>('talk');
   const [textInput, setTextInput] = useState('');
+  const [spokenSpeechText, setSpokenSpeechText] = useState('');
   const [isEmergency, setIsEmergency] = useState(false);
   const [sosHistory, setSosHistory] = useState<any[]>([]);
   const [sosCustomInput, setSosCustomInput] = useState<string>('');
@@ -937,8 +938,8 @@ export default function FieldUserDashboard() {
           }
         }
       }
-      // Show the final Tamil text in the input box so user sees what was spoken
-      setTextInput(finalText);
+      // Set the final Tamil text in the compact live box
+      setSpokenSpeechText(finalText);
     }
 
     if (!finalText && !audioBase64 && !audioBlob) {
@@ -1083,7 +1084,9 @@ export default function FieldUserDashboard() {
         setLastDeliveryToast(`✓✓ Relayed to Command Center (HQ)!`);
       }, 1400);
 
+      // Once sent, erase text immediately as requested by user ("அது ஒன்ஸ் சென்ட் ஆன உடனே டெக்ஸ்ட் எரேஸ் ஆகிடணும்")
       setTextInput('');
+      setSpokenSpeechText('');
       setPipelineStage('idle');
       return;
     }
@@ -1687,8 +1690,6 @@ export default function FieldUserDashboard() {
               <span>1-TAP EMERGENCY SOS DISTRESS BEACON</span>
             </button>
 
-
-
             {/* GPS COORDINATES & TIMING BADGE */}
             <div className="px-3 py-1.5 rounded-xl bg-[#0a1122] border border-blue-900/60 flex items-center justify-between text-[9.5px] font-mono">
               <span className="text-emerald-400 font-bold flex items-center gap-1">
@@ -1700,48 +1701,7 @@ export default function FieldUserDashboard() {
               </span>
             </div>
 
-            {/* ⚡ 1-TAP OFFLINE VOICE & TEXT EMERGENCY CHIPS (MODE 3 ONLY) */}
-            {networkMode === 'mode-3-ai-mesh' && (
-              <div className="w-full space-y-1 my-1">
-                <div className="flex items-center justify-between text-[9px] font-mono text-cyan-300 font-bold px-1">
-                  <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                    <span>⚡ அவசர குரல் தேர்வுகள் (QUICK VOICE INTENTS):</span>
-                  </span>
-                  <span className="text-[8px] text-slate-400">1-TAP TO SET & SPEAK</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[
-                    { icon: '🚤', label: 'படகு தேவை', full: 'வெள்ளம் சூழ்ந்துள்ளது, உடனடியாக படகு உதவி தேவை!' },
-                    { icon: '🚑', label: 'மருத்துவ உதவி', full: 'அவசர மருத்துவ உதவி தேவை, ஆம்புலன்ஸ் அனுப்பவும்!' },
-                    { icon: '🏠', label: 'மாடியில் தஞ்சம்', full: 'வீடு மூழ்கியுள்ளது, மாடியில் சிக்கியுள்ளோம் காப்பாற்றவும்!' },
-                    { icon: '🍞', label: 'உணவு குடிநீர்', full: 'குடிநீர் மற்றும் உணவு மிக அவசரமாக தேவைப்படுகிறது!' }
-                  ].map((item, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setTextInput(`🚨 ${item.full}`);
-                        setLastDeliveryToast(`குரல் தேர்வு: ${item.label}`);
-                      }}
-                      className={`p-2 rounded-xl border text-left text-[10px] font-bold flex items-center gap-2 transition-all active:scale-95 shadow-md ${
-                        textInput.includes(item.label)
-                          ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.4)]'
-                          : 'bg-[#09152a] border-blue-900/80 text-slate-200 hover:border-cyan-400'
-                      }`}
-                    >
-                      <span className="text-base">{item.icon}</span>
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-black truncate">{item.label}</span>
-                        <span className="text-[8px] text-slate-400 truncate font-normal">{item.full}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* CENTER PTT & UNIFIED GREEN INTERFACE */}
+            {/* CENTER PTT & UNIFIED INTERFACE */}
             <div className="flex flex-col items-center justify-center my-auto w-full">
               {networkMode === 'mode-4-satellite-beacon' ? (
                 <button
@@ -1763,7 +1723,7 @@ export default function FieldUserDashboard() {
                   language={selectedTransLang}
                   onLiveInterimText={(interim) => {
                     if (interim) {
-                      setTextInput(interim);
+                      setSpokenSpeechText(interim);
                     }
                   }}
                   onTranscript={(text, audioSize, blob, detectedLang, audioBase64, durationSec) => {
@@ -1773,119 +1733,47 @@ export default function FieldUserDashboard() {
                   networkMode={networkMode}
                 />
               )}
+
+              {/* 🎤 COMPACT REAL-TIME VOICE-TO-TEXT BOX DIRECTLY BELOW MIC (MODE 3 ONLY) */}
+              {networkMode === 'mode-3-ai-mesh' && (
+                <div className="w-full max-w-xs mt-3 px-3.5 py-2.5 rounded-2xl bg-[#061726] border border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center animate-fadeIn">
+                  <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 font-bold border-b border-emerald-800/50 pb-1 mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${spokenSpeechText ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
+                      <span>குரல் ➔ தமிழ் உரை (VOICE TO TEXT)</span>
+                    </span>
+                    <span className={`text-[8.5px] font-mono ${spokenSpeechText ? 'text-emerald-300 font-bold' : 'text-slate-500'}`}>
+                      {spokenSpeechText ? 'கேட்கிறது...' : 'தயார்'}
+                    </span>
+                  </div>
+                  <div className="text-emerald-100 text-xs font-sans font-bold min-h-[24px] flex items-center justify-center break-words px-1">
+                    {spokenSpeechText || <span className="text-slate-500 text-[11px] font-normal">மைக்கை அழுத்திப் பேசவும்...</span>}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* 📢 PROMINENT REAL-TIME SENT MESSAGE & DELIVERY TICK CARD (MODE 3 ONLY) */}
-            {networkMode === 'mode-3-ai-mesh' && (
-              sentMessages.length > 0 ? (
-                <div className="w-full rounded-2xl bg-gradient-to-br from-[#061726] via-[#082236] to-[#051422] border-2 border-emerald-500 p-3 space-y-2 shadow-[0_0_25px_rgba(16,185,129,0.35)] animate-fadeIn my-1">
-                  <div className="flex items-center justify-between border-b border-emerald-800/70 pb-1 text-[9.5px] font-mono">
-                    <span className="text-emerald-300 font-black flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                      <span>📢 நீங்கள் பேசிய செய்தி (SENT ON YOUR PHONE):</span>
-                    </span>
-                    <span className="bg-emerald-950 text-emerald-300 border border-emerald-700 px-2 py-0.5 rounded font-black text-[8.5px]">
-                      {sentMessages[0].display_time || formatTimeIST(sentMessages[0].timestamp)}
-                    </span>
-                  </div>
-
-                  {/* The actual Spoken Text in big, bold, vibrant font */}
-                  <div className="text-white font-sans font-black text-sm leading-snug py-1 px-2.5 rounded-xl bg-black/40 border border-emerald-900/60">
-                    {sentMessages[0].text}
-                  </div>
-
-                  {/* Hop Route */}
-                  <div className="flex items-center justify-between text-[8.5px] font-mono text-cyan-200 bg-cyan-950/70 border border-cyan-800/80 rounded-lg px-2.5 py-1">
-                    <div className="flex items-center gap-1">
-                      <span>📱 என் போன் 1</span>
-                      <span className="text-cyan-400 font-black">➔</span>
-                      <span>🔄 Phone 2 Relay</span>
-                      <span className="text-cyan-400 font-black">➔</span>
-                      <span>🏛️ கமாண்ட் சென்டர்</span>
-                    </div>
-                    <span className="text-emerald-400 font-bold">2 Hops</span>
-                  </div>
-
-                  {/* THE PROMINENT DELIVERY TICK - DIRECT & UNMISSABLE */}
-                  <div className="pt-1.5 border-t border-emerald-900/80 flex items-center justify-between">
-                    {sentMessages[0].status === 'delivered' || sentMessages[0].relayed_via_mesh ? (
-                      <>
-                        <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-black">
-                          <span className="text-2xl font-black text-emerald-400">✓✓</span>
-                          <span className="tracking-wide">Relayed to Command Center</span>
-                        </div>
-                        <span className="bg-emerald-950 border-2 border-emerald-400 text-emerald-300 text-[11px] px-3 py-1 rounded-full font-black shadow-[0_0_15px_rgba(16,185,129,0.5)] animate-pulse flex items-center gap-1">
-                          <span>🏛️</span>
-                          <span>✓✓ கமாண்ட் சென்டருக்கு போயிருச்சு!</span>
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-bold">
-                          <span className="text-2xl font-black text-cyan-400 animate-pulse">✓</span>
-                          <span>Sent to Air (BLE / Mesh)</span>
-                        </div>
-                        <span className="bg-cyan-950 border border-cyan-700 text-cyan-300 text-[10px] px-2.5 py-1 rounded font-mono animate-pulse flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></span>
-                          <span>Phone 2-க்கு ரிலே ஆகிறது...</span>
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full rounded-2xl bg-[#071424] border border-cyan-800/80 p-3 text-center my-1 shadow-inner">
-                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-cyan-300">
-                    <span className="text-base">🎙️</span>
-                    <span>மைக்கை அழுத்திப் பேசி ரிலீஸ் செய்யவும்</span>
-                  </div>
-                  <div className="text-[9.5px] text-slate-300 mt-1 font-mono">
-                    நீங்கள் பேசிய செய்தி மற்றும் டெலிவரி டிக் (<span className="text-emerald-400 font-bold">✓✓ கமாண்ட் சென்டருக்கு போயிருச்சு</span>) உடனே இங்கே தோன்றும்.
-                  </div>
-                </div>
-              )
-            )}
-
-            {/* 4-STAGE TRANSMISSION PIPELINE: PERMANENT LIVE DISPLAY */}
+            {/* 4-STAGE TRANSMISSION PIPELINE: PERMANENT LIVE DISPLAY (MODES 1, 2, 4) */}
             {networkMode !== "mode-3-ai-mesh" && (
-            <div className="rounded-2xl bg-[#0a1122] border border-blue-900/80 p-3 shadow-md space-y-1.5 animate-fadeIn">
-              <div className="flex items-center justify-between">
-                <h4 className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                  <span>TRANSMISSION PIPELINE ({networkMode === 'mode-1-hd-call' ? '4G/5G DIRECT VOICE' : networkMode === 'mode-2-compressed-voice' ? '2G CELT COMPRESSED' : networkMode === 'mode-4-satellite-beacon' ? '16B SATELLITE' : 'WI-FI AWARE & BLE MESH'})</span>
-                </h4>
-                <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
-                  networkMode === 'mode-4-satellite-beacon' ? 'bg-red-950 text-rose-300 border-red-800' : 'bg-blue-950 text-cyan-300 border-blue-800'
-                }`}>
-                  {activeCipherCode || '0x4954015F4F67'}
-                </span>
-              </div>
-              
-              <PipelineProgress
-                stage={pipelineStage}
-                stats={currentMsgStats}
-                bandwidthKbps={networkMode === 'mode-4-satellite-beacon' ? 0.01 : networkMode === 'mode-2-compressed-voice' ? 2.4 : 64}
-                networkMode={networkMode}
-              />
-            </div>
-
-            )}
-
-            {/* 🔤 LIVE TRANSLATED TEXT DISPLAY (MODE 3 ONLY) */}
-            {networkMode === 'mode-3-ai-mesh' && (
-              <div className="w-full rounded-2xl bg-gradient-to-r from-[#071926] via-[#092236] to-[#071926] border-2 border-emerald-500/80 p-3 space-y-1.5 shadow-[0_0_20px_rgba(16,185,129,0.35)] animate-fadeIn">
-                <div className="flex items-center justify-between text-[9px] font-mono text-emerald-300 font-black border-b border-emerald-800/60 pb-1">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    <span>🎤 YOUR MESSAGE (INDIC STT):</span>
-                  </span>
-                  <span className="bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded font-black border border-emerald-700 text-[8px]">
-                    OFFLINE VOICE → TEXT
+              <div className="rounded-2xl bg-[#0a1122] border border-blue-900/80 p-3 shadow-md space-y-1.5 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span>TRANSMISSION PIPELINE ({networkMode === 'mode-1-hd-call' ? '4G/5G DIRECT VOICE' : networkMode === 'mode-2-compressed-voice' ? '2G CELT COMPRESSED' : networkMode === 'mode-4-satellite-beacon' ? '16B SATELLITE' : 'WI-FI AWARE & BLE MESH'})</span>
+                  </h4>
+                  <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${
+                    networkMode === 'mode-4-satellite-beacon' ? 'bg-red-950 text-rose-300 border-red-800' : 'bg-blue-950 text-cyan-300 border-blue-800'
+                  }`}>
+                    {activeCipherCode || '0x4954015F4F67'}
                   </span>
                 </div>
-                <div className="text-emerald-100 text-xs font-sans font-black min-h-[22px] flex items-center">
-                  {textInput.trim() || 'Hold mic & speak...'}
-                </div>
+                
+                <PipelineProgress
+                  stage={pipelineStage}
+                  stats={currentMsgStats}
+                  bandwidthKbps={networkMode === 'mode-4-satellite-beacon' ? 0.01 : networkMode === 'mode-2-compressed-voice' ? 2.4 : 64}
+                  networkMode={networkMode}
+                />
               </div>
             )}
 
@@ -1896,6 +1784,7 @@ export default function FieldUserDashboard() {
                 if (textInput.trim()) {
                   const val = textInput.trim();
                   setTextInput('');
+                  setSpokenSpeechText('');
                   sendVoiceOrText(val, 24, undefined, false, selectedTransLang as any);
                 }
               }}
@@ -1915,135 +1804,7 @@ export default function FieldUserDashboard() {
                 Send
               </button>
             </form>
-
-            {/* 📡 DISPATCHED MESSAGES FEED ON PHONE 1 (MODE 3 ONLY) */}
-            {networkMode === 'mode-3-ai-mesh' && (
-              <div className="rounded-2xl bg-[#070e1e] border border-blue-900/70 p-3 space-y-2.5 shadow-lg animate-fadeIn mt-1">
-                <div className="flex items-center justify-between border-b border-blue-900/60 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    <h4 className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>📡 அனுப்பிய செய்திகள்</span>
-                      <span className="text-[10px] text-slate-400 font-normal">(DISPATCHED MESSAGES)</span>
-                    </h4>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] bg-blue-950 border border-blue-800 text-cyan-300 px-2 py-0.5 rounded-full font-mono font-bold">
-                      {sentMessages.length} Messages
-                    </span>
-                    {sentMessages.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setSentMessages([])}
-                        className="text-[9px] text-slate-500 hover:text-rose-400 underline font-mono"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {sentMessages.length === 0 ? (
-                  <div className="p-4 rounded-xl bg-black/40 border border-blue-950/60 text-center text-slate-400 text-xs font-mono space-y-1">
-                    <p className="text-slate-300 font-bold">📢 இன்னும் செய்திகள் அனுப்பப்படவில்லை</p>
-                    <p className="text-[10px] text-slate-500">Hold mic & speak அல்லது type செய்து Send அழுத்தவும். நீங்கள் பேசிய செய்தி உடனே இங்கே டிக் உடன் தோன்றும்.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                    {sentMessages.map((msg) => {
-                      const isDelivered = msg.status === 'delivered' || msg.relayed_via_mesh;
-                      return (
-                        <div
-                          key={msg.id}
-                          className={`p-3 rounded-2xl border transition-all ${
-                            isDelivered
-                              ? 'bg-gradient-to-br from-[#081b24] via-[#09222c] to-[#07141f] border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                              : 'bg-gradient-to-br from-[#0b162c] to-[#070e1e] border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.15)] animate-pulse'
-                          }`}
-                        >
-                          {/* Top Meta: Mode Tag + Time + Cipher */}
-                          <div className="flex items-center justify-between gap-1 text-[9px] font-mono border-b border-slate-800/60 pb-1.5 mb-1.5">
-                            <span className={`px-2 py-0.5 rounded font-black border ${
-                              msg.network_mode === 'mode-3-ai-mesh'
-                                ? 'bg-cyan-950 text-cyan-300 border-cyan-700'
-                                : msg.network_mode === 'mode-1-hd-call'
-                                ? 'bg-blue-950 text-blue-300 border-blue-700'
-                                : msg.network_mode === 'mode-2-compressed-voice'
-                                ? 'bg-amber-950 text-amber-300 border-amber-700'
-                                : 'bg-purple-950 text-purple-300 border-purple-700'
-                            }`}>
-                              {msg.network_mode === 'mode-3-ai-mesh' ? 'MODE 3: MESH AIR RELAY' : msg.network_mode === 'mode-1-hd-call' ? 'MODE 1: 4G/5G DIRECT' : msg.network_mode === 'mode-2-compressed-voice' ? 'MODE 2: 2G CELT' : 'MODE 4: ISRO SAT'}
-                            </span>
-                            <span className="text-slate-400 font-bold">
-                              {msg.display_time || formatTimeIST(msg.timestamp)}
-                            </span>
-                            <span className="text-[8px] bg-slate-900 text-slate-400 px-1.5 py-0.5 rounded border border-slate-800 font-mono truncate max-w-[110px]">
-                              {msg.stats?.ciphertext_hex?.slice(0, 16) || '🔐 0x4954...'}
-                            </span>
-                          </div>
-
-                          {/* Spoken Text - Prominent & High Contrast */}
-                          <div className="text-slate-100 font-sans font-bold text-xs sm:text-sm leading-relaxed mb-2">
-                            {msg.text}
-                          </div>
-
-                          {/* Audio Note Player if available */}
-                          {msg.audioUrl && (
-                            <div className="mb-2">
-                              <VoiceNotePlayer
-                                audioUrl={msg.audioUrl}
-                                isSentByMe={true}
-                                text={msg.text}
-                              />
-                            </div>
-                          )}
-
-                          {/* Multi-Hop Relay Path (Mode 3 Special) */}
-                          {msg.network_mode === 'mode-3-ai-mesh' && (
-                            <div className="flex items-center gap-1 text-[8.5px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 rounded-lg px-2 py-1 mb-2">
-                              <span>📱 Phone 1</span>
-                              <span className="text-cyan-400 font-black">➔</span>
-                              <span>🔄 Phone 2 Relay</span>
-                              <span className="text-cyan-400 font-black">➔</span>
-                              <span>🏛️ Command Center</span>
-                            </div>
-                          )}
-
-                          {/* Bottom Delivery Tick Row */}
-                          <div className="flex items-center justify-between pt-1.5 border-t border-slate-800/80">
-                            {isDelivered ? (
-                              <>
-                                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-black">
-                                  <span className="text-base text-emerald-400 font-black">✓✓</span>
-                                  <span className="tracking-wide">Relayed to Command Center</span>
-                                </div>
-                                <span className="bg-emerald-950 border border-emerald-500/90 text-emerald-300 text-[9.5px] px-2.5 py-0.5 rounded-full font-black shadow-[0_0_10px_rgba(16,185,129,0.35)] animate-pulse flex items-center gap-1">
-                                  <span>🏛️</span>
-                                  <span>✓✓ கமாண்ட் சென்டருக்கு போயிருச்சு</span>
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-bold">
-                                  <span className="text-base font-black animate-pulse">✓</span>
-                                  <span>Sent to Air (BLE / Mesh)</span>
-                                </div>
-                                <span className="bg-cyan-950 text-cyan-300 border border-cyan-800 text-[9px] px-2 py-0.5 rounded font-mono animate-pulse flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></span>
-                                  <span>Relaying to Phone 2...</span>
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-
         )}
         {/* TAB 2: SOS EMERGENCY DISPATCH & GOVT RESCUE FEED */}
         {activeTab === 'sos' && (
