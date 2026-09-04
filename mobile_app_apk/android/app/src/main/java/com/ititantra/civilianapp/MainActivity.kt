@@ -15,6 +15,7 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest
 import android.location.LocationManager
 import androidx.core.location.LocationManagerCompat
 import android.net.http.SslError
+import android.widget.Toast
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -120,6 +121,7 @@ class MainActivity : AppCompatActivity() {
 
         requestAllPermissions()
         requestLocationServices()
+        requestBluetoothEnable()
         try {
             val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             multicastLock = wifi?.createMulticastLock("iTiTantra_multicast_lock")
@@ -728,10 +730,47 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun requestBluetoothEnable() {
+        try {
+            val bm = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = bm?.adapter
+            if (adapter != null && !adapter.isEnabled) {
+                Log.w("BLE_MESH", "Bluetooth is OFF — prompting user to turn ON")
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("📶 Bluetooth தேவை — Air Mesh Relay")
+                    .setMessage(
+                        "இணையம் மற்றும் ஹாட்ஸ்பாட் இன்றி காற்றில் மெசேஜ் அனுப்பவும் பெறவும் போனில் Bluetooth ON ஆக இருக்கணும்.\n\n" +
+                        "தயவுசெய்து Bluetooth-ஐ இயக்கவும்."
+                    )
+                    .setPositiveButton("📶 Bluetooth ON பண்ணு") { _, _ ->
+                        startActivity(android.content.Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+                    }
+                    .setNegativeButton("பின்னர்", null)
+                    .show()
+            }
+        } catch (e: Exception) {
+            Log.e("BLE_MESH", "Error checking Bluetooth: ${e.message}")
+        }
+    }
+
     private fun broadcastBlePacket(payloadJson: String) {
         val bm = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-        bleAdvertiser = bm?.adapter?.bluetoothLeAdvertiser
-        if (bleAdvertiser == null) return
+        val adapter = bm?.adapter
+        if (adapter == null || !adapter.isEnabled) {
+            Log.e("BLE_MESH", "Bluetooth is DISABLED on device! Cannot broadcast BLE beacon.")
+            runOnUiThread {
+                Toast.makeText(this, "⚠️ Bluetooth அணைக்கப்பட்டுள்ளது! Bluetooth-ஐ ஆன் செய்யவும்.", Toast.LENGTH_LONG).show()
+                requestBluetoothEnable()
+            }
+            return
+        }
+
+        bleAdvertiser = adapter.bluetoothLeAdvertiser
+        if (bleAdvertiser == null) {
+            Log.e("BLE_MESH", "Device does not support BLE Peripheral Advertising!")
+            return
+        }
+
         try {
             val json = JSONObject(payloadJson)
             val cipher = json.optString("cipher_code", "CIPHER#AI-0000").filter { it.isLetterOrDigit() }.take(6).uppercase()
@@ -757,7 +796,7 @@ class MainActivity : AppCompatActivity() {
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
                 .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
                 .setConnectable(false)
-                .setTimeout(8000)
+                .setTimeout(0)
                 .build()
 
             val data = AdvertiseData.Builder()
@@ -766,13 +805,21 @@ class MainActivity : AppCompatActivity() {
                 .addServiceData(MESH_16BIT_UUID, finalBytes)
                 .build()
 
-            currentBleCallback?.let { bleAdvertiser?.stopAdvertising(it) }
+            currentBleCallback?.let { 
+                try { bleAdvertiser?.stopAdvertising(it) } catch (e: Exception) {}
+            }
             currentBleCallback = object : AdvertiseCallback() {
                 override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
                     Log.i("BLE_MESH", "SUCCESS: BLE Mesh Beacon Active! (20B token bytes=${finalBytes.size})")
+                    // Stop after 8 seconds cleanly
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        try {
+                            bleAdvertiser?.stopAdvertising(this)
+                        } catch (e: Exception) {}
+                    }, 8000)
                 }
                 override fun onStartFailure(errorCode: Int) {
-                    Log.e("BLE_MESH", "BLE Advertise Failed: code=$errorCode")
+                    Log.e("BLE_MESH", "BLE Advertise Failed: code=$errorCode (1=DATA_TOO_LARGE, 2=TOO_MANY_ADVERTISERS, 3=ALREADY_STARTED, 4=INTERNAL_ERROR, 5=UNSUPPORTED)")
                 }
             }
             bleAdvertiser?.startAdvertising(settings, data, currentBleCallback)
@@ -782,18 +829,27 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    private var isBleScanning = false
+    private var bleScanCallback: ScanCallback? = null
+
     private fun ensureBleScannerPeriodic() {
         Thread {
             while (true) {
-                Thread.sleep(8000)
-                if (bleScanner == null) {
-                    startBleScanner()
-                }
                 try {
-                    wifiP2pManager?.discoverServices(wifiP2pChannel, object : WifiP2pManager.ActionListener {
-                        override fun onSuccess() {}
-                        override fun onFailure(code: Int) {}
-                    })
+                    Thread.sleep(12000)
+                    val bm = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                    if (bm?.adapter?.isEnabled == true) {
+                        if (!isBleScanning) {
+                            Log.i("BLE_MESH", "Periodic keepalive: Starting BLE scanner...")
+                            runOnUiThread { startBleScanner() }
+                        }
+                    }
+                    try {
+                        wifiP2pManager?.discoverServices(wifiP2pChannel, object : WifiP2pManager.ActionListener {
+                            override fun onSuccess() {}
+                            override fun onFailure(code: Int) {}
+                        })
+                    } catch (e: Exception) {}
                 } catch (e: Exception) {}
             }
         }.start()
@@ -801,25 +857,75 @@ class MainActivity : AppCompatActivity() {
 
     private fun startBleScanner() {
         val bm = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-        bleScanner = bm?.adapter?.bluetoothLeScanner
-        if (bleScanner == null) return
+        val adapter = bm?.adapter
+        if (adapter == null || !adapter.isEnabled) {
+            Log.w("BLE_MESH", "startBleScanner: Bluetooth is OFF, cannot scan")
+            isBleScanning = false
+            return
+        }
+
+        bleScanner = adapter.bluetoothLeScanner
+        if (bleScanner == null) {
+            isBleScanning = false
+            return
+        }
+
         try {
+            // Stop any existing callback to avoid duplicates
+            bleScanCallback?.let {
+                try { bleScanner?.stopScan(it) } catch (e: Exception) {}
+            }
+
             val settings = ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setReportDelay(0)
                 .build()
 
-            bleScanner?.startScan(null, settings, object : ScanCallback() {
+            val filter = ScanFilter.Builder()
+                .setServiceData(MESH_16BIT_UUID, ByteArray(0), ByteArray(0))
+                .build()
+
+            val callback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult?) {
                     val scanRecord = result?.scanRecord ?: return
                     val serviceData = scanRecord.getServiceData(MESH_16BIT_UUID)
                     if (serviceData != null && serviceData.isNotEmpty()) {
                         val tokenStr = String(serviceData, StandardCharsets.UTF_8)
+                        Log.i("BLE_MESH", "AIR INTERCEPT: Captured token '$tokenStr' (RSSI: ${result.rssi} dBm)")
                         handleInboundBleToken(tokenStr)
                     }
                 }
-                override fun onScanFailed(errorCode: Int) {}
-            })
-        } catch (e: Exception) {}
+
+                override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+                    results?.forEach {
+                        onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, it)
+                    }
+                }
+
+                override fun onScanFailed(errorCode: Int) {
+                    Log.e("BLE_MESH", "BLE Scan Failed: code=$errorCode (restarting in 3s...)")
+                    isBleScanning = false
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        startBleScanner()
+                    }, 3000)
+                }
+            }
+
+            bleScanCallback = callback
+            try {
+                bleScanner?.startScan(listOf(filter), settings, callback)
+                isBleScanning = true
+                Log.i("BLE_MESH", "SUCCESS: BLE Hardware Filter Scanner Started for $MESH_16BIT_UUID")
+            } catch (e: Exception) {
+                Log.w("BLE_MESH", "Filtered scan failed (${e.message}), trying unfiltered fallback scan...")
+                bleScanner?.startScan(null, settings, callback)
+                isBleScanning = true
+                Log.i("BLE_MESH", "SUCCESS: BLE Unfiltered Fallback Scanner Active!")
+            }
+        } catch (e: Exception) {
+            Log.e("BLE_MESH", "Error starting BLE scanner: ${e.message}")
+            isBleScanning = false
+        }
     }
 
     private fun handleInboundBleToken(token: String) {

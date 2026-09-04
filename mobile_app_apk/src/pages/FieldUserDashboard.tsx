@@ -116,7 +116,7 @@ export default function FieldUserDashboard() {
   });
 
   // Live Cloudflare Primary Gateway Endpoint & Local Network Endpoints
-  const PRIMARY_CLOUDFLARE = 'https://attract-sudden-councils-kruger.trycloudflare.com';
+  const PRIMARY_CLOUDFLARE = 'https://books-feat-scales-popularity.trycloudflare.com';
   const CURRENT_LAN_IP = 'http://10.245.166.76:8000';
   const [targetHost, setTargetHost] = useState<string>(() => {
     return localStorage.getItem('tactical_host') || '';
@@ -141,7 +141,7 @@ export default function FieldUserDashboard() {
       if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         finalHost = window.location.hostname;
       } else {
-        finalHost = 'localhost';
+        finalHost = 'books-feat-scales-popularity.trycloudflare.com';
       }
     }
     
@@ -162,15 +162,17 @@ export default function FieldUserDashboard() {
   };
 
   const getReliableEndpoints = (path: string) => {
-    const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') ? window.location.hostname : '';
+    const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:') ? window.location.hostname : '';
+    const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
     return Array.from(new Set([
-      `http://127.0.0.1:8000${path}`,
-      `http://localhost:8000${path}`,
+      `${PRIMARY_CLOUDFLARE}${path}`,
       `${CURRENT_LAN_IP}${path}`,
+      `http://10.245.166.76:8000${path}`,
       ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : []),
       ...(targetHost ? [resolveHttp(targetHost, path)] : []),
-      `${PRIMARY_CLOUDFLARE}${path}`,
-      path
+      `http://127.0.0.1:8000${path}`,
+      `http://localhost:8000${path}`,
+      ...(isFileProtocol ? [] : [path])
     ]));
   };
 
