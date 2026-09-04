@@ -43,3 +43,24 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.webkit:webkit:1.10.0'
 }
+
+task downloadWhisperModels {
+    doLast {
+        def targetDir = file("src/main/assets/whisper-tiny")
+        targetDir.mkdirs()
+        def files = [
+            "tiny-tokens.txt": "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-tokens.txt",
+            "tiny-encoder.int8.onnx": "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-encoder.int8.onnx",
+            "tiny-decoder.int8.onnx": "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/tiny-decoder.int8.onnx"
+        ]
+        files.each { name, url ->
+            def f = file("${targetDir}/${name}")
+            if (!f.exists() || f.length() < 1000) {
+                println "Downloading Sherpa-ONNX model: ${name}..."
+                ant.get(src: url, dest: f)
+            }
+        }
+    }
+}
+preBuild.dependsOn downloadWhisperModels
+

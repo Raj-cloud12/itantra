@@ -17,24 +17,45 @@ import android.os.Looper
 import android.os.ParcelUuid
 import android.util.Log
 import android.webkit.*
-import android.content.Intent
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.k2fsa.sherpa.onnx.FeatureConfig
+import com.k2fsa.sherpa.onnx.HomophoneReplacerConfig
+import com.k2fsa.sherpa.onnx.OfflineModelConfig
+import com.k2fsa.sherpa.onnx.OfflineRecognizer
+import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
+import com.k2fsa.sherpa.onnx.OfflineWhisperModelConfig
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.util.*
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private var speechRecognizer: SpeechRecognizer? = null
+    
+    // Sherpa-ONNX 100% Offline Multi-lingual ASR (Whisper-Tiny quantized int8)
+    @Volatile
+    private var sherpaRecognizer: OfflineRecognizer? = null
+    private var currentRecognizerLang: String = ""
+    private val sherpaLock = Any()
+    private var audioRecord: AudioRecord? = null
+    @Volatile
+    private var isRecordingAudio = false
+    private val asrExecutor = Executors.newSingleThreadExecutor()
+    private val audioSamplesList = ArrayList<Float>()
+    @Volatile
+    private var activeSpeechLang: String = "ta"
+
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bleAdvertiser: BluetoothLeAdvertiser? = null
     private var bleScanner: BluetoothLeScanner? = null
@@ -125,6 +146,7 @@ class MainActivity : AppCompatActivity() {
         initWifiAware()
         ensureBleScannerPeriodic()
         startUdpMeshListener()
+        initSherpaModelAssets()
     }
 
     private fun initBluetooth() {
@@ -226,77 +248,283 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 4. JAVASCRIPT BRIDGE
+    // 4. SHERPA-ONNX OFFLINE ASR LOGIC (Multi-lingual Whisper-Tiny INT8)
+    private fun initSherpaModelAssets() {
+        Thread {
+            try {
+                val modelDir = File(filesDir, "whisper-tiny")
+                if (!modelDir.exists()) modelDir.mkdirs()
+
+                val filesToCopy = listOf(
+                    "tiny-encoder.int8.onnx",
+                    "tiny-decoder.int8.onnx",
+                    "tiny-tokens.txt"
+                )
+
+                for (filename in filesToCopy) {
+                    val targetFile = File(modelDir, filename)
+                    if (!targetFile.exists() || targetFile.length() < 1000L) {
+                        Log.i("SHERPA_ASR", "Extracting asset whisper-tiny/$filename to ${targetFile.absolutePath}...")
+                        assets.open("whisper-tiny/$filename").use { input ->
+                            FileOutputStream(targetFile).use { output ->
+                                input.copyTo(output, bufferSize = 64 * 1024)
+                            }
+                        }
+                        Log.i("SHERPA_ASR", "Extracted $filename successfully (${targetFile.length()} bytes)")
+                    }
+                }
+
+                // Pre-warm default recognizer (Tamil / English)
+                getOrInitRecognizer("ta")
+            } catch (e: Exception) {
+                Log.e("SHERPA_ASR", "Error initializing Sherpa model assets: ${e.message}", e)
+            }
+        }.start()
+    }
+
+    private fun mapToWhisperLang(lang: String): String {
+        val l = lang.trim().lowercase()
+        return when {
+            l.startsWith("ta") -> "ta"
+            l.startsWith("en") -> "en"
+            l.startsWith("hi") -> "hi"
+            l.startsWith("te") -> "te"
+            l.startsWith("ml") -> "ml"
+            l.startsWith("kn") -> "kn"
+            l.startsWith("mr") -> "mr"
+            l.startsWith("bn") -> "bn"
+            l.startsWith("gu") -> "gu"
+            l == "auto" || l.isEmpty() -> ""
+            else -> l.take(2)
+        }
+    }
+
+    private fun getOrInitRecognizer(lang: String): OfflineRecognizer? {
+        val targetLang = mapToWhisperLang(lang)
+        synchronized(sherpaLock) {
+            if (sherpaRecognizer != null && currentRecognizerLang == targetLang) {
+                return sherpaRecognizer
+            }
+
+            val modelDir = File(filesDir, "whisper-tiny")
+            val encoderFile = File(modelDir, "tiny-encoder.int8.onnx")
+            val decoderFile = File(modelDir, "tiny-decoder.int8.onnx")
+            val tokensFile = File(modelDir, "tiny-tokens.txt")
+
+            if (!encoderFile.exists() || !decoderFile.exists() || !tokensFile.exists() || decoderFile.length() < 1000L) {
+                Log.w("SHERPA_ASR", "Model files missing in ${modelDir.absolutePath}, extracting now...")
+                try {
+                    if (!modelDir.exists()) modelDir.mkdirs()
+                    assets.open("whisper-tiny/tiny-encoder.int8.onnx").use { input ->
+                        FileOutputStream(encoderFile).use { output -> input.copyTo(output) }
+                    }
+                    assets.open("whisper-tiny/tiny-decoder.int8.onnx").use { input ->
+                        FileOutputStream(decoderFile).use { output -> input.copyTo(output) }
+                    }
+                    assets.open("whisper-tiny/tiny-tokens.txt").use { input ->
+                        FileOutputStream(tokensFile).use { output -> input.copyTo(output) }
+                    }
+                } catch (e: Exception) {
+                    Log.e("SHERPA_ASR", "Failed extracting model files: ${e.message}", e)
+                    return null
+                }
+            }
+
+            try {
+                sherpaRecognizer?.release()
+                sherpaRecognizer = null
+
+                val whisperConfig = OfflineWhisperModelConfig(
+                    encoder = encoderFile.absolutePath,
+                    decoder = decoderFile.absolutePath,
+                    language = targetLang,
+                    task = "transcribe",
+                    tailPaddings = 1000,
+                    enableTokenTimestamps = false,
+                    enableSegmentTimestamps = false
+                )
+
+                val modelConfig = OfflineModelConfig().apply {
+                    whisper = whisperConfig
+                    tokens = tokensFile.absolutePath
+                    numThreads = 4
+                    debug = false
+                    provider = "cpu"
+                    modelType = "whisper"
+                }
+
+                val recConfig = OfflineRecognizerConfig(
+                    featConfig = FeatureConfig(),
+                    modelConfig = modelConfig,
+                    hr = HomophoneReplacerConfig(),
+                    decodingMethod = "greedy_search",
+                    maxActivePaths = 4,
+                    hotwordsFile = "",
+                    hotwordsScore = 1.5f,
+                    ruleFsts = "",
+                    ruleFars = "",
+                    blankPenalty = 0.0f
+                )
+
+                Log.i("SHERPA_ASR", "Initializing Sherpa OfflineRecognizer with language='$targetLang'...")
+                sherpaRecognizer = OfflineRecognizer(null, recConfig)
+                currentRecognizerLang = targetLang
+                Log.i("SHERPA_ASR", "Sherpa OfflineRecognizer ready for language='$targetLang'!")
+                return sherpaRecognizer
+            } catch (e: Exception) {
+                Log.e("SHERPA_ASR", "Failed to create OfflineRecognizer: ${e.message}", e)
+                return null
+            }
+        }
+    }
+
+    private fun decodeSamples(samples: FloatArray, lang: String): String {
+        if (samples.isEmpty()) return ""
+        val rec = getOrInitRecognizer(lang) ?: return ""
+        return try {
+            val stream = rec.createStream()
+            stream.acceptWaveform(samples, 16000)
+            rec.decode(stream)
+            val res = rec.getResult(stream)
+            val recognizedText = res.text.trim()
+            stream.release()
+            recognizedText
+        } catch (e: Exception) {
+            Log.e("SHERPA_ASR", "Error in Sherpa decode: ${e.message}", e)
+            ""
+        }
+    }
+
+    // 5. JAVASCRIPT BRIDGE
     inner class BleMeshBridge {
         @JavascriptInterface
         fun startSpeechRecognition(lang: String) {
-            Log.i("STT", "Starting native speech recognition for language: $lang")
-            runOnUiThread {
-                try {
-                    speechRecognizer?.destroy()
-                    speechRecognizer = null
+            Log.i("SHERPA_ASR", "startSpeechRecognition called for language: $lang")
+            activeSpeechLang = lang
+            if (isRecordingAudio) {
+                stopSpeechRecognition()
+            }
 
-                    if (!SpeechRecognizer.isRecognitionAvailable(this@MainActivity)) {
-                        Log.w("STT", "SpeechRecognizer not available on device")
-                        return@runOnUiThread
-                    }
-                    speechRecognizer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && SpeechRecognizer.isOnDeviceRecognitionAvailable(this@MainActivity)) {
-                        SpeechRecognizer.createOnDeviceSpeechRecognizer(this@MainActivity)
-                    } else {
-                        SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
-                    }
-                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        val targetLang = if (lang == "ta" || lang.startsWith("ta")) "ta-IN" else if (lang == "en" || lang.startsWith("en")) "en-IN" else "${lang}-IN"
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, targetLang)
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, targetLang)
-                        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                    }
-                    speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                        override fun onReadyForSpeech(params: Bundle?) {
-                            Log.i("STT", "Ready for speech")
-                        }
-                        override fun onBeginningOfSpeech() {}
-                        override fun onRmsChanged(rmsdB: Float) {}
-                        override fun onBufferReceived(buffer: ByteArray?) {}
-                        override fun onEndOfSpeech() {}
-                        override fun onError(error: Int) {
-                            Log.w("STT", "Speech recognition error code: $error")
-                        }
-                        override fun onResults(results: Bundle?) {
-                            val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                            if (!matches.isNullOrEmpty()) {
-                                val text = matches[0]
-                                Log.i("STT", "Final recognized: $text")
-                                notifyWebviewSpeechResult(text, true)
-                            }
-                        }
-                        override fun onPartialResults(partialResults: Bundle?) {
-                            val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                            if (!matches.isNullOrEmpty()) {
-                                val text = matches[0]
-                                Log.i("STT", "Partial recognized: $text")
-                                notifyWebviewSpeechResult(text, false)
-                            }
-                        }
-                        override fun onEvent(eventType: Int, params: Bundle?) {}
-                    })
-                    speechRecognizer?.startListening(intent)
-                } catch (e: Exception) {
-                    Log.e("STT", "Failed to start speech recognition: ${e.message}")
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                Log.e("SHERPA_ASR", "RECORD_AUDIO permission missing")
+                requestAllPermissions()
+                return
+            }
+
+            val sampleRate = 16000
+            val channelConfig = AudioFormat.CHANNEL_IN_MONO
+            val audioFormat = AudioFormat.ENCODING_PCM_16BIT
+            val minBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+            val bufferSize = Math.max(minBufSize, sampleRate / 2)
+
+            try {
+                audioRecord = AudioRecord(
+                    MediaRecorder.AudioSource.MIC,
+                    sampleRate,
+                    channelConfig,
+                    audioFormat,
+                    bufferSize
+                )
+                if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
+                    Log.e("SHERPA_ASR", "AudioRecord initialization failed")
+                    return
                 }
+
+                synchronized(audioSamplesList) {
+                    audioSamplesList.clear()
+                }
+
+                audioRecord?.startRecording()
+                isRecordingAudio = true
+
+                asrExecutor.execute {
+                    val pcmBuffer = ShortArray(1600) // 100ms
+                    var chunkCount = 0
+                    while (isRecordingAudio) {
+                        val read = audioRecord?.read(pcmBuffer, 0, pcmBuffer.size) ?: -1
+                        if (read > 0) {
+                            val floatBuffer = FloatArray(read)
+                            for (i in 0 until read) {
+                                floatBuffer[i] = pcmBuffer[i] / 32768.0f
+                            }
+                            synchronized(audioSamplesList) {
+                                for (f in floatBuffer) {
+                                    audioSamplesList.add(f)
+                                }
+                            }
+                            chunkCount++
+                            // Periodic interim update every ~2 seconds (20 chunks of 100ms)
+                            if (chunkCount % 20 == 0 && audioSamplesList.size >= 32000) {
+                                val currentSamples: FloatArray
+                                synchronized(audioSamplesList) {
+                                    currentSamples = audioSamplesList.toFloatArray()
+                                }
+                                val interimText = decodeSamples(currentSamples, activeSpeechLang)
+                                if (interimText.isNotBlank()) {
+                                    runOnUiThread {
+                                        notifyWebviewSpeechResult(interimText, false)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Log.i("SHERPA_ASR", "Audio recording started successfully")
+            } catch (e: Exception) {
+                Log.e("SHERPA_ASR", "AudioRecord error: ${e.message}", e)
             }
         }
 
         @JavascriptInterface
-        fun stopSpeechRecognition() {
+        fun stopSpeechRecognition(): String {
+            Log.i("SHERPA_ASR", "stopSpeechRecognition called")
+            isRecordingAudio = false
+            try {
+                audioRecord?.stop()
+                audioRecord?.release()
+                audioRecord = null
+            } catch (e: Exception) {
+                Log.w("SHERPA_ASR", "Error releasing AudioRecord: ${e.message}")
+            }
+
+            val fullSamples: FloatArray
+            synchronized(audioSamplesList) {
+                fullSamples = audioSamplesList.toFloatArray()
+                audioSamplesList.clear()
+            }
+
+            if (fullSamples.isEmpty()) {
+                Log.w("SHERPA_ASR", "No audio recorded")
+                return ""
+            }
+
+            val finalText = decodeSamples(fullSamples, activeSpeechLang)
+            Log.i("SHERPA_ASR", "Final Recognized ($activeSpeechLang): '$finalText'")
+
             runOnUiThread {
-                try {
-                    speechRecognizer?.stopListening()
-                } catch (e: Exception) {
-                    Log.w("STT", "Error stopping speech recognition: ${e.message}")
+                notifyWebviewSpeechResult(finalText, true)
+            }
+            return finalText
+        }
+
+        @JavascriptInterface
+        fun transcribeAudioBase64(base64Wav: String, lang: String): String {
+            Log.i("SHERPA_ASR", "transcribeAudioBase64 called (length=${base64Wav.length}, lang=$lang)")
+            try {
+                val bytes = android.util.Base64.decode(base64Wav, android.util.Base64.DEFAULT)
+                val offset = if (bytes.size > 44 && bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte()) 44 else 0
+                val shortCount = (bytes.size - offset) / 2
+                val floatSamples = FloatArray(shortCount)
+                for (i in 0 until shortCount) {
+                    val low = bytes[offset + i * 2].toInt() and 0xFF
+                    val high = bytes[offset + i * 2 + 1].toInt()
+                    val s = (high shl 8) or low
+                    floatSamples[i] = s.toShort() / 32768.0f
                 }
+                return decodeSamples(floatSamples, lang)
+            } catch (e: Exception) {
+                Log.e("SHERPA_ASR", "transcribeAudioBase64 failed: ${e.message}", e)
+                return ""
             }
         }
 
@@ -505,9 +733,18 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         isListeningUdp = false
         udpSocket?.close()
+        isRecordingAudio = false
         try {
-            speechRecognizer?.destroy()
-            speechRecognizer = null
+            audioRecord?.stop()
+            audioRecord?.release()
+            audioRecord = null
+        } catch (e: Exception) {}
+        try {
+            sherpaRecognizer?.release()
+            sherpaRecognizer = null
+        } catch (e: Exception) {}
+        try {
+            asrExecutor.shutdown()
         } catch (e: Exception) {}
         try {
             if (multicastLock?.isHeld == true) multicastLock?.release()

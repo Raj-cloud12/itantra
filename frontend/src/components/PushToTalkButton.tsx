@@ -79,11 +79,15 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
     }
 
     // 2. Start clean 16kHz PCM WAV recorder for pristine audio capture & AI transcription
-    try {
-      const recorder = new UniversalWavRecorder();
-      await recorder.start();
-      wavRecorderRef.current = recorder;
-    } catch (err) {}
+    // If running in Native Android Mode 3, let native AudioRecord have exclusive mic access
+    const isNativeAndroid = !!((window as any).AndroidBleMeshBridge);
+    if (!isNativeAndroid || networkMode !== 'mode-3-ai-mesh') {
+      try {
+        const recorder = new UniversalWavRecorder();
+        await recorder.start();
+        wavRecorderRef.current = recorder;
+      } catch (err) {}
+    }
 
   }, [disabled, language, onLiveInterimText, networkMode]);
 
@@ -103,15 +107,19 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
     // Stop native Android speech recognizer
     if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.stopSpeechRecognition) {
       try {
-        (window as any).AndroidBleMeshBridge.stopSpeechRecognition();
+        const syncText = (window as any).AndroidBleMeshBridge.stopSpeechRecognition();
+        if (syncText && typeof syncText === 'string' && syncText.trim()) {
+          recognizedTextRef.current = syncText.trim();
+          onLiveInterimText?.(syncText.trim());
+        }
       } catch (e) {}
     }
 
     const durationSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
 
-    // Allow 300ms only in Mode 3 for speech-to-text to flush results; Mode 1 and Mode 2 are instant audio!
+    // Allow 400ms only in Mode 3 for speech-to-text to flush results; Mode 1 and Mode 2 are instant audio!
     if (networkMode === 'mode-3-ai-mesh') {
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 400));
     }
 
     let audioBlob: Blob | undefined = undefined;
