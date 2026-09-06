@@ -179,7 +179,11 @@ export default function FieldUserDashboard() {
   });
   const [targetFriend, setTargetFriend] = useState<string>(() => {
     const saved = localStorage.getItem('target_friend');
-    return (saved && saved !== '@kavya') ? saved : '@all_friends';
+    if (saved && saved !== '@all_friends' && saved !== '@kavya') return saved;
+    const myUser = localStorage.getItem('local_username') || '';
+    if (myUser === '@kk' || myUser === 'kk') return '@raj';
+    if (myUser === '@raj' || myUser === 'raj') return '@kk';
+    return '@raj';
   });
   const [showUserModal, setShowUserModal] = useState<boolean>(() => {
     return localStorage.getItem('local_username_locked') !== 'true' || !localStorage.getItem('local_username');
@@ -954,14 +958,24 @@ export default function FieldUserDashboard() {
         }
       }
 
-      // 2. Add to Local Mesh Feed if applicable
-      setLocalMeshMessages(prev => {
-        const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === lastMessage.text));
-        if (exists) return prev;
-        return [lastMessage, ...prev].slice(0, 30);
-      });
+      // 2. Add to Local Mesh Feed if applicable (Only private messages meant for me or sent by me!)
+      if (lastMessage.is_local_mesh_private || lastMessage.session_id === 'LOCAL_MESH_PRIVATE' || lastMessage.local_mode) {
+        const myClean = normalizeName(myUsername);
+        const targetClean = normalizeName(lastMessage.target_username);
+        const senderClean = normalizeName(lastMessage.sender_username);
+        if (targetClean === myClean || senderClean === myClean) {
+          setLocalMeshMessages(prev => {
+            const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === lastMessage.text));
+            if (exists) return prev;
+            return [lastMessage, ...prev].slice(0, 50);
+          });
+          if (targetClean === myClean) {
+            triggerSafeHaptic(200);
+          }
+        }
+      }
     }
-  }, [lastMessage, networkMode, localMeshMode]);
+  }, [lastMessage, networkMode, localMeshMode, myUsername]);
 
   // 🔄 Fast 1.5s Background Mesh & Active Mode Sync Engine (Guaranteed Delivery)
   useEffect(() => {
@@ -989,17 +1003,22 @@ export default function FieldUserDashboard() {
               success = true;
               const data = await meshRes.value.json();
               if (Array.isArray(data) && data.length > 0) {
+                const myClean = normalizeName(myUsername);
                 setLocalMeshMessages(prev => {
                   let updated = [...prev];
                   let hasNew = false;
                   for (const incoming of data) {
-                    const exists = updated.some(m => m.id === incoming.id || (m.timestamp === incoming.timestamp && m.text === incoming.text));
-                    if (!exists) {
-                      updated.unshift(incoming);
-                      hasNew = true;
+                    const targetClean = normalizeName(incoming.target_username);
+                    const senderClean = normalizeName(incoming.sender_username);
+                    if (targetClean === myClean || senderClean === myClean) {
+                      const exists = updated.some(m => m.id === incoming.id || (m.timestamp === incoming.timestamp && m.text === incoming.text));
+                      if (!exists) {
+                        updated.unshift(incoming);
+                        hasNew = true;
+                      }
                     }
                   }
-                  return hasNew ? updated.slice(0, 30) : prev;
+                  return hasNew ? updated.slice(0, 50) : prev;
                 });
               }
             }
@@ -1101,21 +1120,25 @@ export default function FieldUserDashboard() {
         if (parsed) {
           // If it's a private Local Mesh message, store locally in Local Mesh feed
           if (parsed.is_local_mesh_private) {
-            setLocalMeshMessages((prev) => {
-              const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
-              if (exists) return prev;
-              return [parsed, ...prev].slice(0, 25);
-            });
-
-            const channelName = channel === 'WIFI_AWARE_NAN' ? 'Wi-Fi Aware (NAN 100m)' : channel === 'BLE_RADIO' ? 'BLE Radio (30m)' : 'Local Radio';
             const myClean = normalizeName(myUsername);
             const targetClean = normalizeName(parsed.target_username);
             const senderClean = normalizeName(parsed.sender_username);
 
-            if (targetClean === myClean || targetClean === '@all_friends') {
-              setLastDeliveryToast(`📬 Message from ${senderClean} to ${myClean}: "${parsed.text}" (${channelName})`);
+            // STRICT PRIVACY: Only store and display if I am the intended recipient or sender!
+            if (targetClean === myClean || senderClean === myClean) {
+              setLocalMeshMessages((prev) => {
+                const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+                if (exists) return prev;
+                return [parsed, ...prev].slice(0, 50);
+              });
+
+              const channelName = channel === 'WIFI_AWARE_NAN' ? 'Wi-Fi Aware (NAN 100m)' : channel === 'BLE_RADIO' ? 'BLE Radio (30m)' : 'Local Radio';
+              if (targetClean === myClean) {
+                setLastDeliveryToast(`📬 Message from ${senderClean} to ${myClean}: "${parsed.text}" (${channelName})`);
+                triggerSafeHaptic(200);
+              }
             } else {
-              setLastDeliveryToast(`📡 Relayed encrypted mesh packet for ${targetClean} via ${channelName}`);
+              // Third-party phone: silently relay encrypted packet without displaying
             }
 
             // Automatic Mesh Gateway Relay (if not native)
@@ -1614,7 +1637,18 @@ export default function FieldUserDashboard() {
 
     const effectiveTarget = normalizeName(targetFriend);
     const effectiveSender = normalizeName(myUsername);
+
+    if (!effectiveTarget || effectiveTarget === '@not_set' || effectiveTarget === '@all_friends') {
+      setLastDeliveryToast('⚠️ Please select a recipient friend (e.g. @raj or @kk)');
+      return;
+    }
+
+    if (!text || !text.trim()) {
+      if (!audioBase64 && !audioBlob) return;
+    }
+
     let finalText = (text && text.trim()) ? text.trim() : '';
+    const actualDuration = (durationSec && durationSec > 0) ? durationSec : 3;
 
     // Fast STT fallback if text was not recognized synchronously
     if (!finalText && audioBase64) {
@@ -1645,9 +1679,9 @@ export default function FieldUserDashboard() {
 
     if (!finalText) {
       if (localMeshMode === 'mode-1-p2p-hd') {
-        finalText = '🎙️ 4G/5G HD Voice Note';
+        finalText = `🎙️ HD Voice Note (${actualDuration}s)`;
       } else if (localMeshMode === 'mode-2-p2p-2g') {
-        finalText = '🎙️ 2G CELT Compressed Voice Note (1.2 KB)';
+        finalText = `🎙️ 2G Voice Note (${actualDuration}s)`;
       } else {
         finalText = textInput.trim();
       }
@@ -1671,9 +1705,13 @@ export default function FieldUserDashboard() {
       });
     }
 
+    if (localAudioUrl && !localAudioUrl.startsWith('data:') && !localAudioUrl.startsWith('http')) {
+      localAudioUrl = `data:audio/wav;base64,${localAudioUrl}`;
+    }
+
     const payloadObj = {
       id: msgId,
-      session_id: 'DEMO_GLOBAL_SESSION_01',
+      session_id: 'LOCAL_MESH_PRIVATE',
       sender_role: 'field',
       sender_username: effectiveSender,
       target_username: effectiveTarget,
@@ -1687,7 +1725,7 @@ export default function FieldUserDashboard() {
       audio_url: localAudioUrl,
       cipher_code: lockToken,
       lock_key: `KEY-${randomKey}`,
-      duration_seconds: durationSec || 4,
+      duration_seconds: actualDuration,
       display_time: formatTimeIST(),
       timestamp: new Date().toISOString()
     };
@@ -1697,18 +1735,24 @@ export default function FieldUserDashboard() {
 
     const payload = JSON.stringify(payloadObj);
 
-    // 1. BROADCAST OVER NATIVE WI-FI AWARE (NAN 100M) + BLE (30M) + UDP RADIO
+    // 1. Direct WebSocket send for instant real-time internet delivery
+    try {
+      send(payloadObj);
+    } catch (e) {}
+
+    // 2. Dispatch via Reliable HTTP Endpoints (Internet / LAN / Cloudflare)
+    const meshTargets = getReliableEndpoints('/api/messages/send');
+    await sendPayloadSingle(meshTargets, payload);
+
+    // 3. Broadcast over Native Wi-Fi Aware (NAN 100M) + BLE (30M) + UDP Radio for offline fallback
     if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
       try {
         (window as any).AndroidBleMeshBridge.broadcastMeshPacket(payload);
       } catch (e) {}
     }
 
-    // 2. DISPATCH OVER RELIABLE ENDPOINTS
-    const meshTargets = getReliableEndpoints('/api/messages/send');
-    await sendPayloadSingle(meshTargets, payload);
-
-    setLastDeliveryToast(`✅ Voice Note Dispatched to ${effectiveTarget} (Wi-Fi Aware, BLE & Radio)`);
+    setLastDeliveryToast(`✅ Voice Note Sent to ${effectiveTarget} (Internet & Mesh)`);
+    triggerSafeHaptic(150);
   };
 
   return (
@@ -2539,14 +2583,15 @@ export default function FieldUserDashboard() {
           <div className="flex-1 overflow-y-auto space-y-3 font-mono">
 
 
-            {/* Target Friend Selector (Clean Custom Input - No Suggestions) */}
+            {/* Target Friend Selector (WhatsApp Style Direct Recipient) */}
             <div className="p-3.5 rounded-2xl bg-neutral-950 border border-cyan-800/80 shadow-[0_0_20px_rgba(6,182,212,0.15)] space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base">🎯</span>
-                  <span className="text-[11px] font-black text-cyan-300 uppercase tracking-wide">Send To Friend:</span>
+                  <span className="text-[11px] font-black text-cyan-300 uppercase tracking-wide">Direct Chat Recipient:</span>
                 </div>
-                <span className="text-xs font-black text-emerald-300 bg-emerald-950 px-3 py-1 rounded-xl border border-emerald-600 shadow-inner">
+                <span className="text-xs font-black text-emerald-300 bg-emerald-950 px-3 py-1 rounded-xl border border-emerald-600 shadow-inner flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   {targetFriend || '@not_set'}
                 </span>
               </div>
@@ -2565,7 +2610,7 @@ export default function FieldUserDashboard() {
                       localStorage.setItem('target_friend', norm);
                     }
                   }}
-                  placeholder="Enter recipient username..."
+                  placeholder="Enter recipient username (e.g. @raj, @kk)..."
                   className="flex-1 bg-slate-950 border-2 border-cyan-600/80 rounded-xl px-3.5 py-2 text-xs text-cyan-200 font-bold focus:outline-none focus:border-cyan-300 placeholder-slate-600"
                 />
                 <button
@@ -2582,6 +2627,30 @@ export default function FieldUserDashboard() {
                 >
                   ✓ Set
                 </button>
+              </div>
+
+              {/* Quick 1-Tap Friend Selector */}
+              <div className="flex items-center gap-1.5 pt-0.5">
+                <span className="text-[9.5px] text-slate-400 font-bold">Quick Select:</span>
+                {['@raj', '@kk'].filter(u => normalizeName(u) !== normalizeName(myUsername)).map(u => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => {
+                      setTargetFriend(u);
+                      setCustomFriendInput(u);
+                      localStorage.setItem('target_friend', u);
+                      setLastDeliveryToast(`🎯 Chatting with ${u}`);
+                    }}
+                    className={`px-3 py-1 rounded-xl text-[10.5px] font-mono font-bold transition-all border ${
+                      normalizeName(targetFriend) === normalizeName(u)
+                        ? 'bg-cyan-600 text-white border-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.6)] scale-105'
+                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-cyan-500'
+                    }`}
+                  >
+                    👤 {u}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -2707,13 +2776,26 @@ export default function FieldUserDashboard() {
                     const targetClean = normalizeName(msg.target_username);
                     const senderClean = normalizeName(msg.sender_username);
                     const myClean = normalizeName(myUsername);
-                    return targetClean === myClean || targetClean === '@all_friends' || senderClean === myClean;
+                    const activeFriend = normalizeName(targetFriend);
+
+                    // Strictly 1-on-1 WhatsApp private chat:
+                    // 1. Sent by ME to THIS FRIEND, OR
+                    // 2. Sent by THIS FRIEND to ME
+                    const isDirectChat = (
+                      (senderClean === myClean && targetClean === activeFriend) ||
+                      (senderClean === activeFriend && targetClean === myClean)
+                    );
+
+                    // Must NOT be an emergency alert or command broadcast
+                    const isNotCommandOrSos = !msg.is_emergency && targetClean !== '@command_center' && senderClean !== '@command_center';
+
+                    return isDirectChat && isNotCommandOrSos;
                   }).map((msg, i) => {
                     const targetClean = normalizeName(msg.target_username);
                     const senderClean = normalizeName(msg.sender_username);
                     const myClean = normalizeName(myUsername);
                     const isSentByMe = senderClean === myClean;
-                    const isForMe = targetClean === myClean || targetClean === '@all_friends';
+                    const isForMe = targetClean === myClean;
                     const isForMeOrMine = isSentByMe || isForMe;
 
                     return (
@@ -2751,9 +2833,9 @@ export default function FieldUserDashboard() {
                           {/* Message Content with WhatsApp Voice Player */}
                           <div className="space-y-2">
                             {/* Custom Interactive WhatsApp Voice Player */}
-                            {msg.audio_url && (
+                            {(msg.audio_url || (msg as any).audioUrl) && (
                               <VoiceNotePlayer
-                                audioUrl={msg.audio_url}
+                                audioUrl={msg.audio_url || (msg as any).audioUrl}
                                 isSentByMe={isSentByMe}
                                 text={msg.text}
                                 durationSeconds={msg.duration_seconds || 4}
