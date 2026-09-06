@@ -16,6 +16,14 @@ export interface ChatMessage {
   text: string;
   translated_text?: string;
   sender_role: 'field' | 'command';
+  sender_username?: string;
+  target_username?: string;
+  audio_url?: string;
+  audio_size?: number;
+  local_mode?: string;
+  network_mode?: string;
+  is_local_mesh_private?: boolean;
+  display_time?: string;
   is_emergency: boolean;
   language: SupportedLanguage;
   latitude?: number;
@@ -26,8 +34,8 @@ export interface ChatMessage {
   sequence_number: number;
   timestamp: string;
   status: 'queued' | 'compressing' | 'encrypting' | 'transmitting' | 'delivered' | 'dropped';
-  audioUrl?: string; // object URL for real recorded audio (Mode 1/2 only)
-  audio_url?: string;
+  audioUrl?: string;
+  cipher_code?: string;
 }
 
 export interface WsMessage {

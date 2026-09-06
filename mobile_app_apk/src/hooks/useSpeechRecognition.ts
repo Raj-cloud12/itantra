@@ -10,7 +10,9 @@ const LOCALE_MAP: Record<SupportedLanguage, string> = {
   kn: 'kn-IN',
   mr: 'mr-IN',
   bn: 'bn-IN',
+  gu: 'gu-IN',
   ur: 'ur-IN',
+  pa: 'pa-IN',
 };
 
 export function useSpeechRecognition(lang: SupportedLanguage = 'en') {

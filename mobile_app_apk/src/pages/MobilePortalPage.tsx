@@ -18,7 +18,10 @@ export default function MobilePortalPage() {
         return;
       }
 
-      // Otherwise auto-create a session for mobile testing
+      // Use shared global session ID so mobile and command center pair instantly
+      const GLOBAL_SESSION = 'DEMO_GLOBAL_SESSION_01';
+      sessionStorage.setItem('current_session_id', GLOBAL_SESSION);
+
       try {
         const res = await fetch('/api/session/create', {
           method: 'POST',
@@ -27,10 +30,9 @@ export default function MobilePortalPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          sessionStorage.setItem('current_session_id', data.session_id);
           sessionStorage.setItem('field_token', data.field_token);
           sessionStorage.setItem('command_token', data.command_token);
-          navigate(`/field/${data.session_id}?token=${data.field_token}`, { replace: true });
+          navigate(`/field/${GLOBAL_SESSION}?token=${data.field_token}`, { replace: true });
         }
       } catch (e) {
         console.error("Auto session create failed", e);

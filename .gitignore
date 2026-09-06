@@ -19,5 +19,11 @@ backend/test_modes_verification.py
 **/.venv/
 *.db
 phone_screen*.png
+p1_*.png
+p2_*.png
+phone_install_screen.png
+temp_*.txt
+test_packet.json
+tokens_test.txt
 *.log
 *.onnx

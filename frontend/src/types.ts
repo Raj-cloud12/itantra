@@ -35,6 +35,7 @@ export interface ChatMessage {
   timestamp: string;
   status: 'queued' | 'compressing' | 'encrypting' | 'transmitting' | 'delivered' | 'dropped';
   audioUrl?: string;
+  cipher_code?: string;
 }
 
 export interface WsMessage {

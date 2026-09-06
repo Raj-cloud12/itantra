@@ -10,7 +10,7 @@ export default function DemoMode() {
   
   const [statusToast, setStatusToast] = useState('🟢 Live Synced with Devices & Command Center');
   const [activeHost, setActiveHost] = useState<string>(() => {
-    return localStorage.getItem('tactical_host') || 'informational-monitor-functionality-packed.trycloudflare.com';
+    return localStorage.getItem('tactical_host') || 'appendix-comparisons-delhi-extraction.trycloudflare.com';
   });
   const [isEditingHost, setIsEditingHost] = useState(false);
   const [tempHost, setTempHost] = useState('');
@@ -52,8 +52,8 @@ export default function DemoMode() {
 
     return Array.from(new Set([
       customUrl,
-      'https://informational-monitor-functionality-packed.trycloudflare.com/api/network/set-mode',
-      'http://10.200.5.175:8000/api/network/set-mode',
+      'https://gains-uniform-end-asus.trycloudflare.com/api/network/set-mode',
+      'http://10.245.166.76:8000/api/network/set-mode',
       `${apiBase}/api/network/set-mode`,
       'http://localhost:8000/api/network/set-mode',
       'http://127.0.0.1:8000/api/network/set-mode',

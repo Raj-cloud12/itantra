@@ -23,10 +23,17 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
   const startTimeRef = useRef(0);
   const timerRef = useRef<any>(null);
   const recognizedTextRef = useRef('');
-  const wavRecorderRef = useRef<UniversalWavRecorder | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const wavRecorderRef = useRef<UniversalWavRecorder>(new UniversalWavRecorder());
 
-  // START RECORDING
+  // Pre-warm the microphone hardware on mount so pressing button activates in 0ms!
+  React.useEffect(() => {
+    wavRecorderRef.current.prewarm().catch(() => {});
+    return () => {
+      wavRecorderRef.current.destroy();
+    };
+  }, []);
+
+  // START RECORDING (INSTANT 0ms ACTIVATION)
   const startRecording = useCallback(async () => {
     if (disabled || isPressingRef.current) return;
     isPressingRef.current = true;
@@ -37,113 +44,42 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
 
     timerRef.current = setInterval(() => {
       setRecordDuration(Math.max(1, Math.floor((Date.now() - startTimeRef.current) / 1000)));
-    }, 400);
+    }, 300);
 
-    // 0. Native Android Offline Speech Recognition Bridge (Mode 3 only)
-    if (networkMode === 'mode-3-ai-mesh') {
-      if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.startSpeechRecognition) {
-        (window as any).onNativeSpeechResult = (text: string, _isFinal: boolean) => {
-          if (text && text.trim()) {
-            recognizedTextRef.current = text.trim();
-            onLiveInterimText?.(text.trim());
-          }
-        };
-        try {
-          (window as any).AndroidBleMeshBridge.startSpeechRecognition(language || 'ta');
-        } catch (e) {}
-      }
-
-      // 1. Real-Time Live Speech Recognition (Zero-Latency Offline / Mobile Browser ASR)
-      try {
-        const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRec) {
-          const recog = new SpeechRec();
-          recog.continuous = true;
-          recog.interimResults = true;
-          recog.lang = language === 'ta' ? 'ta-IN' : (language ? `${language}-IN` : 'ta-IN');
-          recog.onresult = (e: any) => {
-            let text = '';
-            for (let i = 0; i < e.results.length; ++i) {
-              text += e.results[i][0].transcript;
-            }
-            if (text.trim()) {
-              recognizedTextRef.current = text.trim();
-              onLiveInterimText?.(text.trim());
-            }
-          };
-          recog.onerror = () => {};
-          recog.start();
-          recognitionRef.current = recog;
-        }
-      } catch {}
+    // Start clean 16kHz PCM WAV recorder instantly (0ms latency with pre-roll buffer)
+    try {
+      await wavRecorderRef.current.start();
+    } catch (err) {
+      console.warn('Microphone start error:', err);
     }
+  }, [disabled]);
 
-    // 2. Start clean 16kHz PCM WAV recorder for pristine audio capture & AI transcription
-    // If running in Native Android Mode 3, let native AudioRecord have exclusive mic access
-    const isNativeAndroid = !!((window as any).AndroidBleMeshBridge);
-    if (!isNativeAndroid || networkMode !== 'mode-3-ai-mesh') {
-      try {
-        const recorder = new UniversalWavRecorder();
-        await recorder.start();
-        wavRecorderRef.current = recorder;
-      } catch (err) {}
-    }
-
-  }, [disabled, language, onLiveInterimText, networkMode]);
-
-  // STOP RECORDING & TRANSMIT INSTANTLY
+  // STOP RECORDING & TRANSMIT INSTANTLY (ZERO ARTIFICIAL WAIT)
   const stopRecording = useCallback(async () => {
     if (!isPressingRef.current) return;
     isPressingRef.current = false;
     setIsRecording(false);
-    clearInterval(timerRef.current);
-
-    // Stop real-time speech recognizer
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-      recognitionRef.current = null;
-    }
-
-    // Stop native Android speech recognizer
-    if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.stopSpeechRecognition) {
-      try {
-        const syncText = (window as any).AndroidBleMeshBridge.stopSpeechRecognition();
-        if (syncText && typeof syncText === 'string' && syncText.trim()) {
-          recognizedTextRef.current = syncText.trim();
-          onLiveInterimText?.(syncText.trim());
-        }
-      } catch (e) {}
-    }
+    if (timerRef.current) clearInterval(timerRef.current);
 
     const durationSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
 
-    // Allow 400ms only in Mode 3 for speech-to-text to flush results; Mode 1 and Mode 2 are instant audio!
-    if (networkMode === 'mode-3-ai-mesh') {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-    }
-
     let audioBlob: Blob | undefined = undefined;
     let audioBase64: string | undefined = undefined;
-    let audioSize = 45000;
+    let audioSize = durationSec * 16000;
 
-    if (wavRecorderRef.current) {
-      try {
-        const result = await wavRecorderRef.current.stop();
-        audioBlob = result.blob;
-        audioBase64 = result.base64;
-        audioSize = result.size;
-      } catch (e) {}
-      wavRecorderRef.current = null;
+    try {
+      const result = await wavRecorderRef.current.stop();
+      audioBlob = result.blob;
+      audioBase64 = result.base64;
+      audioSize = result.size || audioSize;
+    } catch (e) {
+      console.warn('Microphone stop error:', e);
     }
 
-    if (!audioSize || audioSize < 100) audioSize = durationSec * 16000;
-
-    // Mode 1 and Mode 2 send pure audio note; Mode 3 sends recognized Tamil text
-    let recognized = networkMode === 'mode-3-ai-mesh' ? recognizedTextRef.current.trim() : '';
     const effectiveLang = language || 'ta';
-    onTranscript(recognized, audioSize, audioBlob, effectiveLang as any, audioBase64, durationSec);
+    onTranscript('', audioSize, audioBlob, effectiveLang as any, audioBase64, durationSec);
     recognizedTextRef.current = '';
-  }, [onTranscript, language, networkMode]);
+  }, [onTranscript, language]);
 
   return (
     <div className="flex flex-col items-center w-full select-none touch-none">

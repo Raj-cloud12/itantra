@@ -17,6 +17,9 @@ export default function CommandPortalPage() {
         return;
       }
 
+      const GLOBAL_SESSION = 'DEMO_GLOBAL_SESSION_01';
+      sessionStorage.setItem('current_session_id', GLOBAL_SESSION);
+
       try {
         const res = await fetch('/api/session/create', {
           method: 'POST',
@@ -25,10 +28,9 @@ export default function CommandPortalPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          sessionStorage.setItem('current_session_id', data.session_id);
           sessionStorage.setItem('field_token', data.field_token);
           sessionStorage.setItem('command_token', data.command_token);
-          navigate(`/command/${data.session_id}?token=${data.command_token}`, { replace: true });
+          navigate(`/command/${GLOBAL_SESSION}?token=${data.command_token}`, { replace: true });
         }
       } catch (e) {
         console.error("Auto session create failed", e);

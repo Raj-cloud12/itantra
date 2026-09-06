@@ -72,16 +72,24 @@ export function useWebSocket(url: string | null): WebSocketHookResult {
           case 'emergency_alert': {
             // Backend sends flat JSON: {type, text, sender_role, is_emergency, stats: {...}, sequence_number, timestamp}
             const incomingMsg: ChatMessage = {
-              id: crypto.randomUUID(),
+              id: data.id || crypto.randomUUID(),
               type: data.type,
               text: data.text,
               translated_text: data.translated_text,
               sender_role: data.sender_role,
+              sender_username: data.sender_username,
+              target_username: data.target_username,
+              audio_url: data.audio_url,
+              audio_size: data.audio_size,
+              local_mode: data.local_mode,
+              network_mode: data.network_mode,
+              is_local_mesh_private: data.is_local_mesh_private,
               is_emergency: data.is_emergency || false,
               language: data.language || 'en',
               latitude: data.latitude,
               longitude: data.longitude,
               relayed_via_mesh: data.relayed_via_mesh || false,
+              display_time: data.display_time,
               stats: data.stats || {
                 raw_bytes: 0, compressed_bytes: 0, encrypted_bytes: 0,
                 original_audio_bytes: 0, transit_time_ms: 0,

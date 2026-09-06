@@ -35,13 +35,13 @@ export const EmergencyFeedPage: React.FC = () => {
               const randHex = (m.cipher_code || '0x4954015F' + Math.random().toString(16).slice(2, 10).toUpperCase());
               return {
                 id: m.id || `relay_${idx}`,
-                sender_username: m.sender_username || '📱 Phone 1 (Civilian Node)',
+                sender_username: m.sender_username || '@citizen_node',
                 target_username: '@command_center',
                 cipher_code: randHex,
                 hop_count: m.hop_count || 2,
                 latitude: m.latitude || 12.8718,
                 longitude: m.longitude || 80.2185,
-                address_name: m.address_name || "📍 St. Joseph's Institute of Technology",
+                address_name: m.address_name || (m.latitude ? `GPS: ${m.latitude.toFixed(4)}°N, ${m.longitude.toFixed(4)}°E` : "Disaster Field Sector"),
                 timestamp: m.timestamp || new Date().toISOString(),
                 display_time: m.display_time || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
                 status: 'RELAYED_TO_COMMAND_CENTER',
@@ -107,17 +107,17 @@ export const EmergencyFeedPage: React.FC = () => {
       <main className="flex-1 p-4 max-w-4xl w-full mx-auto space-y-3 overflow-y-auto">
         <div className="flex items-center justify-between text-xs text-slate-400 font-bold px-1">
           <span>LIVE RELAY TRANSMISSION LOG (CIPHER ONLY):</span>
-          <span>HOP ROUTING: PHONE 1 ➔ PHONE 2 ➔ COMMAND CENTER</span>
+          <span>ROUTING: FIELD MESH ➔ GATEWAY ➔ COMMAND CENTER</span>
         </div>
 
         {packets.length === 0 ? (
           <div className="p-10 rounded-3xl bg-[#091122] border-2 border-dashed border-cyan-900/80 text-center space-y-3">
             <span className="text-4xl animate-bounce">📡</span>
             <h3 className="text-sm font-black text-cyan-300 uppercase tracking-wide">
-              Listening for Bluetooth Mesh Packets from Phone 1...
+              Listening for Offline Bluetooth Mesh Packets...
             </h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto">
-              When Phone 1 transmits, Phone 2 captures the 24-Byte encrypted cipher code and forwards it immediately over Cloudflare Tunnel to the Central Command Center.
+              When an offline node transmits, nearby peer gateways capture the encrypted packet and forward it immediately to the Central Command Center.
             </p>
           </div>
         ) : (

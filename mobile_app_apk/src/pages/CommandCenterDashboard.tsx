@@ -34,6 +34,8 @@ interface FeedMsg {
 
 export default function CommandCenterDashboard() {
 
+
+
   // 🔊 Play English AI Voice for translated message
   const playEnglishAiVoice = async (msgId: string, text: string) => {
     try {
@@ -53,9 +55,9 @@ export default function CommandCenterDashboard() {
         setPlayingAudioId(msgId);
         const endpoints = [
           '/api/tts/english',
+          'https://issue-confidential-missions-museum.trycloudflare.com/api/tts/english',
           'http://127.0.0.1:8000/api/tts/english',
           'http://10.200.5.175:8000/api/tts/english',
-          'https://informational-monitor-functionality-packed.trycloudflare.com/api/tts/english'
         ];
         for (const ep of endpoints) {
           try {
@@ -104,6 +106,7 @@ export default function CommandCenterDashboard() {
   const [replyText, setReplyText] = useState('');
   const [sosBroadcastText, setSosBroadcastText] = useState('');
   const [showSosModal, setShowSosModal] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
   const [sosSentToast, setSosSentToast] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState('ta');
   const [filter, setFilter] = useState<'all' | 'sos' | 'audio' | 'gps'>('all');
@@ -111,8 +114,179 @@ export default function CommandCenterDashboard() {
   // Active Network Mode State: 4 Modes
   const [activeNetworkMode, setActiveNetworkMode] = useState<'mode-1-hd-call' | 'mode-2-compressed-voice' | 'mode-3-ai-mesh' | 'mode-4-satellite-beacon'>('mode-4-satellite-beacon');
 
+  const [translatedTexts, setTranslatedTexts] = useState<Record<string, string>>({});
+  const [translatedAudios, setTranslatedAudios] = useState<Record<string, string>>({});
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  const [integrityScores, setIntegrityScores] = useState<Record<string, {score: number; reason: string; summary: string}>>({});
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [feedSorted, setFeedSorted] = useState(false);
+  const [decryptingMsgs, setDecryptingMsgs] = useState<Record<string, boolean>>({});
+
   const feedRef = useRef<HTMLDivElement>(null);
   const feedBottomRef = useRef<HTMLDivElement>(null);
+  // Automatically scroll to the top whenever a new message arrives
+  const prevTopIdRef = useRef<any>(null);
+  const autoAnalyzeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isAnalyzingRef = useRef(false);
+
+  // 🌐 Groq Translation
+  const translateWithGroq = async (msgId: string, text: string, lang = 'ta') => {
+    if (!text || translatedTexts[msgId as string]) return;
+    setTranslatingId(msgId);
+    const endpoints = [
+      '/api/translate/groq',
+      'https://issue-confidential-missions-museum.trycloudflare.com/api/translate/groq',
+          'http://127.0.0.1:8000/api/translate/groq',
+      'http://10.200.5.175:8000/api/translate/groq',
+    ];
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, source_lang: lang || 'ta', target_lang: 'en' }),
+          signal: AbortSignal.timeout(12000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.translated) {
+            setTranslatedTexts(prev => ({ ...prev, [msgId]: data.translated }));
+            // Auto read aloud the English translation
+            // speak removed
+            setTranslatingId(null);
+            return;
+          }
+        }
+      } catch {}
+    }
+    setTranslatingId(null);
+  };
+
+  // 🎙️ Transcribe + Translate audio
+  const transcribeAndTranslateAudio = async (msgId: string, audioUrl: string, lang = 'ta') => {
+    if (!audioUrl || translatedTexts[msgId]) return;
+    setTranslatingId(msgId);
+    const endpoints = [
+      '/api/stt/transcribe-for-translate',
+      'https://issue-confidential-missions-museum.trycloudflare.com/api/stt/transcribe-for-translate',
+          'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
+      'http://10.200.5.175:8000/api/stt/transcribe-for-translate',
+    ];
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio_url: audioUrl, language: lang || 'ta' }),
+          signal: AbortSignal.timeout(20000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.translated) {
+            setTranslatedTexts(prev => ({ ...prev, [msgId]: data.translated }));
+            if (data.audio_url) {
+              setTranslatedAudios(prev => ({ ...prev, [msgId]: data.audio_url }));
+            }
+            setTranslatingId(null);
+            return;
+          }
+        }
+      } catch {}
+    }
+    setTranslatingId(null);
+  };
+
+  // 🧠 Groq Integrity Level Analysis
+  const analyzeIntegrity = async () => {
+    if (feed.length === 0 || isAnalyzingRef.current) return;
+    isAnalyzingRef.current = true;
+    setIsAnalyzing(true);
+    const msgsToAnalyze = feed.slice(0, 20).map(m => ({
+      id: String(m.id),
+      text: m.text,
+      language: m.language || 'ta',
+      sender_username: m.sender_username || '@field',
+      timestamp: m.timestamp
+    }));
+    const endpoints = [
+      '/api/groq/analyze-integrity',
+      'https://issue-confidential-missions-museum.trycloudflare.com/api/groq/analyze-integrity',
+          'http://127.0.0.1:8000/api/groq/analyze-integrity',
+      'http://10.200.5.175:8000/api/groq/analyze-integrity',
+    ];
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(ep, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: msgsToAnalyze }),
+          signal: AbortSignal.timeout(25000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.scored_messages) {
+            const scoreMap: Record<string, {score: number; reason: string; summary: string}> = {};
+            data.scored_messages.forEach((sm: any) => {
+              scoreMap[sm.id] = {
+                score: sm.integrity_score || 5,
+                reason: sm.integrity_reason || '',
+                summary: sm.english_summary || sm.text || ''
+              };
+            });
+            setIntegrityScores(scoreMap);
+            setFeed(prev => {
+              const sorted = [...prev].sort((a, b) => {
+                const sa = scoreMap[String(a.id)]?.score || 5;
+                const sb = scoreMap[String(b.id)]?.score || 5;
+                return sb - sa;
+              });
+              return sorted;
+            });
+            setFeedSorted(true);
+            isAnalyzingRef.current = false;
+            setIsAnalyzing(false);
+            return;
+          }
+        }
+      } catch {}
+    }
+    isAnalyzingRef.current = false;
+    setIsAnalyzing(false);
+  };
+
+
+  useEffect(() => {
+    if (feed.length > 0) {
+      const topId = feed[0]?.id;
+      if (topId && topId !== prevTopIdRef.current) {
+        prevTopIdRef.current = topId;
+        if (feedRef.current) {
+          feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    }
+  }, [feed]);
+
+  // 🧠 AUTO INTEGRITY SORT: When 2+ messages arrive, auto-analyze after 2s debounce
+  useEffect(() => {
+    if (feed.length < 2) return;
+    if (isAnalyzingRef.current) return;
+
+    // Debounce: wait 2 seconds after last message before analyzing
+    if (autoAnalyzeTimerRef.current) clearTimeout(autoAnalyzeTimerRef.current);
+    autoAnalyzeTimerRef.current = setTimeout(() => {
+      if (!isAnalyzingRef.current) {
+        analyzeIntegrity();
+      }
+    }, 2000);
+
+    return () => {
+      if (autoAnalyzeTimerRef.current) clearTimeout(autoAnalyzeTimerRef.current);
+    };
+  }, [feed.length]); // Only trigger when message COUNT changes (new message arrived)
+
 
   const getApiBase = () => {
     if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') {
@@ -147,7 +321,7 @@ export default function CommandCenterDashboard() {
   // 🔄 Instant WebSocket Message Stream for Command Center
   useEffect(() => {
     if (wsMessages && wsMessages.length > 0) {
-      const latest = wsMessages[wsMessages.length - 1];
+      const latest: any = wsMessages[wsMessages.length - 1];
       if (latest && latest.text) {
         setFeed(prev => {
           const exists = prev.some(m => m.id === latest.id || (m.timestamp === latest.timestamp && m.text === latest.text));
@@ -156,7 +330,33 @@ export default function CommandCenterDashboard() {
           const isEmergency = !!latest.is_emergency;
           const isMode4 = latest.network_mode === 'mode-4-satellite-beacon' || isEmergency;
           const isMode3 = latest.network_mode === 'mode-3-ai-mesh';
+
+          if (isMode3) {
+            setDecryptingMsgs(prev => ({ ...prev, [latest.id]: true }));
+            setTimeout(() => {
+              setDecryptingMsgs(prev => ({ ...prev, [latest.id]: false }));
+            }, 6000);
+          }
           const cipherCode = latest.cipher_code || (isMode4 ? '534F015F01414F67AE42A082C502448A' : `CIPHER#${((Date.now() * 1733 + 4919) % 65535).toString(16).toUpperCase().padStart(4, '0')}`);
+
+          // Mode 1 / 2: Auto-play incoming citizen voice audio note
+          if (latest.audio_url || latest.audioUrl) {
+            try {
+              const audioObj = new Audio(latest.audio_url || latest.audioUrl);
+              audioObj.play().catch(() => {});
+            } catch {}
+          } else if (isMode3 && latest.text) {
+            // 🧠 Mode 3: AI Mesh Voice -> Text 24B -> Command Center AI Auto-Readout!
+            try {
+              if (window.speechSynthesis) {
+                const utterance = new SpeechSynthesisUtterance(latest.text);
+                const bcpMap: Record<string, string> = { ta: 'ta-IN', en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ml: 'ml-IN', kn: 'kn-IN', bn: 'bn-IN', mr: 'mr-IN', gu: 'gu-IN' };
+                utterance.lang = bcpMap[latest.language || 'en'] || 'en-IN';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+              }
+            } catch (e) {}
+          }
 
           const newFeedItem: FeedMsg = {
             id: latest.id || crypto.randomUUID(),
@@ -166,9 +366,9 @@ export default function CommandCenterDashboard() {
             text: latest.text,
             is_emergency: isEmergency,
             language: latest.language || 'ta',
-            latitude: latest.latitude || 12.9642,
-            longitude: latest.longitude || 80.2520,
-            address_name: latest.address_name || '📍 Swaminathan Nagar, Kottivakkam, Chennai 600041',
+            latitude: latest.latitude || 12.8718,
+            longitude: latest.longitude || 80.2185,
+            address_name: latest.address_name || "📍 St. Joseph's Institute of Technology, OMR, Chennai 600119",
             timestamp: latest.timestamp || new Date().toISOString(),
             display_time: latest.display_time || formatTimeIST(latest.timestamp),
             audio_url: latest.audio_url || latest.audioUrl,
@@ -176,7 +376,7 @@ export default function CommandCenterDashboard() {
             network_mode: latest.network_mode || (isMode4 ? 'mode-4-satellite-beacon' : 'mode-2-compressed-voice'),
             cipher_code: cipherCode,
             gateway_node: latest.gateway_node || (isMode4 ? '🛰️ ISRO NavIC Gateway' : '@civ_mesh_relay'),
-            hop_count: isMode4 ? 1 : 3,
+            hop_count: isMode4 ? 1 : (latest.hop_count || 2),
             stats: latest.stats || {
               raw_bytes: 45000,
               compressed_bytes: isMode4 ? 16 : isMode3 ? 24 : 1200,
@@ -201,9 +401,9 @@ export default function CommandCenterDashboard() {
         const endpoints = [
           `${apiBase}/api/messages/all`,
           '/api/messages/all',
+          'https://issue-confidential-missions-museum.trycloudflare.com/api/messages/all',
           'http://127.0.0.1:8000/api/messages/all',
           'http://10.200.5.175:8000/api/messages/all',
-          'https://informational-monitor-functionality-packed.trycloudflare.com/api/messages/all'
         ];
 
         let data: any = null;
@@ -211,8 +411,11 @@ export default function CommandCenterDashboard() {
           try {
             const res = await fetch(ep, { signal: AbortSignal.timeout(3000) });
             if (res.ok) {
-              data = await res.json();
-              if (Array.isArray(data) && data.length > 0) break;
+              const json = await res.json();
+              if (Array.isArray(json)) {
+                data = json;
+                break;
+              }
             }
           } catch {}
         }
@@ -235,7 +438,7 @@ export default function CommandCenterDashboard() {
             language: m.language || 'ta',
             latitude: m.latitude,
             longitude: m.longitude,
-            address_name: m.address_name || '📍 Swaminathan Nagar, Kottivakkam, Chennai 600041',
+            address_name: m.address_name || "📍 St. Joseph's Institute of Technology, OMR, Chennai 600119",
             timestamp: m.created_at || new Date().toISOString(),
             display_time: m.display_time || formatTimeIST(m.created_at),
             audio_url: m.audio_url || m.audioUrl,
@@ -243,7 +446,7 @@ export default function CommandCenterDashboard() {
             network_mode: m.network_mode || (isMode4 ? 'mode-4-satellite-beacon' : 'mode-2-compressed-voice'),
             cipher_code: cipherCode,
             gateway_node: m.gateway_node || (isMode4 ? '🛰️ ISRO NavIC (S-Band / 2492MHz) & LoRa 865MHz Gateway' : '@civ_mesh_relay (BLE 20m / Wi-Fi 100m)'),
-            hop_count: isMode4 ? 1 : 3,
+            hop_count: isMode4 ? 1 : (m.hop_count || 2),
             stats: {
               raw_bytes: m.audio_size ? Math.round(m.audio_size * 28.5) : 45000,
               compressed_bytes: isMode4 ? 16 : isMode3 ? (m.text?.length || 24) : (m.audio_size || 1200),
@@ -281,6 +484,22 @@ export default function CommandCenterDashboard() {
     } catch {}
   };
 
+  const resolveWs = (host: string, path: string) => {
+    let finalHost = host;
+    if (!finalHost) {
+      if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        finalHost = window.location.hostname;
+      } else {
+        finalHost = 'localhost';
+      }
+    }
+    const clean = finalHost.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
+    if (clean.includes('trycloudflare.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+      return `wss://${clean}${path}`;
+    }
+    return `ws://${clean}:8000${path}`;
+  };
+
   // Broadcast Govt SOS Alert to ALL Users & Field Devices
   const handleBroadcastGovtSos = async (textToBroadcast?: string) => {
     const content = textToBroadcast || sosBroadcastText;
@@ -299,8 +518,8 @@ export default function CommandCenterDashboard() {
       audio_size: 16,
       is_emergency: true,
       language: selectedLanguage,
-      latitude: 12.9642,
-      longitude: 80.2520,
+      latitude: 12.8718,
+      longitude: 80.2185,
       cipher_code: 'SAT-16B#GOVT-SOS-BROADCAST',
       display_time: formatTimeIST()
     };
@@ -350,8 +569,8 @@ export default function CommandCenterDashboard() {
       audio_size: 64,
       is_emergency: false,
       language: selectedLanguage,
-      latitude: 12.9642,
-      longitude: 80.2520
+      latitude: 12.8718,
+      longitude: 80.2185
     });
 
     try {
@@ -410,6 +629,15 @@ export default function CommandCenterDashboard() {
             <span>🎛️</span>
             <span>Demo Hub</span>
           </Link>
+
+          {/* INSTALL MOBILE APK BUTTON */}
+          <button
+            onClick={() => setShowInstallModal(true)}
+            className="px-3 py-2 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-emerald-400"
+          >
+            <span>📲</span>
+            <span>Install Mobile APK</span>
+          </button>
 
           {/* BIG RED SOS BROADCAST BUTTON */}
           <button
@@ -609,33 +837,67 @@ export default function CommandCenterDashboard() {
           {/* Action Toolbar */}
           <div className="px-6 py-2.5 bg-[#0a0e14] border-b border-slate-800 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-400">Filter Feed:</span>
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                Live Feed:
+              </span>
               <button
                 onClick={() => setFilter('all')}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  filter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
+                  filter === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
                 }`}
               >
-                All Messages ({feed.length})
+                📋 All Messages ({feed.length})
               </button>
               <button
                 onClick={() => setFilter('sos')}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                  filter === 'sos' ? 'bg-rose-900 text-rose-200 border border-rose-700' : 'text-rose-400 hover:text-rose-300'
+                  filter === 'sos' ? 'bg-rose-900 text-rose-200 border border-rose-700' : 'text-rose-400 hover:text-rose-300 bg-slate-900 border border-slate-800'
                 }`}
               >
                 <span>🚨</span>
-                <span>SOS Distress Only ({feed.filter(m => m.is_emergency).length})</span>
+                <span>SOS Distress ({feed.filter(m => m.is_emergency).length})</span>
               </button>
             </div>
 
-            <div className="text-xs font-mono text-slate-400">
-              Active Session: <span className="font-bold text-cyan-300">{sessionId || 'DEMO_GLOBAL_SESSION_01'}</span>
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+              {/* 🧠 Groq Integrity Analysis Button */}
+              <button
+                type="button"
+                onClick={analyzeIntegrity}
+                disabled={isAnalyzing || feed.length === 0}
+                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
+                  isAnalyzing
+                    ? 'bg-purple-900/60 text-purple-300 border border-purple-600/40 animate-pulse'
+                    : feedSorted
+                    ? 'bg-purple-900/40 text-purple-300 border border-purple-600/40'
+                    : 'bg-gradient-to-r from-purple-800 to-violet-800 hover:from-purple-700 hover:to-violet-700 text-white border border-purple-600 shadow-[0_0_8px_rgba(139,92,246,0.4)]'
+                }`}
+              >
+                <span>{isAnalyzing ? '⏳' : '🧠'}</span>
+                <span>{isAnalyzing ? 'Analyzing Priority...' : feedSorted ? '✅ Priority Sorted' : 'Analyze Priority'}</span>
+              </button>
+              <span>Session: <span className="font-bold text-cyan-300">{sessionId || 'DEMO_GLOBAL_SESSION_01'}</span></span>
             </div>
           </div>
 
           {/* Messages Stream */}
           <div ref={feedRef} className="flex-1 overflow-y-auto p-6 space-y-3 font-mono">
+
+            {/* 🧠 Auto-Integrity Status Banner */}
+            {(isAnalyzing || feedSorted) && (
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold font-mono mb-1 border ${
+                isAnalyzing
+                  ? 'bg-purple-950/60 border-purple-700/50 text-purple-300 animate-pulse'
+                  : 'bg-purple-950/30 border-purple-800/30 text-purple-400'
+              }`}>
+                <span className={isAnalyzing ? 'animate-spin' : ''}>🧠</span>
+                {isAnalyzing
+                  ? 'Groq AI analyzing message urgency and sorting by Integrity Level...'
+                  : `✅ Sorted by Integrity Level — Highest priority shown first (${feed.length} messages)`}
+              </div>
+            )}
+
             {filteredFeed.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-2">
                 <span className="text-4xl">🛰️</span>
@@ -643,47 +905,229 @@ export default function CommandCenterDashboard() {
               </div>
             ) : (
               filteredFeed.map((msg, idx) => {
-                const isEmergency = msg.is_emergency;
+                const isEmergency = !!msg.is_emergency;
                 const isFromCommand = msg.sender_role === 'command';
+                const hasAudio = !!(msg.audio_url || msg.audioUrl);
 
                 return (
                   <div
                     key={msg.id || idx}
                     className={`p-4 rounded-2xl border transition-all ${
-                      isEmergency
-                        ? 'bg-gradient-to-r from-red-950/80 via-rose-950/60 to-slate-950 border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]'
+                      isEmergency || (integrityScores[String(msg.id)]?.score || 0) >= 9
+                        ? 'bg-gradient-to-r from-red-950/90 via-rose-950/70 to-slate-950 border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-fadeIn'
+                        : (integrityScores[String(msg.id)]?.score || 0) >= 7
+                        ? 'bg-gradient-to-r from-orange-950/80 via-amber-950/60 to-slate-950 border-2 border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)] animate-fadeIn'
                         : isFromCommand
-                        ? 'bg-gradient-to-r from-blue-950/80 to-slate-950 border border-blue-700'
-                        : 'bg-slate-900/80 border-slate-800'
+                        ? 'bg-gradient-to-r from-blue-950/80 to-[#0c1322] border border-blue-600 shadow-md animate-fadeIn'
+                        : 'bg-gradient-to-r from-[#0c1524] via-[#09111c] to-[#070b14] border border-cyan-700/60 shadow-[0_0_15px_rgba(6,182,212,0.15)] animate-fadeIn'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        {isEmergency && <span className="text-base animate-ping">🚨</span>}
-                        <span className={`text-xs font-black px-2 py-0.5 rounded ${
-                          isEmergency ? 'bg-red-700 text-white' : isFromCommand ? 'bg-blue-700 text-white' : 'bg-slate-800 text-cyan-300'
+                        {isEmergency ? (
+                          <span className="text-base animate-ping">🚨</span>
+                        ) : (
+                          <span className="text-base">💬</span>
+                        )}
+                        <span className={`text-xs font-black px-2.5 py-0.5 rounded font-mono ${
+                          isEmergency 
+                            ? 'bg-red-700 text-white' 
+                            : isFromCommand 
+                            ? 'bg-blue-700 text-white' 
+                            : 'bg-emerald-950 text-emerald-300 border border-emerald-600'
                         }`}>
-                          {isFromCommand ? 'GOVT COMMAND CENTER' : `FIELD USER: ${msg.sender_username || '@field'}`}
+                          {isFromCommand ? 'GOVT COMMAND CENTER BROADCAST' : `CITIZEN: ${msg.sender_username || '@citizen_field'}`}
                         </span>
-                        <span className="text-[10px] text-slate-400">➔ {msg.target_username || '@all_users'}</span>
+                        
+                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded ${
+                          isEmergency ? 'bg-red-950 text-rose-300 border border-red-800' : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                        }`}>
+                          {isEmergency ? 'SOS DISTRESS BEACON' : 'NORMAL DISPATCH'}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-bold">
-                        {msg.display_time || formatTimeIST(msg.timestamp)}
-                      </span>
+
+                      <div className="flex items-center gap-2">
+                        {/* 🔥 Integrity Level Badge */}
+                        {integrityScores[String(msg.id)] && (
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg font-mono border ${
+                            integrityScores[String(msg.id)].score >= 9
+                              ? 'bg-red-800 text-red-100 border-red-600 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse'
+                              : integrityScores[String(msg.id)].score >= 7
+                              ? 'bg-orange-800 text-orange-100 border-orange-600'
+                              : integrityScores[String(msg.id)].score >= 5
+                              ? 'bg-yellow-800 text-yellow-100 border-yellow-600'
+                              : 'bg-slate-800 text-slate-300 border-slate-600'
+                          }`}>
+                            🧠 IL: {integrityScores[String(msg.id)].score}/10
+                          </span>
+                        )}
+                        <span className="text-[10.5px] font-mono text-slate-300 font-bold bg-black/40 px-2 py-0.5 rounded border border-white/10">
+                          ⏰ {msg.display_time || formatTimeIST(msg.timestamp)}
+                        </span>
+                      </div>
                     </div>
 
-                    <p className={`text-sm font-sans font-bold leading-relaxed mb-2 ${
-                      isEmergency ? 'text-rose-100' : 'text-slate-100'
+                    <p className={`text-sm font-sans font-bold leading-relaxed mb-1 ${
+                      isEmergency ? 'text-rose-100 text-base' : 'text-slate-100'
                     }`}>
-                      {msg.text}
+                      {decryptingMsgs[String(msg.id)] ? (
+                        <span className="text-green-400 font-mono text-xs animate-pulse tracking-widest bg-black/50 px-2 py-1 rounded">
+                          [DECRYPTING RELAY] CIPHER: {msg.cipher_code}
+                        </span>
+                      ) : (
+                        <span>{msg.text}</span>
+                      )}
                     </p>
 
-                    {/* Location & Meta info */}
-                    <div className="flex items-center justify-between text-[9.5px] text-slate-400 pt-2 border-t border-white/10">
-                      <span className="text-emerald-400 font-bold">{msg.address_name}</span>
-                      <span className="bg-black/40 px-2 py-0.5 rounded font-mono text-cyan-400">
-                        {msg.cipher_code}
+                    {/* 🧠 Integrity Reason from Groq AI */}
+                    {integrityScores[String(msg.id)] && (
+                      <div className={`text-[11px] font-mono mb-1.5 px-2.5 py-1 rounded-lg border ${
+                        integrityScores[String(msg.id)].score >= 9
+                          ? 'bg-red-950/60 text-red-300 border-red-800/50'
+                          : integrityScores[String(msg.id)].score >= 7
+                          ? 'bg-orange-950/60 text-orange-300 border-orange-800/50'
+                          : 'bg-slate-900/60 text-slate-400 border-slate-700/50'
+                      }`}>
+                        🧠 <span className="font-bold">Groq Priority:</span> {integrityScores[String(msg.id)].reason}
+                        {integrityScores[String(msg.id)].summary && integrityScores[String(msg.id)].summary !== msg.text && (
+                          <span className="text-amber-300 ml-1">| EN: {integrityScores[String(msg.id)].summary}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 🇬🇧 English Translation Card + AI Voice Player */}
+                    {translatedTexts[String(msg.id)] && (
+                      <div className="mb-3 p-3 bg-gradient-to-r from-amber-950/60 via-yellow-950/40 to-slate-950 border-2 border-amber-500/60 rounded-2xl shadow-[0_0_15px_rgba(245,158,11,0.25)] animate-fadeIn">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-[10px] font-mono font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                            <span>🇬🇧</span>
+                            <span>English Translation (Groq AI)</span>
+                          </span>
+                          
+                          {/* 🔊 Play English AI Voice Button */}
+                          <button
+                            type="button"
+                            onClick={() => playEnglishAiVoice(String(msg.id), translatedTexts[String(msg.id)])}
+                            className={`px-3 py-1 rounded-xl text-xs font-black font-mono flex items-center gap-1.5 active:scale-95 transition-all shadow-md cursor-pointer ${
+                              playingAudioId === String(msg.id)
+                                ? 'bg-rose-600 text-white animate-pulse shadow-[0_0_12px_rgba(244,63,94,0.8)]'
+                                : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+                            }`}
+                          >
+                            <span>{playingAudioId === String(msg.id) ? '⏸️' : '🔊 ▶'}</span>
+                            <span>{playingAudioId === String(msg.id) ? 'Stop AI Voice' : 'Play AI Voice'}</span>
+                          </button>
+                        </div>
+
+                        <p className="text-sm font-sans font-bold text-amber-100 leading-relaxed">
+                          {translatedTexts[String(msg.id)]}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 🌐 Groq Fast AI Translation Button */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (hasAudio && (msg.audio_url || msg.audioUrl)) {
+                            transcribeAndTranslateAudio(String(msg.id), msg.audio_url || msg.audioUrl || '', msg.language || 'ta');
+                          } else {
+                            translateWithGroq(String(msg.id), msg.text, msg.language || 'ta');
+                          }
+                        }}
+                        disabled={translatingId === (String(msg.id))}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold font-mono flex items-center gap-2 active:scale-95 transition-all ${
+                          translatedTexts[String(msg.id)]
+                            ? 'bg-amber-950/60 text-amber-300 border border-amber-500/50 shadow-inner'
+                            : translatingId === (String(msg.id))
+                            ? 'bg-amber-900/80 text-amber-200 animate-pulse border border-amber-500'
+                            : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                        }`}
+                      >
+                        <span className="text-sm">{translatingId === (String(msg.id)) ? '⏳' : '⚡'}</span>
+                        <span>
+                          {translatingId === (String(msg.id))
+                            ? (hasAudio ? 'Transcribing & Groq Translating...' : 'Groq Translating...')
+                            : translatedTexts[String(msg.id)]
+                            ? '✅ Groq English Translation'
+                            : hasAudio
+                            ? '🌐 Transcribe Voice → English'
+                            : '🌐 Translate to English (Groq)'}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Mode 1 / 2 Audio Player */}
+                    {hasAudio && (
+                      <div className="mb-2.5 p-2.5 bg-black/60 rounded-xl border border-cyan-500/30 flex items-center justify-between gap-3 shadow-inner">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                const audioEl = new Audio(msg.audio_url || msg.audioUrl);
+                                audioEl.play().catch(() => {});
+                              } catch {}
+                            }}
+                            className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-sans font-bold text-xs rounded-lg flex items-center gap-1.5 active:scale-95 shadow-[0_0_10px_rgba(16,185,129,0.4)] transition-all"
+                          >
+                            <span>▶️</span>
+                            <span>Play Voice Note</span>
+                          </button>
+                          <span className={`text-[11px] font-mono font-bold hidden sm:inline ${
+                            msg.network_mode === 'mode-2-compressed-voice' ? 'text-blue-300' : 'text-cyan-300'
+                          }`}>
+                            {msg.network_mode === 'mode-2-compressed-voice' ? '📻 1.2 KB CELT 2G Audio' : '🎙️ 16kHz HD PCM'}
+                          </span>
+                        </div>
+                        <audio controls src={msg.audio_url || msg.audioUrl} className="h-8 w-48 sm:w-64 accent-emerald-500" />
+                      </div>
+                    )}
+
+
+
+                    {/* 🌐 Multi-Hop Mesh Relay Route & Cipher Bar */}
+                    <div className="mb-2 p-2 rounded-xl bg-black/60 border border-cyan-900/60 text-[9px] font-mono flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-cyan-300 font-bold">
+                        <span>📡 Multi-Hop Route:</span>
+                        <span className="bg-rose-950 text-rose-300 px-1.5 py-0.5 rounded border border-rose-800">📱 Phone 1: Victim ({msg.sender_username || '@citizen'})</span>
+                        <span className="text-cyan-400 font-bold">──[BLE Mesh]──▶</span>
+                        <span className="bg-purple-950 text-purple-300 px-1.5 py-0.5 rounded border border-purple-800">📱 Phone 2: Relay (@mesh_peer)</span>
+                        <span className="text-emerald-400 font-bold">──[Gateway]──▶</span>
+                        <span className="bg-blue-950 text-cyan-300 px-1.5 py-0.5 rounded border border-blue-800">🏢 Command Center</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-amber-400 font-bold">🔐 Cipher:</span>
+                        <span className="bg-black/90 px-2 py-0.5 rounded font-mono text-cyan-300 font-bold border border-cyan-800/80">
+                          {msg.cipher_code?.startsWith('0x') ? msg.cipher_code : `0x4954 015F ${msg.cipher_code ? msg.cipher_code.replace(/[^A-F0-9]/gi, '').slice(0, 16) : '4F67AE42A082C502'}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Location & Metadata Bar */}
+                    <div className="flex items-center justify-between text-[9.5px] font-mono text-slate-400 pt-2 border-t border-white/10">
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <span>📍</span>
+                        <span>{msg.address_name || "St. Joseph's Institute of Technology, OMR, Chennai"}</span>
                       </span>
+                      <div className="flex items-center gap-2">
+                        {msg.gateway_node && (
+                          <span className="bg-emerald-950 px-2 py-0.5 rounded text-[10px] text-emerald-300 font-mono font-bold border border-emerald-600 shadow-[0_0_8px_rgba(16,185,129,0.3)] flex items-center gap-1">
+                            <span>📡</span>
+                            <span>RELAYED VIA {msg.gateway_node} ({msg.hop_count || 2} HOPS)</span>
+                          </span>
+                        )}
+                        <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-black border ${
+                          msg.network_mode === 'mode-2-compressed-voice' ? 'bg-blue-950 text-blue-300 border-blue-600 shadow-[0_0_8px_rgba(59,130,246,0.4)]' :
+                          msg.network_mode === 'mode-3-ai-mesh' ? 'bg-amber-950 text-amber-300 border-amber-600 shadow-[0_0_8px_rgba(245,158,11,0.4)]' :
+                          msg.network_mode === 'mode-4-satellite-beacon' ? 'bg-rose-950 text-rose-300 border-rose-600 shadow-[0_0_8px_rgba(244,63,94,0.4)]' :
+                          'bg-emerald-950 text-emerald-300 border-emerald-600 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
+                        }`}>
+                          {msg.network_mode === 'mode-2-compressed-voice' ? 'MODE-2 (2G COMPRESSED)' : msg.network_mode?.toUpperCase() || 'MODE-1'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );

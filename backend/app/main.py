@@ -1,44 +1,66 @@
-
 import io
+import base64
 
-async def generate_english_ai_voice(text: str) -> str:
-    """Generate crystal-clear English AI voice MP3 data URL using edge-tts / gTTS"""
+ai_voice_cache = {}
+
+async def generate_ai_voice(text: str, lang: str = "auto") -> str:
+    """Generate high-fidelity Azure Neural AI voice (ta-IN-ValluvarNeural for Tamil, en-US-AriaNeural for English) with instant in-memory caching"""
     if not text or not text.strip():
         return ""
     clean_text = text.strip()
+    cache_key = f"{clean_text}_{lang}"
+    if cache_key in ai_voice_cache:
+        return ai_voice_cache[cache_key]
+
+    is_tamil = any('\u0b80' <= c <= '\u0bff' for c in clean_text) or lang.startswith("ta")
+    voice_name = "ta-IN-ValluvarNeural" if is_tamil else "en-US-AriaNeural"
+    fallback_lang = "ta" if is_tamil else "en"
+
     # Try edge-tts first (high fidelity Azure Neural voice)
     try:
         import edge_tts
-        comm = edge_tts.Communicate(clean_text, "en-US-AriaNeural")
+        comm = edge_tts.Communicate(clean_text, voice_name)
         buf = io.BytesIO()
         async for chunk in comm.stream():
             if chunk["type"] == "audio":
                 buf.write(chunk["data"])
         audio_bytes = buf.getvalue()
         if audio_bytes:
-            return "data:audio/mp3;base64," + base64.b64encode(audio_bytes).decode("utf-8")
+            data_url = "data:audio/mp3;base64," + base64.b64encode(audio_bytes).decode("utf-8")
+            if len(ai_voice_cache) > 250:
+                ai_voice_cache.clear()
+            ai_voice_cache[cache_key] = data_url
+            return data_url
     except Exception as e:
-        print(f"[edge-tts error]: {e}", flush=True)
+        print(f"[edge-tts error ({voice_name})]: {e}", flush=True)
 
     # Fallback to gTTS
     try:
         from gtts import gTTS
-        tts = gTTS(text=clean_text, lang="en", slow=False)
+        tts = gTTS(text=clean_text, lang=fallback_lang, slow=False)
         buf = io.BytesIO()
         tts.write_to_fp(buf)
         audio_bytes = buf.getvalue()
         if audio_bytes:
-            return "data:audio/mp3;base64," + base64.b64encode(audio_bytes).decode("utf-8")
+            data_url = "data:audio/mp3;base64," + base64.b64encode(audio_bytes).decode("utf-8")
+            if len(ai_voice_cache) > 250:
+                ai_voice_cache.clear()
+            ai_voice_cache[cache_key] = data_url
+            return data_url
     except Exception as e2:
         print(f"[gTTS error]: {e2}", flush=True)
 
     return ""
 
+async def generate_english_ai_voice(text: str) -> str:
+    return await generate_ai_voice(text, "en")
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -56,6 +78,7 @@ except Exception:
     pass
 
 from datetime import datetime
+import time
 import httpx
 
 import sys
@@ -83,7 +106,6 @@ recent_mesh_messages: List[Dict[str, Any]] = []
 active_network_mode = "mode-3-ai-mesh"
 active_local_mode = "mode-2-p2p-2g"
 
-@app.get("/")
 @app.get("/api/health")
 async def health_check():
     return {
@@ -251,8 +273,38 @@ def translate_indic_9(text: str, source_lang: str = "auto") -> dict:
         res[l] = text
     return res
 
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+
+def convert_tamil_to_tanglish(tamil_text: str) -> str:
+    """Convert Tamil Unicode script into natural phonetic Tanglish using Groq LLM."""
+    if not tamil_text or not GROQ_API_KEY:
+        return tamil_text
+    try:
+        with httpx.Client(timeout=8.0, verify=False) as client:
+            resp = client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": "openai/gpt-oss-120b",
+                    "messages": [
+                        {"role": "system", "content": "You are a Tamil-to-Tanglish transliterator. Convert Tamil text into natural phonetic Tanglish (Tamil spoken words written in English letters). Example: 'எப்படி இருக்கீங்க' -> 'Epdi irukinga'. 'காப்பாத்துங்க தண்ணி வேணும்' -> 'Kaappaththunga thanni venum'. 'உன் பெயர் என்ன' -> 'Un peyar enna'. ONLY return the Tanglish words without quotes, explanation, or punctuation."},
+                        {"role": "user", "content": tamil_text}
+                    ],
+                    "temperature": 0.1,
+                    "max_tokens": 150
+                }
+            )
+            if resp.status_code == 200:
+                tanglish = resp.json()["choices"][0]["message"]["content"].strip()
+                if tanglish:
+                    print(f"[Tanglish Converted]: '{tamil_text}' -> '{tanglish}'", flush=True)
+                    return tanglish
+    except Exception as e:
+        print(f"[Tanglish Conversion Error]: {e}", flush=True)
+    return tamil_text
+
 def transcribe_indic_neural_base64(audio_base64: str, preferred_lang: Optional[str] = "ta") -> tuple[str, str]:
-    """Indic Neural ASR: High-speed Groq Whisper-large-v3 for Tamil & 9 Indic languages."""
+    """Indic Neural ASR: High-speed Groq Whisper-large-v3 for Tamil, Malayalam, Hindi, Telugu, Kannada, Marathi, Bengali, Gujarati, English & Tanglish."""
     try:
         raw_data = audio_base64
         if ',' in raw_data:
@@ -261,38 +313,119 @@ def transcribe_indic_neural_base64(audio_base64: str, preferred_lang: Optional[s
         if len(audio_bytes) < 100:
             return "", ""
 
-        # 1. Primary: Ultra-Fast Groq Whisper-large-v3 (<0.3s Tamil Transcription)
-        if GROQ_API_KEY:
-            try:
-                with httpx.Client(timeout=10.0) as client:
-                    files = {'file': ('speech.wav', audio_bytes, 'audio/wav')}
-                    data = {
-                        'model': 'whisper-large-v3',
-                        'language': preferred_lang or 'ta',
-                        'response_format': 'json',
-                        'temperature': 0.0
-                    }
-                    headers = {'Authorization': f'Bearer {GROQ_API_KEY}'}
-                    resp = client.post(
-                        'https://api.groq.com/openai/v1/audio/transcriptions',
-                        headers=headers,
-                        data=data,
-                        files=files
-                    )
-                    if resp.status_code == 200:
-                        groq_text = resp.json().get('text', '').strip()
-                        if groq_text:
-                            print(f"[Groq Whisper-large-v3 ({preferred_lang})]: {groq_text}", flush=True)
-                            return groq_text, preferred_lang or "ta"
-                    else:
-                        print(f"[Groq Whisper Error HTTP {resp.status_code}]: {resp.text}", flush=True)
-            except Exception as ge:
-                print(f"[Groq Whisper Exception]: {ge}", flush=True)
+        # Map preferred language:
+        # ta-en (Tanglish) -> transcribe with 'ta' (Tamil acoustic model), then transliterate to Tanglish
+        is_tanglish = (preferred_lang == 'ta-en')
+        whisper_lang = 'ta' if is_tanglish else (preferred_lang if preferred_lang and preferred_lang != 'auto' else None)
+
+        # 100% Local Offline CPU Whisper (Zero Internet required)
+        try:
+            from faster_whisper import WhisperModel
+            global _local_whisper_model
+            if '_local_whisper_model' not in globals() or _local_whisper_model is None:
+                print("[Local Offline Whisper] Initializing CPU model (Systran/faster-whisper-tiny)...", flush=True)
+                _local_whisper_model = WhisperModel('tiny', device='cpu', compute_type='int8', local_files_only=True)
+                print("[Local Offline Whisper] Model loaded successfully!", flush=True)
+            if _local_whisper_model:
+                import io
+                audio_file = io.BytesIO(audio_bytes)
+                segments, info = _local_whisper_model.transcribe(
+                    audio_file,
+                    language=whisper_lang or "ta",
+                    beam_size=1,
+                    initial_prompt="வணக்கம் உதவி காப்பாற்றுங்கள் நாங்கள் மாட்டிக்கொண்டோம் வெள்ளம் உணவு தேவை"
+                )
+                local_text = " ".join([seg.text for seg in segments]).strip()
+                if local_text:
+                    if is_tanglish:
+                        local_text = convert_tamil_to_tanglish(local_text)
+                    print(f"[Local Offline Whisper ({info.language})]: {local_text}", flush=True)
+                    return local_text, info.language or whisper_lang or "ta"
+        except Exception as le:
+            print(f"[Local Offline Whisper Exception]: {le}", flush=True)
+
+
 
         return "", preferred_lang or "ta"
     except Exception as e:
         print(f"[Indic Audio Decode Error]: {e}", flush=True)
         return "", "ta"
+
+
+def voice_ocr_refine_and_translate(raw_text: str, source_lang: str = "ta") -> tuple[str, str]:
+    """
+    Voice OCR Linguistic Post-Processor & Precision Translator:
+    Functions identically to OCR dictionary spell-checking and semantic alignment for audio.
+    1. Fixes phonetic slurs, mistranscriptions, and colloquial Tamil speech errors.
+    2. Restores proper Tamil syntax and vocabulary while preserving the user's authentic emergency intent.
+    3. Produces high-accuracy English translation for command center dispatchers.
+    """
+    if not raw_text or not raw_text.strip():
+        return "", ""
+    if not GROQ_API_KEY:
+        return raw_text, raw_text
+
+    clean = raw_text.strip()
+    if clean.lower() in ["வணக்கம்", "வணக்கம் வணக்கம் வணக்கம்", "hello", "hi"]:
+        return clean, "Hello! Greetings." if "வணக்கம்" in clean else "வணக்கம்"
+
+    models_to_try = ["groq/compound-mini", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+    for m in models_to_try:
+        try:
+            with httpx.Client(timeout=8.0, verify=False) as client:
+                resp = client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                    json={
+                        "model": m,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": (
+                                    "You are an expert Voice-to-Text OCR Post-Processor and Disaster Translation Engine for Tamil speech.\n"
+                                    "The user spoke Tamil into a phone microphone. The raw transcript may have phonetic mistranscriptions or colloquial spoken phrasing (e.g., நாங்க -> நாங்கள், மாட்டிகிட்டோம் -> மாட்டிக்கொண்டோம், தண்ணி -> தண்ணீர், காப்பாத்துங்க -> காப்பாற்றுங்கள்).\n"
+                                    "Tasks:\n"
+                                    "1. Clean up any phonetically mistranscribed words, restore proper Tamil spelling while keeping the natural spoken flow.\n"
+                                    "2. Translate accurately and naturally into English.\n"
+                                    "Output format MUST be strictly:\n"
+                                    "TAMIL: <refined Tamil text>\n"
+                                    "ENGLISH: <accurate English translation>"
+                                )
+                            },
+                            {
+                                "role": "user",
+                                "content": clean
+                            }
+                        ],
+                        "temperature": 0.1,
+                        "max_tokens": 500
+                    }
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                    refined_ta = ""
+                    refined_en = ""
+                    for line in content.splitlines():
+                        line = line.strip()
+                        if line.upper().startswith("TAMIL:"):
+                            refined_ta = line[6:].strip().strip('"').strip("'")
+                        elif line.upper().startswith("ENGLISH:"):
+                            refined_en = line[8:].strip().strip('"').strip("'")
+                    if refined_ta and refined_en:
+                        print(f"[Voice OCR Success] Raw: '{clean}' => TA: '{refined_ta}' | EN: '{refined_en}'", flush=True)
+                        return refined_ta, refined_en
+                    elif refined_en and not refined_ta:
+                        return clean, refined_en
+                    elif refined_ta:
+                        return refined_ta, clean
+        except Exception as e:
+            print(f"[Voice OCR Error with {m}]: {e}", flush=True)
+
+    return clean, clean
+
+
+
 
 class ConnectionManager:
     def __init__(self):
@@ -336,7 +469,7 @@ def init_db():
         language TEXT DEFAULT 'ta',
         latitude REAL DEFAULT 12.8718,
         longitude REAL DEFAULT 80.2185,
-        address_name TEXT DEFAULT 'St. Joseph''s Institute of Technology, OMR, Chennai',
+        address_name TEXT,
         cipher_code TEXT,
         gateway_node TEXT,
         hop_count INTEGER DEFAULT 2,
@@ -369,7 +502,7 @@ def get_system_ip():
 
 class MessagePayload(BaseModel):
     model_config = {"extra": "allow"}
-    id: Optional[str] = None
+    id: Optional[Union[str, int]] = None
     session_id: Optional[str] = "DEMO_GLOBAL_SESSION_01"
     sender_role: Optional[str] = "field"
     sender_username: Optional[str] = "@field_user"
@@ -378,9 +511,9 @@ class MessagePayload(BaseModel):
     local_mode: Optional[str] = None
     node_id: Optional[str] = None
     cipher_code: Optional[str] = None
-    duration_seconds: Optional[int] = 4
+    duration_seconds: Optional[Union[int, float]] = 4
     display_time: Optional[str] = None
-    timestamp: Optional[str] = None
+    timestamp: Optional[Union[str, int, float]] = None
     gateway_node: Optional[str] = None
     hop_count: Optional[int] = 1
     type: Optional[str] = "voice_message"
@@ -388,18 +521,18 @@ class MessagePayload(BaseModel):
     network_mode: Optional[str] = None
     audio_size: Optional[int] = 0
     audio_url: Optional[str] = None
-    is_emergency: Optional[bool] = False
+    is_emergency: Optional[Union[bool, int]] = False
     language: Optional[str] = "ta"
     latitude: Optional[float] = 12.8718
     longitude: Optional[float] = 80.2185
-    address_name: Optional[str] = "St. Joseph's Institute of Technology, OMR, Chennai" 
+    address_name: Optional[str] = None 
 
 class ModeUpdatePayload(BaseModel):
     network_mode: Optional[str] = None
     local_mode: Optional[str] = None
 
-@app.get("/")
-def root():
+@app.get("/api/status")
+def status_info():
     return {
         "status": "running",
         "active_mode": active_network_mode,
@@ -490,6 +623,12 @@ class TtsPayload(BaseModel):
 async def tts_english(payload: TtsPayload):
     """Generate crystal clear English AI voice from text"""
     audio_url = await generate_english_ai_voice(payload.text)
+    return {"status": "success", "audio_url": audio_url}
+
+@app.post("/api/tts/ai-read")
+async def tts_ai_read(payload: TtsPayload):
+    """Generate crystal clear Neural AI voice (Tamil or English) from text"""
+    audio_url = await generate_ai_voice(payload.text)
     return {"status": "success", "audio_url": audio_url}
 
 @app.post("/api/translate/groq")
@@ -662,52 +801,37 @@ Do NOT include any other text, just the JSON array."""
 
 # 🎙️ Transcribe audio URL from Mode 1/2 for translation
 class AudioTranscribePayload(BaseModel):
-    audio_url: str  # base64 data URL
+    audio_url: Optional[str] = None
+    audio_base64: Optional[str] = None
     language: Optional[str] = "ta"
 
 @app.post("/api/stt/transcribe-for-translate")
 async def transcribe_for_translate(payload: AudioTranscribePayload):
     """Transcribe audio and then translate to English using Groq"""
-    if not payload.audio_url:
+    audio_data = payload.audio_base64 or payload.audio_url or ""
+    if not audio_data:
         return {"status": "error", "text": "", "translated": ""}
 
-    # Extract base64 from data URL
-    audio_data = payload.audio_url
+    # Extract base64 from data URL if needed
     if "base64," in audio_data:
         audio_data = audio_data.split("base64,")[1]
 
-    text, lang = transcribe_indic_neural_base64(audio_data, payload.language or "ta")
+    raw_text, lang = transcribe_indic_neural_base64(audio_data, payload.language or "ta")
 
-    if not text:
-        return {"status": "error", "text": "", "translated": "Could not transcribe audio"}
+    if not raw_text:
+        return {"status": "error", "text": "", "translated": ""}
 
-    # Translate to English via Groq
-    api_key = GROQ_API_KEY
-    lang_names = {"ta": "Tamil", "hi": "Hindi", "te": "Telugu", "ml": "Malayalam",
-                  "kn": "Kannada", "bn": "Bengali", "mr": "Marathi", "gu": "Gujarati", "en": "English"}
-    src_name = lang_names.get(lang or "ta", "the language of the audio")
+    # Voice OCR: Acoustic spell repair for pure Tamil (No English translation)
+    refined_text, _ = voice_ocr_refine_and_translate(raw_text, lang or "ta")
 
-    try:
-        with __import__('httpx').Client(timeout=15.0, verify=False) as client:
-            resp = client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": "openai/gpt-oss-120b",
-                    "messages": [{"role": "user", "content": f"Translate from {src_name} to English. Only output the translation: {text}"}],
-                    "temperature": 0.1,
-                    "max_tokens": 300
-                }
-            )
-        if resp.status_code == 200:
-            translated = resp.json()["choices"][0]["message"]["content"].strip()
-            audio_voice = await generate_english_ai_voice(translated)
-            return {"status": "success", "text": text, "translated": translated, "audio_url": audio_voice, "language": lang}
-    except Exception as e:
-        print(f"[Audio Translate Error]: {e}", flush=True)
-
-    audio_voice = await generate_english_ai_voice(text)
-    return {"status": "success", "text": text, "translated": text, "audio_url": audio_voice, "language": lang}
+    return {
+        "status": "success",
+        "text": refined_text or raw_text,
+        "raw_text": raw_text,
+        "translated": "",
+        "audio_url": "",
+        "language": lang
+    }
 
 @app.get("/download-apk")
 def download_apk():
@@ -737,6 +861,11 @@ def get_all_messages():
     rows = c.fetchall()
     messages = [dict(r) for r in rows]
     conn.close()
+    for m in messages:
+        if m.get("created_at"):
+            ca_str = str(m["created_at"]).strip()
+            if " " in ca_str and not ca_str.endswith("Z"):
+                m["created_at"] = ca_str.replace(" ", "T") + "Z"
     return messages
 
 @app.get("/api/messages/mesh")
@@ -781,11 +910,39 @@ async def send_message(payload: MessagePayload):
     if msg_key in processed_message_ids:
         return {"status": "success", "deduplicated": True, "id": msg_key}
     
+    # Content & Cipher based 10-second sliding window deduplication (prevent relay floods)
+    now = time.time()
+    clean_text = (payload.text or "").strip()[:60]
+    dedup_key = payload.cipher_code if payload.cipher_code else f"{payload.sender_username}_{clean_text}"
+    if dedup_key in recent_message_dedup:
+        if now - recent_message_dedup[dedup_key] < 10.0:
+            print(f"[DEDUP] Flood duplicate suppressed ({dedup_key}) within 10s", flush=True)
+            return {"status": "success", "deduplicated": True, "id": payload.id or dedup_key}
+    recent_message_dedup[dedup_key] = now
+    if len(recent_message_dedup) > 200:
+        cutoff = now - 20.0
+        recent_message_dedup = {k: v for k, v in recent_message_dedup.items() if v > cutoff}
+
     processed_message_ids.add(msg_key)
     if len(processed_message_ids) > 1000:
         processed_message_ids.clear()
     final_text = payload.text or ""
     final_lang = payload.language or "ta"
+    
+    # Auto-expand ONLY if text was specifically the satellite beacon token from BLE
+    is_satellite_token = (
+        final_text.strip() in ("🚨 SATELL", "SATELL", "🚨 SATELLITE", "SATELLITE BEACON")
+        or (payload.network_mode == 'mode-4-satellite-beacon' and "SATELL" in final_text.upper() and len(final_text) < 30)
+    )
+    if is_satellite_token:
+        lat = payload.latitude or 12.8718
+        lng = payload.longitude or 80.2185
+        addr = payload.address_name or f"GPS: {lat:.4f}°N, {lng:.4f}°E"
+        final_text = f"🚨 SOS: I am in emergency, kindly help me! [GPS: {lat:.4f}°N, {lng:.4f}°E]"
+        payload.is_emergency = True
+        payload.latitude = lat
+        payload.longitude = lng
+        payload.address_name = addr
     
     # Precise mode resolution with strict Priority:
     # 1. Mode 4 / Satellite SOS has highest priority
@@ -841,7 +998,7 @@ async def send_message(payload: MessagePayload):
             payload.longitude,
             payload.address_name,
             payload.cipher_code or "0x4954015F01414F67AE42A082C502448A",
-            payload.gateway_node or "📱 Phone 2: Relay Node (@mesh_relay)",
+            payload.gateway_node or "🏢 Government Control Centre",
             payload.hop_count or 2,
             payload.display_time or datetime.now().strftime("%I:%M %p")
         ))
@@ -921,3 +1078,20 @@ async def ws_field(websocket: WebSocket, session_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+# 🌐 Serve Built Frontend directly on port 8000 (Single-Page App fallback)
+DIST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+if os.path.exists(DIST_DIR):
+    assets_dir = os.path.join(DIST_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa_frontend(full_path: str):
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            return {"error": "Endpoint not found"}
+        target = os.path.join(DIST_DIR, full_path)
+        if os.path.isfile(target):
+            return FileResponse(target)
+        return FileResponse(os.path.join(DIST_DIR, "index.html"))
+

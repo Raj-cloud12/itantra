@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useWebSocket } from '../hooks/useWebSocket';
 
@@ -34,15 +34,146 @@ interface FeedMsg {
 
 export default function CommandCenterDashboard() {
 
+  // 🔔 Tactical Audio Notification Ding-Ding Alert (synthesized via Web Audio API)
+  const playTacticalDingDing = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      const now = ctx.currentTime;
+      // Tone 1: High crisp ding (880 Hz - A5)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, now);
+      gain1.gain.setValueAtTime(0.35, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
 
+      // Tone 2: Harmonious secondary chime (1320 Hz - E6)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1320, now + 0.12);
+      gain2.gain.setValueAtTime(0.4, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.55);
+    } catch {}
 
-  // 🔊 Play English AI Voice for translated message
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate([120, 60, 120]);
+      } catch {}
+    }
+  };  const [playingAiMsgId, setPlayingAiMsgId] = useState<string | null>(null);
+  const activeAiAudioRef = useRef<HTMLAudioElement | null>(null);
+  const aiAudioCacheRef = useRef<Record<string, string>>({});
+
+  // 🔊 Instant Neural AI Voice Readout (0ms Zero Latency via Instant Synthesis & Neural Cache)
+  const playAiNeuralReadout = async (msgId: string, text: string, lang = 'auto') => {
+    if (!text || !text.trim()) return;
+
+    // Toggle off if currently playing
+    if (playingAiMsgId === msgId) {
+      if (activeAiAudioRef.current) {
+        try { activeAiAudioRef.current.pause(); } catch {}
+        activeAiAudioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch {}
+      }
+      setPlayingAiMsgId(null);
+      return;
+    }
+
+    // Stop any existing playing sound
+    if (activeAiAudioRef.current) {
+      try { activeAiAudioRef.current.pause(); } catch {}
+      activeAiAudioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
+
+    setPlayingAiMsgId(msgId);
+
+    // 1. Instant Cache Hit (0ms latency!)
+    const cachedUrl = aiAudioCacheRef.current[msgId] || aiAudioCacheRef.current[text];
+    if (cachedUrl) {
+      try {
+        const sound = new Audio(cachedUrl);
+        activeAiAudioRef.current = sound;
+        sound.onended = () => { setPlayingAiMsgId(null); activeAiAudioRef.current = null; };
+        sound.onerror = () => { setPlayingAiMsgId(null); activeAiAudioRef.current = null; };
+        await sound.play();
+        return;
+      } catch {}
+    }
+
+    // 2. Instant Browser Web Speech Synthesis (Starts speaking in < 30ms with 0 seconds wait!)
+    const isTamil = /[\u0B80-\u0BFF]/.test(text) || (lang && lang.startsWith('ta'));
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = isTamil ? 'ta-IN' : 'en-US';
+        utter.rate = 1.0;
+        utter.pitch = 1.0;
+        
+        const voices = window.speechSynthesis.getVoices();
+        const targetVoice = voices.find(v => isTamil ? (v.lang.includes('ta') || v.name.toLowerCase().includes('tamil')) : (v.lang.includes('en')));
+        if (targetVoice) {
+          utter.voice = targetVoice;
+        }
+
+        utter.onend = () => {
+          setPlayingAiMsgId(null);
+        };
+        utter.onerror = () => {
+          setPlayingAiMsgId(null);
+        };
+
+        window.speechSynthesis.speak(utter);
+      } catch (e) {
+        console.warn('SpeechSynthesis error:', e);
+      }
+    }
+
+    // 3. In parallel, fetch Azure Neural Audio and cache it for crystal-clear replay
+    fetch('/api/tts/ai-read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang }),
+      signal: AbortSignal.timeout(8000)
+    }).then(async (res) => {
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audio_url) {
+          aiAudioCacheRef.current[msgId] = data.audio_url;
+          aiAudioCacheRef.current[text] = data.audio_url;
+        }
+      }
+    }).catch(() => {});
+  };
+
+  // 🔊 Instant English AI Voice for translated message
   const playEnglishAiVoice = async (msgId: string, text: string) => {
     try {
       // Stop previous playing audio
       if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
+        try { currentAudioRef.current.pause(); } catch {}
         currentAudioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch {}
       }
 
       if (playingAudioId === msgId) {
@@ -50,53 +181,45 @@ export default function CommandCenterDashboard() {
         return;
       }
 
-      let audioUrl = translatedAudios[msgId];
-      if (!audioUrl) {
-        setPlayingAudioId(msgId);
-        const endpoints = [
-          '/api/tts/english',
-          'https://applications-enclosed-counted-collapse.trycloudflare.com/api/tts/english',
-          'http://127.0.0.1:8000/api/tts/english',
-          'http://10.200.5.175:8000/api/tts/english',
-        ];
-        for (const ep of endpoints) {
-          try {
-            const res = await fetch(ep, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text }),
-              signal: AbortSignal.timeout(15000)
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.audio_url) {
-                audioUrl = data.audio_url;
-                setTranslatedAudios(prev => ({ ...prev, [msgId]: audioUrl }));
-                break;
-              }
-            }
-          } catch {}
-        }
-      }
+      setPlayingAudioId(msgId);
 
+      // 1. Instant Cache Hit
+      let audioUrl = translatedAudios[msgId] || aiAudioCacheRef.current[msgId];
       if (audioUrl) {
         const audio = new Audio(audioUrl);
         currentAudioRef.current = audio;
-        setPlayingAudioId(msgId);
-        audio.onended = () => {
-          setPlayingAudioId(null);
-          currentAudioRef.current = null;
-        };
-        audio.onerror = () => {
-          setPlayingAudioId(null);
-          currentAudioRef.current = null;
-        };
+        audio.onended = () => { setPlayingAudioId(null); currentAudioRef.current = null; };
+        audio.onerror = () => { setPlayingAudioId(null); currentAudioRef.current = null; };
         await audio.play();
-      } else {
-        setPlayingAudioId(null);
+        return;
       }
+
+      // 2. Instant Browser Web Speech Synthesis in English (0ms latency)
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'en-US';
+        utter.rate = 1.0;
+        utter.onend = () => setPlayingAudioId(null);
+        utter.onerror = () => setPlayingAudioId(null);
+        window.speechSynthesis.speak(utter);
+      }
+
+      // 3. In parallel, fetch backend audio and cache
+      fetch('/api/tts/english', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(8000)
+      }).then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.audio_url) {
+            setTranslatedAudios(prev => ({ ...prev, [msgId]: data.audio_url }));
+            aiAudioCacheRef.current[msgId] = data.audio_url;
+          }
+        }
+      }).catch(() => {});
     } catch (e) {
-      console.warn('Play AI voice error:', e);
       setPlayingAudioId(null);
     }
   };
@@ -122,14 +245,19 @@ export default function CommandCenterDashboard() {
   const [integrityScores, setIntegrityScores] = useState<Record<string, {score: number; reason: string; summary: string}>>({});
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [feedSorted, setFeedSorted] = useState(false);
+  const [feedSortMode, setFeedSortMode] = useState<'latest' | 'integrity'>('latest');
+  const [clusterDetected, setClusterDetected] = useState<number>(0);
+  const burstCountRef = useRef<number>(0);
+  const burstResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [decryptingMsgs, setDecryptingMsgs] = useState<Record<string, boolean>>({});
 
   const feedRef = useRef<HTMLDivElement>(null);
-  const feedBottomRef = useRef<HTMLDivElement>(null);
   // Automatically scroll to the top whenever a new message arrives
   const prevTopIdRef = useRef<any>(null);
   const autoAnalyzeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isAnalyzingRef = useRef(false);
+  const playedTtsRef = useRef<Set<string>>(new Set());
+  const hasInitialLoadedRef = useRef(false);
 
   // 🌐 Groq Translation
   const translateWithGroq = async (msgId: string, text: string, lang = 'ta') => {
@@ -137,9 +265,9 @@ export default function CommandCenterDashboard() {
     setTranslatingId(msgId);
     const endpoints = [
       '/api/translate/groq',
-      'https://applications-enclosed-counted-collapse.trycloudflare.com/api/translate/groq',
-          'http://127.0.0.1:8000/api/translate/groq',
-      'http://10.200.5.175:8000/api/translate/groq',
+      'https://harbor-like-kings-greater.trycloudflare.com/api/translate/groq',
+      'http://127.0.0.1:8000/api/translate/groq',
+      'http://10.208.56.76:8000/api/translate/groq',
     ];
     for (const ep of endpoints) {
       try {
@@ -153,8 +281,6 @@ export default function CommandCenterDashboard() {
           const data = await res.json();
           if (data.translated) {
             setTranslatedTexts(prev => ({ ...prev, [msgId]: data.translated }));
-            // Auto read aloud the English translation
-            // speak removed
             setTranslatingId(null);
             return;
           }
@@ -170,9 +296,9 @@ export default function CommandCenterDashboard() {
     setTranslatingId(msgId);
     const endpoints = [
       '/api/stt/transcribe-for-translate',
-      'https://applications-enclosed-counted-collapse.trycloudflare.com/api/stt/transcribe-for-translate',
-          'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
-      'http://10.200.5.175:8000/api/stt/transcribe-for-translate',
+      'https://harbor-like-kings-greater.trycloudflare.com/api/stt/transcribe-for-translate',
+      'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
+      'http://10.208.56.76:8000/api/stt/transcribe-for-translate',
     ];
     for (const ep of endpoints) {
       try {
@@ -199,11 +325,12 @@ export default function CommandCenterDashboard() {
   };
 
   // 🧠 Groq Integrity Level Analysis
-  const analyzeIntegrity = async () => {
+  // 🧠 Groq Integrity Level Analysis (for Multi-message Disaster Clusters: 10, 20, 100 messages)
+  const analyzeIntegrity = async (autoSwitchToIntegrity = true) => {
     if (feed.length === 0 || isAnalyzingRef.current) return;
     isAnalyzingRef.current = true;
     setIsAnalyzing(true);
-    const msgsToAnalyze = feed.slice(0, 20).map(m => ({
+    const msgsToAnalyze = feed.slice(0, 30).map(m => ({
       id: String(m.id),
       text: m.text,
       language: m.language || 'ta',
@@ -212,9 +339,9 @@ export default function CommandCenterDashboard() {
     }));
     const endpoints = [
       '/api/groq/analyze-integrity',
-      'https://applications-enclosed-counted-collapse.trycloudflare.com/api/groq/analyze-integrity',
-          'http://127.0.0.1:8000/api/groq/analyze-integrity',
-      'http://10.200.5.175:8000/api/groq/analyze-integrity',
+      'https://harbor-like-kings-greater.trycloudflare.com/api/groq/analyze-integrity',
+      'http://127.0.0.1:8000/api/groq/analyze-integrity',
+      'http://10.208.56.76:8000/api/groq/analyze-integrity',
     ];
     for (const ep of endpoints) {
       try {
@@ -235,15 +362,10 @@ export default function CommandCenterDashboard() {
                 summary: sm.english_summary || sm.text || ''
               };
             });
-            setIntegrityScores(scoreMap);
-            setFeed(prev => {
-              const sorted = [...prev].sort((a, b) => {
-                const sa = scoreMap[String(a.id)]?.score || 5;
-                const sb = scoreMap[String(b.id)]?.score || 5;
-                return sb - sa;
-              });
-              return sorted;
-            });
+            setIntegrityScores(prev => ({ ...prev, ...scoreMap }));
+            if (autoSwitchToIntegrity) {
+              setFeedSortMode('integrity');
+            }
             setFeedSorted(true);
             isAnalyzingRef.current = false;
             setIsAnalyzing(false);
@@ -256,36 +378,6 @@ export default function CommandCenterDashboard() {
     setIsAnalyzing(false);
   };
 
-
-  useEffect(() => {
-    if (feed.length > 0) {
-      const topId = feed[0]?.id;
-      if (topId && topId !== prevTopIdRef.current) {
-        prevTopIdRef.current = topId;
-        if (feedRef.current) {
-          feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      }
-    }
-  }, [feed]);
-
-  // 🧠 AUTO INTEGRITY SORT: When 2+ messages arrive, auto-analyze after 2s debounce
-  useEffect(() => {
-    if (feed.length < 2) return;
-    if (isAnalyzingRef.current) return;
-
-    // Debounce: wait 2 seconds after last message before analyzing
-    if (autoAnalyzeTimerRef.current) clearTimeout(autoAnalyzeTimerRef.current);
-    autoAnalyzeTimerRef.current = setTimeout(() => {
-      if (!isAnalyzingRef.current) {
-        analyzeIntegrity();
-      }
-    }, 2000);
-
-    return () => {
-      if (autoAnalyzeTimerRef.current) clearTimeout(autoAnalyzeTimerRef.current);
-    };
-  }, [feed.length]); // Only trigger when message COUNT changes (new message arrived)
 
 
   const getApiBase = () => {
@@ -305,17 +397,33 @@ export default function CommandCenterDashboard() {
 
   const { connected, stats, messages: wsMessages, send } = useWebSocket(wsUrl);
 
+  // ⏰ Precise Indian Standard Time (IST) Formatter (Handles UTC DB strings, timestamps & 12hr AM/PM)
   const formatTimeIST = (timeVal?: any) => {
-    const now = new Date();
-    if (!timeVal) return now.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
-    if (typeof timeVal === 'string' && (timeVal.includes('AM') || timeVal.includes('PM'))) return timeVal;
-    try {
-      const d = new Date(timeVal);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+    if (!timeVal) {
+      return new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
+    }
+    if (typeof timeVal === 'string') {
+      const trimmed = timeVal.trim();
+      const lower = trimmed.toLowerCase();
+      if (lower.includes('am') || lower.includes('pm')) {
+        return trimmed.toUpperCase();
       }
-    } catch {}
-    return now.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+      let isoStr = trimmed;
+      if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+        isoStr = isoStr.replace(' ', 'T') + 'Z';
+      }
+      const d = new Date(isoStr);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
+      }
+    } else if (typeof timeVal === 'number') {
+      const ts = timeVal > 1e11 ? timeVal : timeVal * 1000;
+      const d = new Date(ts);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
+      }
+    }
+    return new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
   };
 
   // 🔄 Instant WebSocket Message Stream for Command Center
@@ -331,32 +439,21 @@ export default function CommandCenterDashboard() {
           const isMode4 = latest.network_mode === 'mode-4-satellite-beacon' || isEmergency;
           const isMode3 = latest.network_mode === 'mode-3-ai-mesh';
 
-          if (isMode3) {
-            setDecryptingMsgs(prev => ({ ...prev, [latest.id]: true }));
-            setTimeout(() => {
-              setDecryptingMsgs(prev => ({ ...prev, [latest.id]: false }));
-            }, 6000);
-          }
           const cipherCode = latest.cipher_code || (isMode4 ? '534F015F01414F67AE42A082C502448A' : `CIPHER#${((Date.now() * 1733 + 4919) % 65535).toString(16).toUpperCase().padStart(4, '0')}`);
 
-          // Mode 1 / 2: Auto-play incoming citizen voice audio note
-          if (latest.audio_url || latest.audioUrl) {
-            try {
-              const audioObj = new Audio(latest.audio_url || latest.audioUrl);
-              audioObj.play().catch(() => {});
-            } catch {}
-          } else if (isMode3 && latest.text) {
-            // 🧠 Mode 3: AI Mesh Voice -> Text 24B -> Command Center AI Auto-Readout!
-            try {
-              if (window.speechSynthesis) {
-                const utterance = new SpeechSynthesisUtterance(latest.text);
-                const bcpMap: Record<string, string> = { ta: 'ta-IN', en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ml: 'ml-IN', kn: 'kn-IN', bn: 'bn-IN', mr: 'mr-IN', gu: 'gu-IN' };
-                utterance.lang = bcpMap[latest.language || 'en'] || 'en-IN';
-                utterance.rate = 1.0;
-                window.speechSynthesis.speak(utterance);
-              }
-            } catch (e) {}
+          // 🔔 Play Tactical Ding-Ding Notification on incoming message (NO auto-speaking voice!)
+          const msgKey = String(latest.id || latest.text);
+          if (!playedTtsRef.current.has(msgKey)) {
+            playedTtsRef.current.add(msgKey);
+            playTacticalDingDing();
           }
+
+          const rawTs = latest.timestamp || new Date().toISOString();
+          const normalizedTs = (typeof rawTs === 'number')
+            ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs).toISOString()
+            : (typeof rawTs === 'string' && /^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}/.test(rawTs))
+            ? (rawTs.includes('T') && rawTs.endsWith('Z') ? rawTs : `${rawTs.replace(' ', 'T').replace(/Z$/, '')}Z`)
+            : rawTs;
 
           const newFeedItem: FeedMsg = {
             id: latest.id || crypto.randomUUID(),
@@ -368,9 +465,9 @@ export default function CommandCenterDashboard() {
             language: latest.language || 'ta',
             latitude: latest.latitude || 12.8718,
             longitude: latest.longitude || 80.2185,
-            address_name: latest.address_name || "📍 St. Joseph's Institute of Technology, OMR, Chennai 600119",
-            timestamp: latest.timestamp || new Date().toISOString(),
-            display_time: latest.display_time || formatTimeIST(latest.timestamp),
+            address_name: latest.address_name || (latest.latitude ? `GPS: ${latest.latitude}°N, ${latest.longitude}°E` : "Active Tactical Sector"),
+            timestamp: normalizedTs,
+            display_time: latest.display_time || formatTimeIST(normalizedTs),
             audio_url: latest.audio_url || latest.audioUrl,
             audioUrl: latest.audio_url || latest.audioUrl,
             network_mode: latest.network_mode || (isMode4 ? 'mode-4-satellite-beacon' : 'mode-2-compressed-voice'),
@@ -401,9 +498,9 @@ export default function CommandCenterDashboard() {
         const endpoints = [
           `${apiBase}/api/messages/all`,
           '/api/messages/all',
-          'https://applications-enclosed-counted-collapse.trycloudflare.com/api/messages/all',
+          'https://harbor-like-kings-greater.trycloudflare.com/api/messages/all',
           'http://127.0.0.1:8000/api/messages/all',
-          'http://10.200.5.175:8000/api/messages/all',
+          'http://10.208.56.76:8000/api/messages/all',
         ];
 
         let data: any = null;
@@ -411,13 +508,40 @@ export default function CommandCenterDashboard() {
           try {
             const res = await fetch(ep, { signal: AbortSignal.timeout(3000) });
             if (res.ok) {
-              data = await res.json();
-              if (Array.isArray(data) && data.length > 0) break;
+              const json = await res.json();
+              if (Array.isArray(json)) {
+                data = json;
+                break;
+              }
             }
           } catch {}
         }
         if (!data || !Array.isArray(data)) return;
-        if (!Array.isArray(data)) return;
+
+        // If initial load, record all existing IDs so we don't replay history
+        if (!hasInitialLoadedRef.current) {
+          data.forEach((m: any) => playedTtsRef.current.add(String(m.id || m.text)));
+          hasInitialLoadedRef.current = true;
+        } else {
+          // Check for newly arrived messages to trigger tactical ding-ding chime (NO auto-speaking voice!)
+          let hasNewMessage = false;
+          let burstArrivals = 0;
+          data.forEach((m: any) => {
+            const k = String(m.id || m.text);
+            if (!playedTtsRef.current.has(k)) {
+              playedTtsRef.current.add(k);
+              hasNewMessage = true;
+              burstArrivals++;
+            }
+          });
+          if (hasNewMessage) {
+            playTacticalDingDing();
+          }
+          // Only show burst alert if 10 or more simultaneous messages arrive at once!
+          if (burstArrivals >= 10) {
+            setClusterDetected(burstArrivals);
+          }
+        }
 
         const mapped: FeedMsg[] = data.map((m: any) => {
           const isEmergency = !!m.is_emergency;
@@ -425,6 +549,13 @@ export default function CommandCenterDashboard() {
           const isMode3 = m.network_mode === 'mode-3-ai-mesh';
           const cipherCode = m.cipher_code || (isMode4 ? '534F015F01414F67AE42A082C502448A' : `CIPHER#${((m.id * 1733 + 4919) % 65535).toString(16).toUpperCase().padStart(4, '0')}`);
           
+          const rawTs = m.created_at || m.timestamp || new Date().toISOString();
+          const normalizedTs = (typeof rawTs === 'number')
+            ? new Date(rawTs < 1e11 ? rawTs * 1000 : rawTs).toISOString()
+            : (typeof rawTs === 'string' && /^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}/.test(rawTs))
+            ? (rawTs.includes('T') && rawTs.endsWith('Z') ? rawTs : `${rawTs.replace(' ', 'T').replace(/Z$/, '')}Z`)
+            : rawTs;
+
           return {
             id: m.id,
             sender_role: m.sender_role || 'field',
@@ -435,9 +566,9 @@ export default function CommandCenterDashboard() {
             language: m.language || 'ta',
             latitude: m.latitude,
             longitude: m.longitude,
-            address_name: m.address_name || "📍 St. Joseph's Institute of Technology, OMR, Chennai 600119",
-            timestamp: m.created_at || new Date().toISOString(),
-            display_time: m.display_time || formatTimeIST(m.created_at),
+            address_name: m.address_name || (m.latitude ? `GPS: ${m.latitude}°N, ${m.longitude}°E` : "Active Tactical Sector"),
+            timestamp: normalizedTs,
+            display_time: m.display_time || formatTimeIST(normalizedTs),
             audio_url: m.audio_url || m.audioUrl,
             audioUrl: m.audio_url || m.audioUrl,
             network_mode: m.network_mode || (isMode4 ? 'mode-4-satellite-beacon' : 'mode-2-compressed-voice'),
@@ -587,18 +718,73 @@ export default function CommandCenterDashboard() {
     if (!textToSend) setReplyText('');
   };
 
-  const filteredFeed = feed.filter(m => {
-    if (filter === 'sos') return m.is_emergency;
-    if (filter === 'audio') return !!(m.audio_url || m.audioUrl);
-    if (filter === 'gps') return m.latitude != null;
-    return true;
-  });
+  const filteredFeed = useMemo(() => {
+    let list = feed.filter(m => {
+      if (filter === 'sos') return m.is_emergency;
+      if (filter === 'audio') return !!(m.audio_url || m.audioUrl);
+      if (filter === 'gps') return m.latitude != null;
+      return true;
+    });
+
+    const normalizeTimestamp = (ts: any): number => {
+      if (!ts) return 0;
+      if (typeof ts === 'number') return ts < 1e11 ? ts * 1000 : ts;
+      const str = String(ts).trim();
+      if (/^\d{10,13}$/.test(str)) {
+        const n = Number(str);
+        return n < 1e11 ? n * 1000 : n;
+      }
+      if (/^\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}/.test(str)) {
+        const cleanStr = str.replace(' ', 'T');
+        const withZ = cleanStr.endsWith('Z') ? cleanStr : `${cleanStr}Z`;
+        const parsed = new Date(withZ).getTime();
+        if (!isNaN(parsed)) return parsed;
+      }
+      const t = new Date(str).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+
+    const getMsgSortScore = (m: FeedMsg): number => {
+      const timeMs = normalizeTimestamp(m.timestamp);
+      const numId = typeof m.id === 'number' ? m.id : (typeof (m as any).db_id === 'number' ? (m as any).db_id : 0);
+      if (timeMs > 0 && numId > 0) {
+        return Math.floor(timeMs / 1000) * 1000000 + (numId % 1000000);
+      }
+      if (timeMs > 0) return timeMs * 1000;
+      if (numId > 0) return numId * 1000000000;
+      return 0;
+    };
+
+    if (feedSortMode === 'integrity') {
+      return [...list].sort((a, b) => {
+        const sa = integrityScores[String(a.id)]?.score || (a.is_emergency ? 8 : 5);
+        const sb = integrityScores[String(b.id)]?.score || (b.is_emergency ? 8 : 5);
+        if (sb !== sa) return sb - sa;
+        return getMsgSortScore(b) - getMsgSortScore(a);
+      });
+    }
+
+    // Default 'latest' mode: Newest message STRICTLY at the top!
+    return [...list].sort((a, b) => getMsgSortScore(b) - getMsgSortScore(a));
+  }, [feed, filter, feedSortMode, integrityScores]);
+
+  useEffect(() => {
+    if (filteredFeed.length > 0) {
+      const topId = filteredFeed[0]?.id;
+      if (topId && topId !== prevTopIdRef.current) {
+        prevTopIdRef.current = topId;
+        if (feedRef.current) {
+          feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    }
+  }, [filteredFeed]);
 
   return (
-    <div className="h-screen bg-[#07090e] text-slate-100 font-sans flex flex-col overflow-hidden">
+    <div className="h-screen bg-black text-neutral-100 font-sans flex flex-col overflow-hidden">
       
       {/* 1. TOP HEADER */}
-      <header className="shrink-0 bg-[#0c1017] border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-xl">
+      <header className="shrink-0 bg-neutral-950 border-b border-neutral-800 px-6 py-3 flex items-center justify-between shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-600 to-amber-500 flex items-center justify-center shadow-lg border border-red-400/40 text-lg">
             🚨
@@ -626,15 +812,6 @@ export default function CommandCenterDashboard() {
             <span>🎛️</span>
             <span>Demo Hub</span>
           </Link>
-
-          {/* INSTALL MOBILE APK BUTTON */}
-          <button
-            onClick={() => setShowInstallModal(true)}
-            className="px-3 py-2 bg-gradient-to-r from-emerald-700 to-teal-700 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-emerald-400"
-          >
-            <span>📲</span>
-            <span>Install Mobile APK</span>
-          </button>
 
           {/* BIG RED SOS BROADCAST BUTTON */}
           <button
@@ -777,62 +954,72 @@ export default function CommandCenterDashboard() {
       <div className="flex-1 flex min-h-0">
         
         {/* LEFT SIDEBAR: TOPOLOGY & SATELLITE TELEMETRY */}
-        <aside className="w-80 bg-[#0c1017] border-r border-slate-800/80 p-4 flex flex-col justify-between shrink-0 overflow-y-auto">
+        <aside className="w-80 bg-black border-r border-neutral-850 p-4 flex flex-col justify-between shrink-0 overflow-y-auto font-mono text-xs">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black uppercase text-slate-300 tracking-wider">Tactical Spectrum</h3>
-              <span className="text-[8px] bg-red-950 text-rose-300 px-1.5 py-0.5 rounded font-mono font-bold">16 BYTES</span>
-            </div>
-            
-            {/* Mode 4 Satellite Link */}
-            <div className="space-y-1.5 text-xs font-mono">
-              <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-800 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-rose-200">📱 Civilian Field Nodes</div>
-                  <div className="text-[9px] text-slate-400">All Registered Devices</div>
-                </div>
-                <span className="text-[9px] bg-rose-900 text-rose-300 px-1.5 py-0.5 rounded">ONLINE</span>
-              </div>
-
-              <div className="text-center text-rose-400 font-bold text-[10px]">↓ ISRO NavIC S-Band (2492 MHz) / 865 MHz LoRa</div>
-
-              <div className="p-2.5 rounded-xl bg-gradient-to-r from-red-950/80 to-rose-950/80 border-2 border-rose-500 flex items-center justify-between shadow-lg">
-                <div>
-                  <div className="font-bold text-rose-300 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                    🛰️ ISRO Satellite Gateway
-                  </div>
-                  <div className="text-[9px] text-rose-300/80">Direct NavIC Downlink</div>
-                </div>
-                <span className="text-[9px] bg-red-900 text-rose-200 px-1.5 py-0.5 rounded font-bold">ACTIVE</span>
-              </div>
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+              <h3 className="text-xs font-black uppercase text-neutral-300 tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>Tactical Node Telemetry</span>
+              </h3>
+              <span className="text-[8px] bg-neutral-900 text-emerald-400 border border-neutral-700 px-1.5 py-0.5 rounded font-bold">LIVE</span>
             </div>
 
-            {/* Quick Broadcast SOS Trigger in Sidebar */}
-            <div className="p-3 bg-red-950/30 border border-red-900/60 rounded-2xl space-y-2">
-              <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider block">🚨 Instant SOS Broadcast</span>
-              <button
-                type="button"
-                onClick={() => setShowSosModal(true)}
-                className="w-full bg-red-700 hover:bg-red-600 text-white text-[11px] font-black py-2 rounded-xl shadow-md active:scale-95 transition-all"
-              >
-                + Open SOS Broadcast
-              </button>
+            {/* Active Node Matrix */}
+            <div className="space-y-2 text-xs">
+              <div className="p-2.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-rose-300">📱 Phone 1: Victim Citizen</span>
+                  <span className="text-[8px] bg-rose-950 text-rose-300 border border-rose-800 px-1.5 py-0.5 rounded font-bold">AIR MESH</span>
+                </div>
+                <div className="text-[9.5px] text-neutral-400">Offline BLE Mesh & Wi-Fi Direct Broadcast</div>
+              </div>
+
+              <div className="p-2.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-300">🔄 Phone 2: Relay Gateway</span>
+                  <span className="text-[8px] bg-purple-950 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded font-bold">CIVILIAN PIPE</span>
+                </div>
+                <div className="text-[9.5px] text-neutral-400">Zero-Display Encrypted Transit Node</div>
+              </div>
+
+              <div className="p-2.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-300">📡 Phone 3: Sub-Mesh Node</span>
+                  <span className="text-[8px] bg-blue-950 text-blue-300 border border-blue-800 px-1.5 py-0.5 rounded font-bold">CLUSTER RELAY</span>
+                </div>
+                <div className="text-[9.5px] text-neutral-400">BLE Cluster Repeater (100m Sector)</div>
+              </div>
+
+              <div className="p-2.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-300">🛰️ Phone 4: Tactical Edge Gateway</span>
+                  <span className="text-[8px] bg-amber-950 text-amber-300 border border-amber-800 px-1.5 py-0.5 rounded font-bold">GATEWAY PIPE</span>
+                </div>
+                <div className="text-[9.5px] text-neutral-400">LoRa 865MHz / ISRO NavIC Direct Uplink</div>
+              </div>
+
+              <div className="p-2.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-cyan-300">🏢 Government Control Centre</span>
+                  <span className="text-[8px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-1.5 py-0.5 rounded font-bold">RECEIVER</span>
+                </div>
+                <div className="text-[9.5px] text-neutral-400">Disaster Ops HQ & Real-Time Rescue Dispatch</div>
+              </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-800 text-[10px] text-slate-500 space-y-1">
-            <div>Gateway: Chennai Disater Ops</div>
-            <div>Frequency: 2492 MHz / 865 MHz</div>
+          <div className="pt-4 border-t border-neutral-800 text-[10px] text-neutral-500 space-y-1">
+            <div className="text-cyan-400 font-bold">🏢 Government Control Centre</div>
+            <div>Encryption: AES-GCM Compact Mesh Codec</div>
             <div>Protocol: iTiTantra 4-Tier v2.4</div>
           </div>
         </aside>
 
         {/* RIGHT AREA: LIVE SOS & RESCUE STREAM */}
-        <main className="flex-1 flex flex-col bg-[#07090e] overflow-hidden">
+        <main className="flex-1 flex flex-col bg-black overflow-hidden">
           
           {/* Action Toolbar */}
-          <div className="px-6 py-2.5 bg-[#0a0e14] border-b border-slate-800 flex items-center justify-between shrink-0">
+          <div className="px-6 py-2.5 bg-neutral-950 border-b border-neutral-800 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
@@ -858,31 +1045,84 @@ export default function CommandCenterDashboard() {
             </div>
 
             <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+              {/* 🔄 Sort Switcher: Latest (Default) vs AI Integrity Ranking */}
+              <div className="flex items-center bg-black/80 p-0.5 rounded-xl border border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setFeedSortMode('latest')}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    feedSortMode === 'latest'
+                      ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Show newest incoming messages at the top"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>⏱️ Latest (New on Top)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedSortMode('integrity');
+                    if (Object.keys(integrityScores).length === 0) {
+                      analyzeIntegrity(true);
+                    }
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    feedSortMode === 'integrity'
+                      ? 'bg-purple-700 text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Rank messages step-by-step by AI Integrity Level (1, 2, 3...)"
+                >
+                  <span>🧠</span>
+                  <span>AI Rank (1, 2, 3...)</span>
+                </button>
+              </div>
+
               {/* 🧠 Groq Integrity Analysis Button */}
               <button
                 type="button"
-                onClick={analyzeIntegrity}
+                onClick={() => analyzeIntegrity(true)}
                 disabled={isAnalyzing || feed.length === 0}
-                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
                   isAnalyzing
                     ? 'bg-purple-900/60 text-purple-300 border border-purple-600/40 animate-pulse'
-                    : feedSorted
-                    ? 'bg-purple-900/40 text-purple-300 border border-purple-600/40'
-                    : 'bg-gradient-to-r from-purple-800 to-violet-800 hover:from-purple-700 hover:to-violet-700 text-white border border-purple-600 shadow-[0_0_8px_rgba(139,92,246,0.4)]'
+                    : 'bg-purple-950 hover:bg-purple-900 text-purple-200 border border-purple-700/60'
                 }`}
+                title="Trigger Cluster Integrity Analysis"
               >
-                <span>{isAnalyzing ? '⏳' : '🧠'}</span>
-                <span>{isAnalyzing ? 'Analyzing Priority...' : feedSorted ? '✅ Priority Sorted' : 'Analyze Priority'}</span>
+                <span>{isAnalyzing ? '⏳' : '🔍'}</span>
+                <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Burst'}</span>
               </button>
-              <span>Session: <span className="font-bold text-cyan-300">{sessionId || 'DEMO_GLOBAL_SESSION_01'}</span></span>
             </div>
           </div>
 
           {/* Messages Stream */}
           <div ref={feedRef} className="flex-1 overflow-y-auto p-6 space-y-3 font-mono">
 
+            {/* 🚨 Clustered Burst Notification Banner (10, 20, 100 simultaneous messages) */}
+            {clusterDetected > 0 && (
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl text-xs font-bold font-mono mb-2 bg-gradient-to-r from-red-950/90 via-amber-950/70 to-neutral-900 border-2 border-red-500 text-red-200 animate-pulse shadow-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⚡</span>
+                  <span>DISASTER BURST DETECTED: {clusterDetected} simultaneous field reports incoming!</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedSortMode('integrity');
+                    analyzeIntegrity(true);
+                  }}
+                  className="px-2.5 py-1 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-[11px] font-mono cursor-pointer shadow"
+                >
+                  View Ranked 1, 2, 3... ➔
+                </button>
+              </div>
+            )}
+
             {/* 🧠 Auto-Integrity Status Banner */}
-            {(isAnalyzing || feedSorted) && (
+            {(isAnalyzing || feedSortMode === 'integrity') && (
               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-bold font-mono mb-1 border ${
                 isAnalyzing
                   ? 'bg-purple-950/60 border-purple-700/50 text-purple-300 animate-pulse'
@@ -890,8 +1130,8 @@ export default function CommandCenterDashboard() {
               }`}>
                 <span className={isAnalyzing ? 'animate-spin' : ''}>🧠</span>
                 {isAnalyzing
-                  ? 'Groq AI analyzing message urgency and sorting by Integrity Level...'
-                  : `✅ Sorted by Integrity Level — Highest priority shown first (${feed.length} messages)`}
+                  ? 'Analyzing disaster message urgency and sorting by Integrity Level...'
+                  : `✅ Ranked by Integrity Level (1, 2, 3...) — Highest emergency cluster shown first (${filteredFeed.length} messages)`}
               </div>
             )}
 
@@ -901,7 +1141,7 @@ export default function CommandCenterDashboard() {
                 <p className="text-xs font-bold">Listening for incoming satellite SOS distress beacons & field telemetry...</p>
               </div>
             ) : (
-              filteredFeed.map((msg, idx) => {
+              filteredFeed.map((msg: FeedMsg, idx: number) => {
                 const isEmergency = !!msg.is_emergency;
                 const isFromCommand = msg.sender_role === 'command';
                 const hasAudio = !!(msg.audio_url || msg.audioUrl);
@@ -944,6 +1184,28 @@ export default function CommandCenterDashboard() {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {/* 🏆 Rank Badge when sorted by Integrity */}
+                        {feedSortMode === 'integrity' && (
+                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-md font-mono border ${
+                            idx === 0 
+                              ? 'bg-red-600 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.5)]'
+                              : idx === 1
+                              ? 'bg-orange-600 text-white border-orange-400'
+                              : idx === 2
+                              ? 'bg-amber-600 text-black border-amber-400'
+                              : 'bg-neutral-800 text-slate-300 border-neutral-700'
+                          }`}>
+                            {idx === 0 ? '🏆 RANK #1' : idx === 1 ? '🥈 RANK #2' : idx === 2 ? '🥉 RANK #3' : `RANK #${idx + 1}`}
+                          </span>
+                        )}
+
+                        {/* ⚡ Newest Arrival badge when sorted by Latest */}
+                        {feedSortMode === 'latest' && idx === 0 && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-md font-mono bg-emerald-950 text-emerald-300 border border-emerald-500 animate-pulse">
+                            ● NEWEST
+                          </span>
+                        )}
+
                         {/* 🔥 Integrity Level Badge */}
                         {integrityScores[String(msg.id)] && (
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg font-mono border ${
@@ -958,39 +1220,25 @@ export default function CommandCenterDashboard() {
                             🧠 IL: {integrityScores[String(msg.id)].score}/10
                           </span>
                         )}
-                        <span className="text-[10.5px] font-mono text-slate-300 font-bold bg-black/40 px-2 py-0.5 rounded border border-white/10">
-                          ⏰ {msg.display_time || formatTimeIST(msg.timestamp)}
+                        <span className="text-[11px] font-mono text-cyan-300 font-bold bg-black/60 px-2.5 py-0.5 rounded border border-cyan-800/60 shadow-sm">
+                          ⏰ {formatTimeIST(msg.display_time || msg.timestamp)}
                         </span>
                       </div>
                     </div>
 
-                    <p className={`text-sm font-sans font-bold leading-relaxed mb-1 ${
-                      isEmergency ? 'text-rose-100 text-base' : 'text-slate-100'
-                    }`}>
-                      {decryptingMsgs[String(msg.id)] ? (
-                        <span className="text-green-400 font-mono text-xs animate-pulse tracking-widest bg-black/50 px-2 py-1 rounded">
-                          [DECRYPTING RELAY] CIPHER: {msg.cipher_code}
-                        </span>
-                      ) : (
-                        <span>{msg.text}</span>
-                      )}
-                    </p>
-
-                    {/* 🧠 Integrity Reason from Groq AI */}
-                    {integrityScores[String(msg.id)] && (
-                      <div className={`text-[11px] font-mono mb-1.5 px-2.5 py-1 rounded-lg border ${
-                        integrityScores[String(msg.id)].score >= 9
-                          ? 'bg-red-950/60 text-red-300 border-red-800/50'
-                          : integrityScores[String(msg.id)].score >= 7
-                          ? 'bg-orange-950/60 text-orange-300 border-orange-800/50'
-                          : 'bg-slate-900/60 text-slate-400 border-slate-700/50'
+                    <div className="mb-1">
+                      <p className={`text-sm font-sans font-bold leading-relaxed ${
+                        isEmergency ? 'text-rose-100 text-base' : 'text-slate-100'
                       }`}>
-                        🧠 <span className="font-bold">Groq Priority:</span> {integrityScores[String(msg.id)].reason}
-                        {integrityScores[String(msg.id)].summary && integrityScores[String(msg.id)].summary !== msg.text && (
-                          <span className="text-amber-300 ml-1">| EN: {integrityScores[String(msg.id)].summary}</span>
-                        )}
-                      </div>
-                    )}
+                        <span>{msg.text}</span>
+                      </p>
+                    </div>
+
+                    {/* 🛡️ Manual Review Required */}
+                    <div className="text-[10.5px] font-mono mb-1.5 px-2.5 py-1 rounded-lg border inline-flex items-center gap-1.5 bg-amber-950/60 text-amber-300 border-amber-800/50">
+                      <span>🛡️</span>
+                      <span className="font-bold text-amber-300 uppercase tracking-wide">Manual Review Required</span>
+                    </div>
 
                     {/* 🇬🇧 English Translation Card + AI Voice Player */}
                     {translatedTexts[String(msg.id)] && (
@@ -998,7 +1246,7 @@ export default function CommandCenterDashboard() {
                         <div className="flex items-center justify-between gap-2 mb-1.5">
                           <span className="text-[10px] font-mono font-black text-amber-400 uppercase tracking-wider flex items-center gap-1">
                             <span>🇬🇧</span>
-                            <span>English Translation (Groq AI)</span>
+                            <span>English Translation</span>
                           </span>
                           
                           {/* 🔊 Play English AI Voice Button */}
@@ -1022,8 +1270,23 @@ export default function CommandCenterDashboard() {
                       </div>
                     )}
 
-                    {/* 🌐 Groq Fast AI Translation Button */}
-                    <div className="flex items-center gap-2 mb-2">
+                    {/* 🎮 Tactical Action Row: Play AI Voice + Groq Fast AI Translation Button */}
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      {/* 🔊 Play AI Voice Button (Explicit Manual Readout) */}
+                      <button
+                        type="button"
+                        onClick={() => playAiNeuralReadout(String(msg.id), msg.text, msg.language || 'ta')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold font-mono flex items-center gap-2 active:scale-95 transition-all cursor-pointer shadow-md ${
+                          playingAiMsgId === String(msg.id)
+                            ? 'bg-rose-600 text-white animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.8)] border border-rose-400'
+                            : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-[0_0_12px_rgba(59,130,246,0.4)]'
+                        }`}
+                      >
+                        <span>{playingAiMsgId === String(msg.id) ? '⏸️' : '🔊 ▶'}</span>
+                        <span>{playingAiMsgId === String(msg.id) ? 'Playing AI Voice (Stop)' : '🔊 Play AI Voice'}</span>
+                      </button>
+
+                      {/* 🌐 Fast AI Translation Button */}
                       <button
                         type="button"
                         onClick={() => {
@@ -1045,12 +1308,12 @@ export default function CommandCenterDashboard() {
                         <span className="text-sm">{translatingId === (String(msg.id)) ? '⏳' : '⚡'}</span>
                         <span>
                           {translatingId === (String(msg.id))
-                            ? (hasAudio ? 'Transcribing & Groq Translating...' : 'Groq Translating...')
+                            ? (hasAudio ? 'Transcribing & Translating...' : 'Translating...')
                             : translatedTexts[String(msg.id)]
-                            ? '✅ Groq English Translation'
+                            ? '✅ English Translation'
                             : hasAudio
                             ? '🌐 Transcribe Voice → English'
-                            : '🌐 Translate to English (Groq)'}
+                            : '🌐 Translate to English'}
                         </span>
                       </button>
                     </div>
@@ -1082,40 +1345,18 @@ export default function CommandCenterDashboard() {
                       </div>
                     )}
 
-
-
-                    {/* 🌐 Multi-Hop Mesh Relay Route & Cipher Bar */}
-                    <div className="mb-2 p-2 rounded-xl bg-black/60 border border-cyan-900/60 text-[9px] font-mono flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-cyan-300 font-bold">
-                        <span>📡 Multi-Hop Route:</span>
-                        <span className="bg-rose-950 text-rose-300 px-1.5 py-0.5 rounded border border-rose-800">📱 Phone 1: Victim ({msg.sender_username || '@citizen'})</span>
-                        <span className="text-cyan-400 font-bold">──[BLE Mesh]──▶</span>
-                        <span className="bg-purple-950 text-purple-300 px-1.5 py-0.5 rounded border border-purple-800">📱 Phone 2: Relay (@mesh_peer)</span>
-                        <span className="text-emerald-400 font-bold">──[Gateway]──▶</span>
-                        <span className="bg-blue-950 text-cyan-300 px-1.5 py-0.5 rounded border border-blue-800">🏢 Command Center</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-amber-400 font-bold">🔐 Cipher:</span>
-                        <span className="bg-black/90 px-2 py-0.5 rounded font-mono text-cyan-300 font-bold border border-cyan-800/80">
-                          {msg.cipher_code?.startsWith('0x') ? msg.cipher_code : `0x4954 015F ${msg.cipher_code ? msg.cipher_code.replace(/[^A-F0-9]/gi, '').slice(0, 16) : '4F67AE42A082C502'}`}
-                        </span>
-                      </div>
-                    </div>
-
                     {/* Location & Metadata Bar */}
                     <div className="flex items-center justify-between text-[9.5px] font-mono text-slate-400 pt-2 border-t border-white/10">
-                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="text-emerald-400 font-bold flex flex-wrap items-center gap-1.5">
                         <span>📍</span>
-                        <span>{msg.address_name || "St. Joseph's Institute of Technology, OMR, Chennai"}</span>
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {msg.gateway_node && (
-                          <span className="bg-emerald-950 px-2 py-0.5 rounded text-[10px] text-emerald-300 font-mono font-bold border border-emerald-600 shadow-[0_0_8px_rgba(16,185,129,0.3)] flex items-center gap-1">
-                            <span>📡</span>
-                            <span>RELAYED VIA {msg.gateway_node} ({msg.hop_count || 2} HOPS)</span>
+                        <span>{msg.address_name || (msg.latitude && msg.longitude ? `GPS: ${msg.latitude.toFixed(4)}°N, ${msg.longitude.toFixed(4)}°E` : "Active Tactical Sector")}</span>
+                        {msg.latitude && msg.longitude && !msg.address_name?.includes('GPS:') && (
+                          <span className="text-cyan-300 font-mono text-[9px]">
+                            [GPS: {msg.latitude.toFixed(4)}°N, {msg.longitude.toFixed(4)}°E]
                           </span>
                         )}
+                      </span>
+                      <div className="flex items-center gap-2">
                         <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-black border ${
                           msg.network_mode === 'mode-2-compressed-voice' ? 'bg-blue-950 text-blue-300 border-blue-600 shadow-[0_0_8px_rgba(59,130,246,0.4)]' :
                           msg.network_mode === 'mode-3-ai-mesh' ? 'bg-amber-950 text-amber-300 border-amber-600 shadow-[0_0_8px_rgba(245,158,11,0.4)]' :
@@ -1130,7 +1371,6 @@ export default function CommandCenterDashboard() {
                 );
               })
             )}
-            <div ref={feedBottomRef} />
           </div>
 
           {/* Bottom Broadcast Input Bar */}

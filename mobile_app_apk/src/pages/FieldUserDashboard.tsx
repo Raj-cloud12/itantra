@@ -1,16 +1,19 @@
 // No translation needed - Indic STT text sent as-is
-// 🌐 9 SUPPORTED DISASTER INDIC LANGUAGES
+// 🌐 10 SUPPORTED DISASTER INDIC LANGUAGES (AI4Bharat IndicConformer On-Demand Packs)
 const INDIC_LANGUAGES_9 = [
-  { code: 'ta', name: 'தமிழ்', label: 'Tamil' },
-  { code: 'en', name: 'English', label: 'English' },
-  { code: 'te', name: 'తెలుగు', label: 'Telugu' },
-  { code: 'hi', name: 'हिंदी', label: 'Hindi' },
-  { code: 'ml', name: 'മലയാളം', label: 'Malayalam' },
-  { code: 'kn', name: 'ಕನ್ನಡ', label: 'Kannada' },
-  { code: 'bn', name: 'বাংলা', label: 'Bengali' },
-  { code: 'mr', name: 'मराठी', label: 'Marathi' },
-  { code: 'gu', name: 'ગુજરાતી', label: 'Gujarati' },
+  { code: 'ta',   name: 'தமிழ்',     label: 'Tamil',       flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ta-IN' },
+  { code: 'en',   name: 'English',   label: 'English',     flag: '🇬🇧', packMB: 166,  modelName: 'NeMo FastConformer',       webLang: 'en-IN' },
+  { code: 'ta-en',name: 'Tanglish',  label: 'தமிழ்+English', flag: '🔀', packMB: 166,  modelName: 'English Indic Model',      webLang: 'en-IN' },
+  { code: 'te',   name: 'తెలుగు',    label: 'Telugu',      flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'te-IN' },
+  { code: 'ml',   name: 'മലയാളം',   label: 'Malayalam',   flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ml-IN' },
+  { code: 'hi',   name: 'हिंदी',     label: 'Hindi',       flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'hi-IN' },
+  { code: 'kn',   name: 'ಕನ್ನಡ',     label: 'Kannada',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'kn-IN' },
+  { code: 'bn',   name: 'বাংলা',     label: 'Bengali',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'bn-IN' },
+  { code: 'mr',   name: 'मराठी',     label: 'Marathi',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'mr-IN' },
+  { code: 'gu',   name: 'ગુજરાતી',   label: 'Gujarati',    flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'gu-IN' },
 ];
+
+
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
@@ -43,7 +46,7 @@ export default function FieldUserDashboard() {
   const [activeTab, setActiveTab] = useState<'talk' | 'sos' | 'relay' | 'mesh'>('talk');
   const [textInput, setTextInput] = useState('');
   const [spokenSpeechText, setSpokenSpeechText] = useState('');
-  const [isEmergency, setIsEmergency] = useState(false);
+  const [persistentSpokenText, setPersistentSpokenText] = useState('');
   const [sosHistory, setSosHistory] = useState<any[]>([]);
   const [sosCustomInput, setSosCustomInput] = useState<string>('');
   const [relayedAirPackets, setRelayedAirPackets] = useState<any[]>(() => {
@@ -55,10 +58,9 @@ export default function FieldUserDashboard() {
     }
   });
 
-  // Main Tactical Modes (Default to Mode-3 AI Mesh for disaster offline relay)
-  const [networkMode, setNetworkMode] = useState<'mode-1-hd-call' | 'mode-2-compressed-voice' | 'mode-3-ai-mesh' | 'mode-4-satellite-beacon'>(() => {
-    return (localStorage.getItem('civilian_user_network_mode') as any) || 'mode-3-ai-mesh';
-  });
+  // Tactical Network Mode: Dedicated Mode-3 AI Mesh for disaster offline mesh relay
+  const [networkMode] = useState<any>('mode-3-ai-mesh');
+  const setNetworkMode = (_mode?: any) => {};
   const [batteryPct, setBatteryPct] = useState<number>(85);
 
   // Local Mesh 3-Modes (Exclusive for Friends P2P)
@@ -69,6 +71,44 @@ export default function FieldUserDashboard() {
     if (!name) return '';
     const clean = name.trim();
     return clean.startsWith('@') ? clean.toLowerCase() : `@${clean.toLowerCase()}`;
+  };
+
+  // 📦 Download Language Pack (AI4Bharat IndicConformer) with real native progress tracking
+  const downloadLangPack = async (langCode: string) => {
+    if (downloadingLang || installedPacks.includes(langCode) || langCode === 'auto') return;
+    const lang = INDIC_LANGUAGES_9.find(l => l.code === langCode);
+    if (!lang) return;
+
+    setDownloadingLang(langCode);
+    setPackDownloadProgress(prev => ({ ...prev, [langCode]: 0 }));
+
+    // 1. Invoke Android Native AI4Bharat Model Downloader
+    if ((window as any).AndroidBleMeshBridge?.downloadLanguagePack) {
+      try {
+        (window as any).AndroidBleMeshBridge.downloadLanguagePack(langCode);
+        return;
+      } catch (e) {
+        console.warn('Native downloadLanguagePack error, using browser fallback:', e);
+      }
+    }
+
+    // 2. Browser fallback simulation for desktop browser pair testing
+    try {
+      const steps = 40;
+      for (let i = 1; i <= steps; i++) {
+        await new Promise(r => setTimeout(r, 50));
+        const pct = Math.min(99, Math.round((i / steps) * 100));
+        setPackDownloadProgress(prev => ({ ...prev, [langCode]: pct }));
+      }
+      setPackDownloadProgress(prev => ({ ...prev, [langCode]: 100 }));
+      const newPacks = [...installedPacks.filter(p => p !== langCode), langCode];
+      setInstalledPacks(newPacks);
+      localStorage.setItem('installed_lang_packs', JSON.stringify(newPacks));
+    } catch {
+      setPackDownloadProgress(prev => ({ ...prev, [langCode]: -1 }));
+    } finally {
+      setDownloadingLang(null);
+    }
   };
 
   // Permanent Unique Cryptographic Node ID (Hardware Fingerprint)
@@ -116,7 +156,7 @@ export default function FieldUserDashboard() {
   });
 
   // Live Cloudflare Primary Gateway Endpoint & Local Network Endpoints
-  const PRIMARY_CLOUDFLARE = 'https://books-feat-scales-popularity.trycloudflare.com';
+  const PRIMARY_CLOUDFLARE = 'https://railroad-boys-charleston-transport.trycloudflare.com';
   const CURRENT_LAN_IP = 'http://10.245.166.76:8000';
   const [targetHost, setTargetHost] = useState<string>(() => {
     return localStorage.getItem('tactical_host') || '';
@@ -124,6 +164,64 @@ export default function FieldUserDashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [showLangModal, setShowLangModal] = useState<boolean>(() => !localStorage.getItem('fixed_user_language'));
   const [lastDeliveryToast, setLastDeliveryToast] = useState<string>('');
+
+  // 📦 Language Pack Download Manager State
+  const [packDownloadProgress, setPackDownloadProgress] = useState<Record<string, number>>({});
+  const [installedPacks, setInstalledPacks] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('installed_lang_packs') || '[]'); } catch { return []; }
+  });
+  const [downloadingLang, setDownloadingLang] = useState<string | null>(null);
+
+  // Hook up Android Native AI4Bharat Model Download callbacks & storage status
+  useEffect(() => {
+    (window as any).onModelDownloadProgress = (langCode: string, pct: number) => {
+      setPackDownloadProgress(prev => ({ ...prev, [langCode]: pct }));
+      if (pct < 100) {
+        setDownloadingLang(langCode);
+      }
+    };
+
+    (window as any).onModelDownloadComplete = (langCode: string) => {
+      setPackDownloadProgress(prev => ({ ...prev, [langCode]: 100 }));
+      setInstalledPacks(prev => {
+        const next = Array.from(new Set([...prev, langCode]));
+        localStorage.setItem('installed_lang_packs', JSON.stringify(next));
+        return next;
+      });
+      setDownloadingLang(null);
+      setLastDeliveryToast(`✅ AI4Bharat ${langCode.toUpperCase()} மாடல் வெற்றிகரமாக இன்ஸ்டால் செய்யப்பட்டது!`);
+    };
+
+    (window as any).onModelDownloadError = (langCode: string, err: string) => {
+      setPackDownloadProgress(prev => ({ ...prev, [langCode]: -1 }));
+      setDownloadingLang(null);
+      setLastDeliveryToast(`❌ மாடல் பதிவிறக்கம் தோல்வி: ${err}`);
+    };
+
+    // Check currently installed packs in native Android storage
+    if ((window as any).AndroidBleMeshBridge?.isLanguagePackInstalled) {
+      const nativeInstalled: string[] = [];
+      INDIC_LANGUAGES_9.forEach(l => {
+        try {
+          if ((window as any).AndroidBleMeshBridge.isLanguagePackInstalled(l.code)) {
+            nativeInstalled.push(l.code);
+          }
+        } catch {}
+      });
+      if (nativeInstalled.length > 0) {
+        setInstalledPacks(prev => {
+          const combined = Array.from(new Set([...prev, ...nativeInstalled]));
+          localStorage.setItem('installed_lang_packs', JSON.stringify(combined));
+          return combined;
+        });
+      }
+    }
+
+    // Auto-enable Bluetooth & Wi-Fi radios on startup
+    try {
+      (window as any).AndroidBleMeshBridge?.ensureRadiosEnabled?.();
+    } catch {}
+  }, []);
 
   // 📡 State for Mode 3 Air Relay Banner on Phone 2 (Judge Display)
   const [incomingAirRelay, setIncomingAirRelay] = useState<{
@@ -141,7 +239,7 @@ export default function FieldUserDashboard() {
       if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         finalHost = window.location.hostname;
       } else {
-        finalHost = 'books-feat-scales-popularity.trycloudflare.com';
+        finalHost = 'railroad-boys-charleston-transport.trycloudflare.com';
       }
     }
     
@@ -165,13 +263,12 @@ export default function FieldUserDashboard() {
     const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:') ? window.location.hostname : '';
     const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
     return Array.from(new Set([
-      `${PRIMARY_CLOUDFLARE}${path}`,
-      `${CURRENT_LAN_IP}${path}`,
-      `http://10.245.166.76:8000${path}`,
-      ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : []),
-      ...(targetHost ? [resolveHttp(targetHost, path)] : []),
       `http://127.0.0.1:8000${path}`,
       `http://localhost:8000${path}`,
+      `http://10.245.166.76:8000${path}`,
+      `${CURRENT_LAN_IP}${path}`,
+      ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : []),
+      ...(targetHost ? [resolveHttp(targetHost, path)] : []),
       ...(isFileProtocol ? [] : [path])
     ]));
   };
@@ -247,8 +344,16 @@ export default function FieldUserDashboard() {
   const [offlineMessages, setOfflineMessages] = useState<any[]>([]);
   const playedAudioRef = useRef<Set<string>>(new Set());
 
-  // GPS Location & Address
-  const [selectedTransLang, setSelectedTransLang] = useState<string>(() => localStorage.getItem('fixed_user_language') || localStorage.getItem('local_language') || 'en');
+  // GPS Location & Address - Default to Tamil ('ta')
+  const [selectedTransLang, setSelectedTransLang] = useState<string>(() => {
+    const saved = localStorage.getItem('fixed_user_language');
+    if (saved && saved !== 'en') return saved;
+    try {
+      localStorage.setItem('fixed_user_language', 'ta');
+      localStorage.setItem('local_language', 'ta');
+    } catch {}
+    return 'ta';
+  });
   const [activeTranslations, setActiveTranslations] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 12.8718, lng: 80.2185 });
   const [addressName, setAddressName] = useState<string>("📍 St. Joseph\'s Institute of Technology, OMR, Semmancheri, Chennai 600119");
@@ -256,29 +361,41 @@ export default function FieldUserDashboard() {
   const [cipherRelaySender, setCipherRelaySender] = useState<string>("");
   const [cipherRelayText, setCipherRelayText] = useState<string>("");
   const relayedPacketIdsRef = useRef<Set<string>>(new Set());
+  const latestPacketTextRef = useRef<Record<string, string>>({});
+  const lastChimeTimeRef = useRef<number>(0);
+  const lastSentSpeechRef = useRef<{ text: string; time: number }>({ text: '', time: 0 });
 
   const playRelayChime = () => {
+    const now = Date.now();
+    if (now - lastChimeTimeRef.current < 3500) {
+      return; // Debounce audio/haptics: prevent continuous sound storm
+    }
+    lastChimeTimeRef.current = now;
+
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         const ctx = new AudioCtx();
-        const now = ctx.currentTime;
+        const t = ctx.currentTime;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, now); // D5
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5 chime
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.frequency.setValueAtTime(587.33, t); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.15); // A5 chime
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.4);
+        osc.start(t);
+        osc.stop(t + 0.35);
+        setTimeout(() => {
+          try { ctx.close(); } catch (e) {}
+        }, 500);
       }
     } catch (e) {}
     try {
       if (navigator.vibrate) {
-        navigator.vibrate([250, 100, 250]);
+        navigator.vibrate(200);
       }
     } catch (e) {}
   };
@@ -298,24 +415,48 @@ export default function FieldUserDashboard() {
 
     // 0. Handle ACK from Phone 2 confirming delivery to Command Center
     if (parsed.type === 'mesh_relay_ack') {
-      setSentMessages(prev => prev.map(m => m.id === parsed.id ? { ...m, status: 'delivered', relayed_via_mesh: true } : m));
+      setSentMessages(prev => {
+        let matched = false;
+        const updated = prev.map(m => {
+          const isMatch = m.id === parsed.id || 
+            (parsed.cipher_code && m.cipher_code && (
+              m.cipher_code.toUpperCase().includes(parsed.cipher_code.toUpperCase()) || 
+              parsed.cipher_code.toUpperCase().includes(m.cipher_code.toUpperCase())
+            ));
+          if (isMatch) {
+            matched = true;
+            return { ...m, status: 'delivered' as const, relayed_via_mesh: true };
+          }
+          return m;
+        });
+        if (!matched && updated.length > 0) {
+          // If cipher code slightly diverged, match the most recent transmitting message!
+          return updated.map((m, idx) => (idx === 0 && m.status === 'transmitting') 
+            ? { ...m, status: 'delivered' as const, relayed_via_mesh: true } 
+            : m
+          );
+        }
+        return updated;
+      });
       setLastDeliveryToast(`✓✓ Relayed via Phone 2 to Command Center! (Hop 2)`);
       return;
     }
 
-    // If packet already processed/relayed, avoid duplicate relay loops
-    if (relayedPacketIdsRef.current.has(parsed.id)) return;
-
-    // Reject if originated by this device
-    const isMySentPacket = sentMessages.some(m => m.id === parsed.id);
-    if (isMySentPacket) return;
-
     const myClean = normalizeName(myUsername);
     const senderClean = normalizeName(parsed.sender_username);
 
-    // If message was already relayed (Hop >= 2), update status on Phone 1 if it's our message
-    if (parsed.hop_count >= 2) {
-      setSentMessages(prev => prev.map(m => m.id === parsed.id ? { ...m, status: 'delivered', relayed_via_mesh: true } : m));
+    // Reject if originated by this device (Phone 1 victim should not relay its own packets)
+    const isMySentPacket = (senderClean && senderClean === myClean) || sentMessages.some(m => m.id === parsed.id);
+    if (isMySentPacket) {
+      // My own packet echoed back from the air: update delivery if relayed, but do NOT chime or re-relay!
+      if (parsed.hop_count >= 2) {
+        setSentMessages(prev => prev.map(m => 
+          (m.id === parsed.id || (parsed.cipher_code && m.cipher_code && m.cipher_code.endsWith(parsed.cipher_code)))
+            ? { ...m, status: 'delivered', relayed_via_mesh: true }
+            : m
+        ));
+      }
+      return;
     }
 
     // Role check: Phone 1 (Victim) MUST NOT relay its own packets
@@ -323,13 +464,48 @@ export default function FieldUserDashboard() {
       if (senderClean && senderClean === myClean && myClean) return;
     }
 
-    relayedPacketIdsRef.current.add(parsed.id);
+    // Deduplication check: deduplicate only if the exact same text + cipher arrived within the last 15 seconds
+    const packetKey = `${parsed.cipher_code || ''}_${parsed.text || ''}_h${parsed.hop_count || 1}`;
+    if (relayedPacketIdsRef.current.has(packetKey) || (parsed.id && relayedPacketIdsRef.current.has(parsed.id))) {
+      // If packet already arrived earlier with a short snippet (e.g. from BLE), and now arrives with longer text (e.g. from Wi-Fi Neighbor), update the text!
+      if (parsed.text && parsed.text.length > 5) {
+        setLocalMeshMessages(prev => prev.map(m => {
+          if ((m.id === parsed.id || (m.cipher_code && m.cipher_code === parsed.cipher_code)) && (!m.text || m.text.length < parsed.text.length)) {
+            return { ...m, text: parsed.text };
+          }
+          return m;
+        }));
+        setCipherRelayText(prev => (prev.length < parsed.text.length ? parsed.text : prev));
+        setIncomingAirRelay(prev => (prev && prev.id === parsed.id ? { ...prev, text: parsed.text } : prev));
+      }
+      return;
+    }
 
-    const cipherKey = parsed.cipher_code || 'KEY#ENC-4954-015F';
+    relayedPacketIdsRef.current.add(packetKey);
+    if (parsed.id) relayedPacketIdsRef.current.add(parsed.id);
+    setTimeout(() => {
+      relayedPacketIdsRef.current.delete(packetKey);
+      if (parsed.id) relayedPacketIdsRef.current.delete(parsed.id);
+    }, 15000);
+
+    const cipherKey = parsed.cipher_code || 'KEY#ENC-4954-MESH';
+    const cipherSuffix = cipherKey.replace(/[^A-Za-z0-9]/g, '').slice(-4).toUpperCase();
+    if (parsed.text && (!latestPacketTextRef.current[cipherSuffix] || latestPacketTextRef.current[cipherSuffix].length < parsed.text.length)) {
+      latestPacketTextRef.current[cipherSuffix] = parsed.text;
+    }
     const sender = parsed.sender_username || '📱 Phone 1 (@victim_1)';
-    const text = parsed.text || '';
+    let text = parsed.text || '';
+    const isEmergencyAlert = parsed.is_emergency || text.includes('🚨') || text.includes('SATELL');
+    // If specifically a truncated satellite beacon (contains SATELL or is '🚨 SATELL'), expand to full satellite beacon
+    if (isEmergencyAlert && (text === '🚨 SATELL' || text === 'SATELL' || text.includes('SATELL'))) {
+      const loc = parsed.address_name || "📍 St. Joseph's Institute of Technology, OMR, Semmancheri, Chennai 600119";
+      const lat = (parsed.latitude || 12.8718).toFixed(4);
+      const lng = (parsed.longitude || 80.2185).toFixed(4);
+      const satCode = parsed.cipher_code ? parsed.cipher_code.replace(/[^A-Za-z0-9]/g, '') : '534F015F';
+      text = `🚨 SATELLITE SOS BEACON: Critical evacuation required at ${loc} (${lat}°N, ${lng}°E) [Frame: 534F015F01${satCode.slice(-4)}02448A]`;
+    }
 
-    // Play Alert Chime & Haptic Vibration on Phone 2 immediately
+    // Play Alert Chime & Haptic Vibration on Phone 2 (throttled)
     playRelayChime();
 
     // Register Peer in Mesh Uniqueness Registry
@@ -352,7 +528,7 @@ export default function FieldUserDashboard() {
     setLocalMeshMessages(prev => {
       const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
       if (exists) return prev;
-      return [parsed, ...prev].slice(0, 30);
+      return [{ ...parsed, text }, ...prev].slice(0, 30);
     });
 
     // Record in Relayed Air Packets registry for Air Relay Tab
@@ -389,10 +565,19 @@ export default function FieldUserDashboard() {
     setTimeout(async () => {
       setIncomingAirRelay(prev => prev && prev.id === parsed.id ? { ...prev, stage: 'relaying' } : prev);
 
+      const bestText = (cipherSuffix && latestPacketTextRef.current[cipherSuffix] && latestPacketTextRef.current[cipherSuffix].length > text.length)
+        ? latestPacketTextRef.current[cipherSuffix]
+        : text;
+
       const relayPayload = {
         ...parsed,
+        text: bestText,
         session_id: 'DEMO_GLOBAL_SESSION_01',
-        network_mode: parsed.network_mode || 'mode-3-ai-mesh',
+        network_mode: isEmergencyAlert ? 'mode-4-satellite-beacon' : (parsed.network_mode || 'mode-3-ai-mesh'),
+        is_emergency: isEmergencyAlert ? true : (parsed.is_emergency || false),
+        latitude: parsed.latitude || 12.8718,
+        longitude: parsed.longitude || 80.2185,
+        address_name: parsed.address_name || "📍 St. Joseph's Institute of Technology, OMR, Semmancheri, Chennai 600119",
         gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
         hop_count: (parsed.hop_count || 1) + 1,
         cipher_code: cipherKey,
@@ -421,6 +606,7 @@ export default function FieldUserDashboard() {
       const ackObj = {
         type: 'mesh_relay_ack',
         id: parsed.id,
+        cipher_code: cipherKey,
         status: 'delivered',
         hop_count: 2,
         gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
@@ -451,7 +637,7 @@ export default function FieldUserDashboard() {
     setNetworkMode('mode-3-ai-mesh');
     const randHex = Array.from(crypto.getRandomValues(new Uint8Array(6)))
       .map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-    const dynamicKey = `KEY#ENC-${randHex}-4954`;
+    const dynamicKey = `KEY#ENC-${randHex.slice(0, 6)}-${randHex.slice(6, 10)}`;
     const packetId = `AIR-${Date.now()}`;
     const packetText = customMessage || '🚨 அவசர உதவி தேவை, நீர் மட்டம் உயர்கிறது! (Mode 3 Air Packet)';
 
@@ -556,15 +742,6 @@ export default function FieldUserDashboard() {
           if (res.ok) {
             const data = await res.json();
             if (!isMounted) return;
-            if (data && data.network_mode) {
-              setNetworkMode((prev) => {
-                if (prev !== data.network_mode) {
-                  setLastDeliveryToast(`🎛️ Demo Controller: Mode Switched to ${data.network_mode.toUpperCase()}`);
-                  return data.network_mode;
-                }
-                return prev;
-              });
-            }
             if (data && data.local_mode) {
               setLocalMeshMode((prev) => (prev !== data.local_mode ? data.local_mode : prev));
             }
@@ -732,6 +909,22 @@ export default function FieldUserDashboard() {
     { label: '🏠 Trapped on Roof', text: 'Trapped on roof, need urgent evacuation' }
   ];
 
+  // 🎤 NATIVE ANDROID SPEECH-TO-TEXT AUTO-BROADCASTER (Mode 3 Whisper)
+  useEffect(() => {
+    (window as any).onNativeSpeechResult = (text: string, isFinal: boolean) => {
+      if (text && text.trim()) {
+        const clean = text.trim();
+        setSpokenSpeechText(clean);
+        // If final speech result is ready in Mode 3, auto-broadcast immediately into the air!
+        if (isFinal && !isSilenceHallucination(clean) && networkMode === 'mode-3-ai-mesh') {
+          setTimeout(() => {
+            sendVoiceOrText(clean, 24, undefined, false, (selectedTransLang || 'ta') as any);
+          }, 80);
+        }
+      }
+    };
+  }, [selectedTransLang, networkMode, myUsername, coords, addressName]);
+
   // NATIVE ANDROID WI-FI AWARE (NAN) & BLE RADIO MESH LISTENER
   useEffect(() => {
     (window as any).onNativeMeshPacketReceived = (rawPayload: string, channel: string) => {
@@ -854,7 +1047,6 @@ export default function FieldUserDashboard() {
 
   // 1-Tap SOS Emergency Trigger (Govt Mode only)
   const triggerOneTapSOS = () => {
-    setIsEmergency(true);
     const satFrameHex = generate16ByteSatFrame();
     setActiveCipherCode(`SAT-16B#${satFrameHex.slice(0, 8)}`);
     const emergencyText = `🚨 SATELLITE SOS BEACON: Critical evacuation required at ${addressName} (${coords.lat.toFixed(4)}°N, ${coords.lng.toFixed(4)}°E) [Frame: ${satFrameHex}]`;
@@ -864,11 +1056,25 @@ export default function FieldUserDashboard() {
   // SEND VOICE / TEXT (MAIN TALK TAB)
   // Send SOS Distress Beacon directly to Command Center
   const sendSosToCommandCenter = async (emergencyText: string) => {
-    const finalText = emergencyText.trim() || '🚨 IMMEDIATE DISTRESS SOS: Civilians require urgent disaster evacuation & medical assistance!';
+    const customDetail = emergencyText.trim();
+    const isStandardBeacon = !customDetail || customDetail.includes('SATELLITE SOS BEACON');
+    const satFrameHex = generate16ByteSatFrame();
+    
+    let finalText = customDetail;
+    if (isStandardBeacon) {
+      finalText = `🚨 SATELLITE SOS BEACON: Critical evacuation required at ${addressName} (${coords.lat.toFixed(4)}°N, ${coords.lng.toFixed(4)}°E) [Frame: ${satFrameHex}]`;
+    } else if (!customDetail.includes('GPS')) {
+      finalText = `🚨 ${customDetail.replace(/^🚨\s*/, '')} [GPS: ${coords.lat.toFixed(4)}°N, ${coords.lng.toFixed(4)}°E - ${addressName}]`;
+    }
+
     triggerLiveEncryptionDemo(finalText);
     const msgId = crypto.randomUUID();
     const effectiveSender = normalizeName(myUsername);
     const displayTime = formatTimeIST();
+
+    const randHex = Array.from(crypto.getRandomValues(new Uint8Array(2)))
+      .map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const sosCipher = `SAT#SOS-${randHex}`;
 
     const sosObj = {
       id: msgId,
@@ -882,12 +1088,12 @@ export default function FieldUserDashboard() {
       audio_size: 16,
       is_emergency: true,
       language: 'ta',
-      latitude: 12.8718,
-      longitude: 80.2185,
-      address_name: "📍 St. Joseph\'s Institute of Technology, OMR, Semmancheri, Chennai 600119",
-      cipher_code: '0x' + Math.random().toString(16).substring(2, 6).toUpperCase() + '015F01414F67AE42A082C502448A',
+      latitude: coords.lat || 12.8718,
+      longitude: coords.lng || 80.2185,
+      address_name: addressName || "📍 St. Joseph\'s Institute of Technology, OMR, Semmancheri, Chennai 600119",
+      cipher_code: sosCipher,
       gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
-      hop_count: 2,
+      hop_count: 1,
       display_time: displayTime,
       timestamp: new Date().toISOString()
     };
@@ -904,7 +1110,11 @@ export default function FieldUserDashboard() {
       } catch (e) {}
     }
 
-    // 2. Dispatch over Reliable Endpoints
+    // 2. Air Broadcast across mesh endpoints
+    const airTargets = getReliableEndpoints('/api/mesh/air-broadcast');
+    sendPayloadSingle(airTargets, payload);
+
+    // 3. Dispatch over Reliable Gateway Endpoints
     const endpoints = getReliableEndpoints('/api/messages/send');
     sendPayloadSingle(endpoints, payload);
 
@@ -951,7 +1161,7 @@ export default function FieldUserDashboard() {
     });
 
     try {
-      await Promise.any(requests);
+      await Promise.race(requests);
       return true;
     } catch {
       return false;
@@ -969,48 +1179,58 @@ export default function FieldUserDashboard() {
     explicitSatHex?: string,
     durationSec?: number
   ) => {
-    const emergencyFlag = forceEmergency || isEmergency;
-    if (!text || !text.trim()) {
-      if (!emergencyFlag && !audioBase64 && !audioBlob && !textInput.trim()) return;
-    }
+    const emergencyFlag = forceEmergency;
 
-    let finalText = (text && text.trim()) ? text.trim() : (textInput && textInput.trim()) ? textInput.trim() : '';
+    let finalText = (text && text.trim()) 
+      ? text.trim() 
+      : (spokenSpeechText && spokenSpeechText.trim()) 
+      ? spokenSpeechText.trim() 
+      : (textInput && textInput.trim()) 
+      ? textInput.trim() 
+      : '';
 
     if (networkMode === 'mode-1-hd-call') {
-      // 🎙️ MODE 1: ORIGINAL 4G/5G HD DIRECT AUDIO NOTE (ZERO DELAY, NO STT)
-      if (audioBase64 || audioBlob) {
+      if (!finalText && (audioBase64 || audioBlob)) {
         finalText = '🎙️ 4G/5G HD Direct Voice Note';
       }
     } else if (networkMode === 'mode-2-compressed-voice') {
-      // 🎙️ MODE 2: ORIGINAL 2G CELT COMPRESSED AUDIO NOTE (ZERO DELAY, NO STT)
-      if (audioBase64 || audioBlob) {
+      if (!finalText && (audioBase64 || audioBlob)) {
         finalText = '🎙️ 2G CELT Compressed Voice Note (1.2 KB)';
       }
     } else if (networkMode === 'mode-3-ai-mesh') {
-      // 🚨 MODE 3: Backend STT, Google/Hindi STT, and fallback messages completely removed as requested
       if (!finalText && textInput && textInput.trim()) {
         finalText = textInput.trim();
       }
       setSpokenSpeechText(finalText);
     }
 
-    if (!finalText && !audioBase64 && !audioBlob) {
-      finalText = textInput.trim();
-    }
-
-    // 1. Resolve raw spoken text, typed text, or voice audio
-    let rawInputText = (finalText && finalText.trim()) ? finalText.trim() : (textInput && textInput.trim()) ? textInput.trim() : '';
-
-    if (!rawInputText && !audioBase64 && !audioBlob) {
+    if (!finalText && !emergencyFlag && !audioBase64 && !audioBlob) {
       return;
     }
 
-    if (networkMode === 'mode-3-ai-mesh' && (!rawInputText || !rawInputText.trim() || isSilenceHallucination(rawInputText))) {
-      setSpokenSpeechText('');
-      return;
+    if (networkMode === 'mode-3-ai-mesh' && (!finalText || !finalText.trim() || isSilenceHallucination(finalText))) {
+      // 1. Check if interim spoken text contains recognized speech
+      if (spokenSpeechText && spokenSpeechText.trim() && !spokenSpeechText.includes('பதிவு')) {
+        finalText = spokenSpeechText.trim();
+      } else if (textInput.trim()) {
+        finalText = textInput.trim();
+      }
+      // If still completely empty, do NOT send dummy text
+      if (!finalText || !finalText.trim() || isSilenceHallucination(finalText)) {
+        setLastDeliveryToast('⚠️ பேச்சு கேட்கவில்லை. மீண்டும் மைக்கை அழுத்திப் பேசவும்.');
+        return;
+      }
     }
 
-    finalText = rawInputText;
+
+    // Deduplicate rapid duplicate voice transmissions (< 3.5 seconds with exact same text)
+    if (finalText && finalText === lastSentSpeechRef.current.text && (Date.now() - lastSentSpeechRef.current.time) < 3500) {
+      return;
+    }
+    if (finalText) {
+      lastSentSpeechRef.current = { text: finalText, time: Date.now() };
+      setPersistentSpokenText(finalText);
+    }
     const msgId = crypto.randomUUID();
 
     // Generate dynamic 24-byte Encrypted Cipher Key for this packet
@@ -1018,7 +1238,7 @@ export default function FieldUserDashboard() {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
       .toUpperCase();
-    const dynamicTransmitterCipher = `KEY#ENC-${randBytes.slice(0, 8)}-4954-015F`;
+    const dynamicTransmitterCipher = `KEY#ENC-${randBytes.slice(0, 8)}-${randBytes.slice(8, 12)}`;
     
     let generatedToken = dynamicTransmitterCipher;
     if (networkMode === 'mode-4-satellite-beacon' || emergencyFlag) {
@@ -1081,7 +1301,8 @@ export default function FieldUserDashboard() {
       display_time: formatTimeIST(),
       status: 'transmitting',
       audioUrl: localAudioUrl,
-      network_mode: networkMode
+      network_mode: networkMode,
+      cipher_code: generatedToken
     };
 
     setSentMessages((prev) => [newMsg, ...prev.filter(m => m.id !== msgId)].slice(0, 50));
@@ -1090,22 +1311,22 @@ export default function FieldUserDashboard() {
 
     // 📡 SPECIAL MODE 3: AIR BROADCAST VIA BLE & WI-FI RADIUS
     // User Directive: "நான் மொபைல் 1 டிவைஸிலிருந்து அனுப்பும் மெசேஜ் மொபைல் 2-க்கு ரிலே ஆகிதான் சிஸ்டத்திற்குப் போக வேண்டும்."
-    if (networkMode === 'mode-3-ai-mesh') {
+    if (networkMode === 'mode-3-ai-mesh' || emergencyFlag) {
       const airPayloadObj = {
         id: msgId,
         session_id: 'DEMO_GLOBAL_SESSION_01',
         sender_role: 'field',
         sender_username: myUsername || '@victim_phone_1',
         target_username: '@command_center',
-        type: 'voice_message',
+        type: emergencyFlag ? 'emergency_alert' : 'voice_message',
         text: finalText,
-        network_mode: 'mode-3-ai-mesh',
-        audio_size: 24,
-        is_emergency: false,
+        network_mode: emergencyFlag ? 'mode-4-satellite-beacon' : 'mode-3-ai-mesh',
+        audio_size: emergencyFlag ? 16 : 24,
+        is_emergency: emergencyFlag,
         language: (detectedLang || selectedTransLang || 'ta'),
-        latitude: coords.lat,
-        longitude: coords.lng,
-        address_name: addressName,
+        latitude: coords.lat || 12.8718,
+        longitude: coords.lng || 80.2185,
+        address_name: addressName || "📍 St. Joseph's Institute of Technology, OMR, Semmancheri, Chennai 600119",
         cipher_code: generatedToken,
         gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
         hop_count: 1,
@@ -1201,7 +1422,7 @@ export default function FieldUserDashboard() {
       setPipelineStage('idle');
     }, 400);
 
-    if (emergencyFlag) setIsEmergency(false);
+    // Finished dispatching
   };
 
   // SEND PRIVATE LOCAL MESH MESSAGE (NO COMMAND CENTER / PURE P2P FRIENDS)
@@ -1220,7 +1441,32 @@ export default function FieldUserDashboard() {
     const effectiveSender = normalizeName(myUsername);
     let finalText = (text && text.trim()) ? text.trim() : '';
 
-    // Local Mesh Mode 3: backend STT removed as requested
+    // Fast STT fallback if text was not recognized synchronously
+    if (!finalText && audioBase64) {
+      try {
+        const endpoints = [
+          'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
+          'http://localhost:8000/api/stt/transcribe-for-translate',
+          'http://10.245.166.76:8000/api/stt/transcribe-for-translate',
+          '/api/stt/transcribe-for-translate'
+        ];
+        for (const ep of endpoints) {
+          const resp = await fetch(ep, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ audio_base64: audioBase64, language: 'ta' }),
+            signal: AbortSignal.timeout(1800)
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data?.text?.trim()) {
+              finalText = data.text.trim();
+              break;
+            }
+          }
+        }
+      } catch {}
+    }
 
     if (!finalText) {
       if (localMeshMode === 'mode-1-p2p-hd') {
@@ -1358,45 +1604,15 @@ export default function FieldUserDashboard() {
 
         {/* Tactical Mode & Battery Badge (Strictly Controlled by Demo Hub) */}
         <div className="flex items-center gap-2">
-          <button 
-            type="button"
-            onClick={() => {
-              const modes: ('mode-3-ai-mesh' | 'mode-1-hd-call' | 'mode-2-compressed-voice' | 'mode-4-satellite-beacon')[] = [
-                'mode-3-ai-mesh',
-                'mode-1-hd-call',
-                'mode-2-compressed-voice',
-                'mode-4-satellite-beacon'
-              ];
-              const curIdx = modes.indexOf(networkMode);
-              const nextMode = modes[(curIdx + 1) % modes.length];
-              setNetworkMode(nextMode);
-              localStorage.setItem('civilian_user_network_mode', nextMode);
-              setLastDeliveryToast(`Mode switched to: ${nextMode}`);
-              getReliableEndpoints('/api/network/set-mode').forEach((ep) => {
-                fetch(ep, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ network_mode: nextMode })
-                }).catch(() => {});
-              });
-            }}
-            title="Tap to switch mode (Mode 3 Mesh, Mode 1 4G, Mode 2 2G, Mode 4 SOS)"
-            className="px-3 py-1.5 rounded-full bg-slate-900/95 border-2 border-emerald-500/80 flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.3)] active:scale-95 cursor-pointer transition-all"
+          <div
+            title="Dedicated Mode 3 Offline AI Air Mesh"
+            className="px-3 py-1.5 rounded-full bg-slate-900/95 border-2 border-emerald-500/80 flex items-center gap-1.5 shadow-[0_0_12px_rgba(16,185,129,0.3)] select-none"
           >
-            <span className={`w-2 h-2 rounded-full ${
-              networkMode === 'mode-1-hd-call' ? 'bg-emerald-400 animate-pulse' : networkMode === 'mode-2-compressed-voice' ? 'bg-blue-400' : networkMode === 'mode-3-ai-mesh' ? 'bg-emerald-400' : 'bg-rose-500 animate-ping'
-            }`}></span>
-            <span className="text-[10px] font-mono font-bold text-slate-200">
-              {networkMode === 'mode-1-hd-call'
-                ? 'Mode 1 (4G/5G)'
-                : networkMode === 'mode-2-compressed-voice'
-                ? 'Mode 2 (2G)'
-                : networkMode === 'mode-3-ai-mesh'
-                ? 'Mode 3 (Mesh)'
-                : 'Mode 4 (SOS)'}
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-[10px] font-mono font-bold text-emerald-300">
+              Mode 3 (AI Mesh)
             </span>
-            <span className="text-[8px] text-emerald-400">▾</span>
-          </button>
+          </div>
           <span className="text-[10px] font-mono font-bold text-emerald-400 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
             🔋 {batteryPct}%
           </span>
@@ -1405,57 +1621,163 @@ export default function FieldUserDashboard() {
 
             {/* 🌐 QUICK TOP-BAR LANGUAGE SELECTOR MODAL */}
       {showLangModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none animate-fadeIn">
-          <div className="bg-[#0c1424] border-2 border-emerald-500 rounded-3xl p-5 w-full max-w-sm space-y-3.5 font-mono shadow-[0_0_40px_rgba(16,185,129,0.5)]">
-            <div className="flex items-center justify-between border-b border-emerald-900/80 pb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🌐</span>
-                <h3 className="text-xs font-black text-emerald-300 uppercase tracking-wide">
-                  Select Language (மொழி தேர்வு)
-                </h3>
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex items-start justify-center pt-4 pb-4 px-3 select-none overflow-y-auto">
+          <div className="bg-[#080f1e] border-2 border-emerald-500 rounded-3xl w-full max-w-sm font-mono shadow-[0_0_60px_rgba(16,185,129,0.4)] flex flex-col">
+
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 border-b border-emerald-900/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📦</span>
+                  <div>
+                    <h3 className="text-xs font-black text-emerald-300 uppercase tracking-widest">Voice Language Pack</h3>
+                    <p className="text-[8.5px] text-slate-400">மொழி பேக் தேர்வு • Offline STT Engine</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setShowLangModal(false)}
+                  className="w-7 h-7 rounded-xl bg-slate-900 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold active:scale-95">
+                  ✕
+                </button>
+              </div>
+
+              {/* Info banner */}
+              <div className="mt-3 bg-slate-900/80 border border-slate-700 rounded-2xl px-3 py-2 text-[9px] text-slate-300 leading-relaxed">
+                📥 <span className="text-emerald-300 font-bold">Touch any language to download & activate its offline pack</span>.
+                The app is lightweight — you only install what you need!
+                <br/><span className="text-yellow-400 font-bold">Tanglish</span> = Tamil spoken in English script (e.g. "Vanakkam").
+              </div>
+            </div>
+
+            {/* Language Pack Grid */}
+            <div className="px-4 py-4 space-y-2.5 overflow-y-auto max-h-[68vh]">
+              {INDIC_LANGUAGES_9.map((l) => {
+                const isSelected = selectedTransLang === l.code;
+                const isInstalled = installedPacks.includes(l.code);
+                const isDownloading = downloadingLang === l.code;
+                const progress = packDownloadProgress[l.code] ?? -1;
+                const canDownload = !isInstalled && !isDownloading && !downloadingLang;
+
+                const handleCardTap = () => {
+                  if (isDownloading) return;
+                  if (!isInstalled) {
+                    downloadLangPack(l.code);
+                  }
+                  if ((window as any).AndroidBleMeshBridge?.downloadLanguagePack) {
+                    try { (window as any).AndroidBleMeshBridge.downloadLanguagePack(l.code); } catch (e) {}
+                  }
+                  setSelectedTransLang(l.code);
+                  setTextInput('');
+                  setActiveTranslations({});
+                  localStorage.setItem('fixed_user_language', l.code);
+                  localStorage.setItem('local_language', l.code);
+                  setLastDeliveryToast(`🌐 Selected: ${l.name} (${l.label})`);
+                };
+
+                return (
+                  <div key={l.code}
+                    onClick={handleCardTap}
+                    className={`rounded-2xl border transition-all cursor-pointer select-none active:scale-[0.99] ${
+                      isSelected
+                        ? 'bg-emerald-950/80 border-emerald-400 shadow-[0_0_18px_rgba(16,185,129,0.5)]'
+                        : 'bg-slate-900/60 border-slate-700/80 hover:border-emerald-500/60'
+                    }`}>
+                    <div className="flex items-center gap-3 px-3.5 py-3">
+                      {/* Flag */}
+                      <div className="text-2xl flex-shrink-0">{l.flag}</div>
+
+                      {/* Language Info & Progress */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-black text-white">{l.name}</span>
+                          <span className="text-[9px] text-slate-400 font-mono">({l.label})</span>
+                          {isInstalled && (
+                            <span className="text-[7.5px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+                              ✓ INSTALLED
+                            </span>
+                          )}
+                          {isSelected && (
+                            <span className="text-[7.5px] font-black bg-cyan-600 text-white px-2 py-0.5 rounded-full">
+                              ● ACTIVE
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Pack size info */}
+                        <div className="text-[9px] text-slate-400 mt-1 flex items-center gap-2">
+                          {isInstalled ? (
+                            <span className="text-emerald-400 font-bold">📲 Offline Engine Ready • {l.packMB} MB</span>
+                          ) : isDownloading ? (
+                            <span className="text-cyan-300 font-bold animate-pulse">⬇ Installing {l.name} Pack...</span>
+                          ) : (
+                            <span>📥 Pack Size: <span className="text-amber-300 font-bold">{l.packMB} MB</span> • Tap to download</span>
+                          )}
+                        </div>
+
+                        {/* Download progress bar */}
+                        {isDownloading && (
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between text-[8.5px] mb-0.5">
+                              <span className="text-cyan-300 font-bold animate-pulse">Downloading & Installing...</span>
+                              <span className="text-white font-black">{progress}%</span>
+                            </div>
+                            <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                              <div
+                                className="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-green-500 rounded-full transition-all duration-300"
+                                style={{ width: `${Math.max(3, progress)}%` }}
+                              />
+                            </div>
+                            <div className="text-[8px] text-slate-400 mt-0.5">
+                              {Math.round((progress / 100) * l.packMB * 10) / 10} MB / {l.packMB} MB
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right Action Badge */}
+                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                        {isInstalled ? (
+                          <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black border ${
+                            isSelected ? 'bg-emerald-500 text-white border-emerald-300' : 'bg-slate-800 text-emerald-400 border-slate-700'
+                          }`}>
+                            {isSelected ? '✓ ACTIVE' : 'USE'}
+                          </span>
+                        ) : isDownloading ? (
+                          <span className="px-2.5 py-1 rounded-xl text-[9px] font-black bg-cyan-900/60 text-cyan-300 border border-cyan-600 animate-pulse">
+                            {progress}%
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-xl text-[9px] font-black bg-blue-950 text-blue-300 border border-blue-600 hover:bg-blue-900 hover:text-white transition-all">
+                            ⬇ GET
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 pb-4 pt-2 border-t border-slate-800 space-y-2">
+              <div className="text-[8.5px] text-slate-500 text-center">
+                💡 Touch any language pack to download. Selected language will be used for all voice notes.
               </div>
               <button
                 type="button"
-                onClick={() => setShowLangModal(false)}
-                className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold active:scale-95"
+                onClick={() => {
+                  localStorage.setItem('fixed_user_language', selectedTransLang);
+                  localStorage.setItem('local_language', selectedTransLang);
+                  setShowLangModal(false);
+                }}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-cyan-600 text-white font-black text-sm tracking-wider border border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-98 hover:brightness-110 transition-all"
               >
-                ✕
+                ✅ DONE — Use {INDIC_LANGUAGES_9.find(l => l.code === selectedTransLang)?.name || selectedTransLang}
               </button>
-            </div>
-
-            <p className="text-[9.5px] text-slate-300">
-              Select your spoken language. The Indict Voice Engine will link directly to this language for Speech-to-Text & AI Mesh Transmission:
-            </p>
-
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              {INDIC_LANGUAGES_9.map((l) => {
-                const isSelected = selectedTransLang === l.code;
-                return (
-                  <button
-                    key={l.code}
-                    type="button"
-                    onClick={() => {
-                      setSelectedTransLang(l.code); setTextInput(''); setActiveTranslations({});
-                      localStorage.setItem('fixed_user_language', l.code); localStorage.setItem('local_language', l.code);
-                      setShowLangModal(false);
-                      setLastDeliveryToast(`🌐 Spoken Language set to: ${l.name} (${l.label})`);
-                    }}
-                    className={`py-2.5 px-1 rounded-2xl text-center flex flex-col items-center justify-center transition-all border ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.9)] scale-105 ring-2 ring-white/80'
-                        : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:border-emerald-500 hover:text-white'
-                    }`}
-                  >
-                    <span className="text-xs font-black tracking-wide">{l.name}</span>
-                    <span className="text-[8px] opacity-75">{l.label}</span>
-                    {isSelected && <span className="text-[7.5px] font-bold text-white mt-0.5">✓ ACTIVE</span>}
-                  </button>
-                );
-              })}
             </div>
           </div>
         </div>
       )}
+
 
       {/* ONE-TIME PERMANENT USERNAME REGISTRATION MODAL (NO PRESET SUGGESTIONS) */}
       {showUserModal && !isUsernameLocked && (
@@ -1496,39 +1818,6 @@ export default function FieldUserDashboard() {
               )}
             </div>
 
-            {/* 🌐 9-Language Selection Grid (Fixed Speaking Language) */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between">
-                <label className="text-[10.5px] font-bold text-emerald-300 uppercase tracking-wide flex items-center gap-1">
-                  <span>🗣️</span>
-                  <span>Select Spoken Language (பேசும் மொழி):</span>
-                </label>
-                <span className="text-[9.5px] text-cyan-300 font-mono font-bold bg-slate-900 px-2 py-0.5 rounded border border-cyan-800">
-                  {INDIC_LANGUAGES_9.find(l => l.code === selectedTransLang)?.name} ({selectedTransLang.toUpperCase()})
-                </span>
-              </div>
-              <p className="text-[9px] text-slate-400">
-                Pick the language you speak in. It will be locked for all voice AI notes and translations.
-              </p>
-              <div className="grid grid-cols-3 gap-1.5 pt-1 max-h-44 overflow-y-auto pr-0.5">
-                {INDIC_LANGUAGES_9.map((l) => (
-                  <button
-                    key={l.code}
-                    type="button"
-                    onClick={() => setSelectedTransLang(l.code)}
-                    className={`py-2 px-1 rounded-xl text-center flex flex-col items-center justify-center transition-all border ${
-                      selectedTransLang === l.code
-                        ? 'bg-emerald-600 text-white border-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.8)] scale-105 ring-1 ring-white'
-                        : 'bg-slate-950/80 text-slate-300 border-slate-700/80 hover:border-slate-500'
-                    }`}
-                  >
-                    <span className="text-xs font-bold">{l.name}</span>
-                    <span className="text-[8px] opacity-75">{l.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <button
               type="button"
               onClick={() => {
@@ -1542,9 +1831,10 @@ export default function FieldUserDashboard() {
                 setMyUsername(formatted);
                 setIsUsernameLocked(true);
                 localStorage.setItem('local_username', formatted);
-                localStorage.setItem('local_language', selectedTransLang);
                 localStorage.setItem('local_username_locked', 'true');
                 setShowUserModal(false);
+                // Prompt user to select & download their desired language pack
+                setShowLangModal(true);
 
                 // Broadcast Identity Announcement Packet
                 const announceObj = {
@@ -1778,37 +2068,69 @@ export default function FieldUserDashboard() {
                       setSpokenSpeechText(interim);
                     }
                   }}
-                  onTranscript={(text, audioSize, blob, detectedLang, audioBase64, durationSec) => {
-                    sendVoiceOrText(text, audioSize, blob, false, selectedTransLang as any, audioBase64, undefined, durationSec);
+                  onTranscript={async (text, audioSize, blob, detectedLang, audioBase64, durationSec) => {
+                    let candidateText = (text && text.trim()) || '';
+
+                    // Primary On-device Android Bridge ASR (AI4Bharat IndicConformer / Sherpa ONNX)
+                    if (audioBase64 && (window as any).AndroidBleMeshBridge?.transcribeAudioBase64) {
+                      try {
+                        const localText = (window as any).AndroidBleMeshBridge.transcribeAudioBase64(audioBase64, selectedTransLang || 'ta');
+                        if (localText && localText.trim()) {
+                          candidateText = localText.trim();
+                          setSpokenSpeechText(candidateText);
+                        }
+                      } catch (e) {
+                        console.warn('On-device ASR bridge error:', e);
+                      }
+                    } else if (!candidateText && spokenSpeechText && spokenSpeechText.trim()) {
+                      candidateText = spokenSpeechText.trim();
+                    }
+
+                    sendVoiceOrText(candidateText, audioSize, blob, false, selectedTransLang as any, audioBase64, undefined, durationSec);
                   }}
                   disabled={false}
                   networkMode={networkMode}
                 />
               )}
 
-              {/* 🎤 COMPACT REAL-TIME VOICE-TO-TEXT BOX DIRECTLY BELOW MIC (MODE 3 ONLY) */}
-              {networkMode === 'mode-3-ai-mesh' && (
-                <div className="w-full max-w-xs mt-3 px-3.5 py-2.5 rounded-2xl bg-[#061726] border border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center animate-fadeIn">
-                  <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 font-bold border-b border-emerald-800/50 pb-1 mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full ${spokenSpeechText ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
-                      <span>குரல் ➔ தமிழ் உரை (VOICE TO TEXT)</span>
+              {/* 🎤 COMPACT REAL-TIME VOICE-TO-TEXT BOX DIRECTLY BELOW MIC (VISIBLE IN ALL MODES) */}
+              <div className="w-full max-w-xs mt-3 px-3.5 py-2.5 rounded-2xl bg-[#061726] border border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.2)] text-center animate-fadeIn">
+                <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 font-bold border-b border-emerald-800/50 pb-1 mb-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${spokenSpeechText || persistentSpokenText ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
+                    <span>குரல் ➔ {INDIC_LANGUAGES_9.find(l => l.code === selectedTransLang)?.name || 'தமிழ்'} உரை</span>
+                  </span>
+                  <span className={`text-[8.5px] font-mono ${spokenSpeechText ? 'text-emerald-300 font-bold' : persistentSpokenText ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
+                    {spokenSpeechText ? 'கேட்கிறது...' : persistentSpokenText ? 'உரை தயார் ✓' : 'தயார்'}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 px-1">
+                  <div className="text-emerald-100 text-xs font-sans font-bold min-h-[24px] flex items-center justify-between gap-2">
+                    <span className="break-words flex-1 text-left">
+                      {spokenSpeechText || persistentSpokenText || <span className="text-slate-500 text-[11px] font-normal">மைக்கை அழுத்திப் பேசவும்...</span>}
                     </span>
-                    <span className={`text-[8.5px] font-mono ${spokenSpeechText ? 'text-emerald-300 font-bold' : 'text-slate-500'}`}>
-                      {spokenSpeechText ? 'கேட்கிறது...' : 'தயார்'}
-                    </span>
-                  </div>
-                  <div className="text-emerald-100 text-xs font-sans font-bold min-h-[24px] flex items-center justify-center break-words px-1">
-                    {spokenSpeechText || <span className="text-slate-500 text-[11px] font-normal">மைக்கை அழுத்திப் பேசவும்...</span>}
+                    {spokenSpeechText && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const val = spokenSpeechText;
+                          sendVoiceOrText(val, 24, undefined, false, (selectedTransLang || 'ta') as any);
+                          setSpokenSpeechText('');
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shrink-0 shadow-md active:scale-95"
+                      >
+                        🚀 அனுப்பு
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* 📡 LIVE MODE 3 AIR STREAM ON TAB 1 (PHONE 1 & PHONE 2 SYNC) */}
               {networkMode === 'mode-3-ai-mesh' && (
                 <div className="w-full max-w-sm mt-3 space-y-2 font-mono">
                   {/* PHONE 2 (RELAY NODE): DISPLAY INCOMING / RELAYED STREAM */}
-                  {(nodeRole === 'rescue_volunteer_2' || relayedAirPackets.length > 0) && (
+                  {nodeRole === 'rescue_volunteer_2' && (
                     <div className="p-3 rounded-2xl bg-[#06152b] border-2 border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.25)] space-y-2">
                       <div className="flex items-center justify-between text-[9px] font-bold border-b border-emerald-800/60 pb-1">
                         <span className="text-emerald-300 uppercase flex items-center gap-1.5">
@@ -1875,7 +2197,7 @@ export default function FieldUserDashboard() {
                                 <div className="flex items-center justify-between text-slate-400">
                                   <span className="text-slate-300 font-bold">{m.display_time || formatTimeIST()}</span>
                                   <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${isRelayed ? 'bg-emerald-950 text-emerald-300 border border-emerald-600' : 'bg-amber-950 text-amber-300 border border-amber-600 animate-pulse'}`}>
-                                    {isRelayed ? '✓✓ RELAYED (HOP 2)' : '⏳ IN AIR'}
+                                    {isRelayed ? '✓✓ RELAYED (HOP 2)' : '🚀 DISPATCHED (IN AIR)'}
                                   </span>
                                 </div>
                                 <div className="text-slate-100 font-sans font-bold text-[10.5px] break-words">
@@ -1883,8 +2205,8 @@ export default function FieldUserDashboard() {
                                 </div>
                                 <div className="text-[8px] flex items-center justify-between pt-0.5 border-t border-slate-800">
                                   <span className="text-cyan-300 font-mono truncate max-w-[60%]">🔐 {m.stats?.ciphertext_hex || 'KEY#ENC-AIR'}</span>
-                                  <span className={isRelayed ? 'text-emerald-400 font-bold' : 'text-amber-400'}>
-                                    {isRelayed ? 'Forwarded via Phone 2' : 'Waiting for Relay Node...'}
+                                  <span className={isRelayed ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                                    {isRelayed ? 'Forwarded via Phone 2' : '🚀 Dispatched into Air Mesh'}
                                   </span>
                                 </div>
                               </div>
@@ -1973,7 +2295,7 @@ export default function FieldUserDashboard() {
               {/* Big Red 1-Tap SOS Beacon Button */}
               <button
                 type="button"
-                onClick={() => sendSosToCommandCenter('🚨 CRITICAL SOS: Immediate disaster evacuation & medical rescue needed at GPS location!')}
+                onClick={triggerOneTapSOS}
                 className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white font-black text-sm py-3.5 rounded-2xl shadow-[0_0_20px_rgba(239,68,68,0.8)] border border-red-300 active:scale-95 transition-all flex items-center justify-center gap-2.5 animate-pulse"
               >
                 <span className="text-lg">🚨</span>
