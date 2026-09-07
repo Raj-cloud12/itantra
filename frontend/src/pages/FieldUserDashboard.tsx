@@ -346,10 +346,10 @@ export default function FieldUserDashboard() {
   const resolveWs = (host: string, path: string) => {
     let finalHost = host;
     if (!finalHost) {
-      if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      if (typeof window !== 'undefined' && window.location.hostname) {
         finalHost = window.location.hostname;
       } else {
-        finalHost = 'harbor-like-kings-greater.trycloudflare.com';
+        finalHost = '127.0.0.1';
       }
     }
     
@@ -361,7 +361,14 @@ export default function FieldUserDashboard() {
   };
 
   const resolveHttp = (host: string, path: string) => {
-    const finalHost = host || PRIMARY_CLOUDFLARE;
+    let finalHost = host;
+    if (!finalHost) {
+      if (typeof window !== 'undefined' && window.location.hostname) {
+        finalHost = window.location.hostname;
+      } else {
+        finalHost = '127.0.0.1';
+      }
+    }
     const clean = finalHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
     if (clean.includes('trycloudflare.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
       return `https://${clean}${path}`;
@@ -372,6 +379,18 @@ export default function FieldUserDashboard() {
   const getReliableEndpoints = (path: string) => {
     const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:') ? window.location.hostname : '';
     const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (isLocal) {
+      return Array.from(new Set([
+        `http://127.0.0.1:8000${path}`,
+        `http://localhost:8000${path}`,
+        `${CURRENT_LAN_IP}${path}`,
+        `http://10.242.55.76:8000${path}`,
+        `http://10.245.166.76:8000${path}`,
+        ...(targetHost ? [resolveHttp(targetHost, path)] : []),
+        ...(isFileProtocol ? [] : [path])
+      ]));
+    }
     return Array.from(new Set([
       `${PRIMARY_CLOUDFLARE}${path}`,
       `http://10.242.55.76:8000${path}`,
@@ -1047,7 +1066,13 @@ export default function FieldUserDashboard() {
     const syncMeshAndMode = async () => {
       try {
         const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') ? window.location.hostname : '';
-        const syncUrls = [
+        const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const syncUrls = isLocal ? [
+          'http://127.0.0.1:8000',
+          'http://localhost:8000',
+          CURRENT_LAN_IP,
+          PRIMARY_CLOUDFLARE
+        ] : [
           PRIMARY_CLOUDFLARE,
           CURRENT_LAN_IP,
           'http://127.0.0.1:8000',
@@ -1058,8 +1083,8 @@ export default function FieldUserDashboard() {
         for (const base of syncUrls) {
           try {
             const [meshRes, allRes] = await Promise.allSettled([
-              fetch(`${base}/api/messages/mesh`),
-              fetch(`${base}/api/messages/all`)
+              fetch(`${base}/api/messages/mesh`, { signal: AbortSignal.timeout(1500) }),
+              fetch(`${base}/api/messages/all`, { signal: AbortSignal.timeout(1500) })
             ]);
 
             let success = false;
