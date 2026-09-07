@@ -244,8 +244,8 @@ export default function FieldUserDashboard() {
   };
 
   // Live Cloudflare Primary Gateway Endpoint & Local Network Endpoints
-  const PRIMARY_CLOUDFLARE = 'https://harbor-like-kings-greater.trycloudflare.com';
-  const CURRENT_LAN_IP = 'http://10.208.56.76:8000';
+  const PRIMARY_CLOUDFLARE = 'https://symposium-desktops-identical-christopher.trycloudflare.com';
+  const CURRENT_LAN_IP = 'http://10.31.66.76:8000';
   const [targetHost, setTargetHost] = useState<string>(() => {
     return localStorage.getItem('tactical_host') || PRIMARY_CLOUDFLARE;
   });

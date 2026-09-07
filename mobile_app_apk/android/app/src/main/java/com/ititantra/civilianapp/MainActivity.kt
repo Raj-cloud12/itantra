@@ -1509,6 +1509,8 @@ class MainActivity : AppCompatActivity() {
                 packet[0] = 0xA1.toByte() // Tantra Compact Mesh Magic
                 packet[1] = cipherHi
                 packet[2] = cipherLo
+                val metaByte = (((cIdx and 0x0F) shl 4) or (totalChunks and 0x0F)).toByte()
+                packet[3] = metaByte
                 val isGenericFallback = rawText.isBlank() || rawText.startsWith("🚨 SOS: I am in emergency")
                 val bleEmergByte = if (emergency && isGenericFallback) 1 else 0
                 packet[4] = bleEmergByte.toByte()
@@ -1521,7 +1523,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val startTime = System.currentTimeMillis()
                     var cIdx = 0
-                    val sleepTime = if (packets.size == 1) 1500L else 600L
+                    val sleepTime = if (packets.size == 1) 1500L else 1200L
                     while (System.currentTimeMillis() - startTime < 30000L && !Thread.currentThread().isInterrupted) {
                         val advPayload = packets[cIdx]
                         advertiseSingleBlePayload(advPayload)
@@ -1607,7 +1609,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val settings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .setReportDelay(0)
                 .build()
 
@@ -1823,8 +1825,9 @@ class MainActivity : AppCompatActivity() {
             if (!isGovt) {
                 Thread {
                     val targets = listOf(
+                        "http://10.31.66.76:8000/api/messages/send",
+                        "https://symposium-desktops-identical-christopher.trycloudflare.com/api/messages/send",
                         "http://10.208.56.76:8000/api/messages/send",
-                        "https://harbor-like-kings-greater.trycloudflare.com/api/messages/send",
                         "http://127.0.0.1:8000/api/messages/send"
                     )
                     for (target in targets) {
@@ -2112,8 +2115,9 @@ class MainActivity : AppCompatActivity() {
 
             Thread {
                 val endpoints = listOf(
+                    "http://10.31.66.76:8000/api/messages/send",
+                    "https://symposium-desktops-identical-christopher.trycloudflare.com/api/messages/send",
                     "http://10.208.56.76:8000/api/messages/send",
-                    "https://harbor-like-kings-greater.trycloudflare.com/api/messages/send",
                     "http://127.0.0.1:8000/api/messages/send"
                 )
                 for (ep in endpoints) {

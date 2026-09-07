@@ -265,9 +265,9 @@ export default function CommandCenterDashboard() {
     setTranslatingId(msgId);
     const endpoints = [
       '/api/translate/groq',
-      'https://harbor-like-kings-greater.trycloudflare.com/api/translate/groq',
+      'https://symposium-desktops-identical-christopher.trycloudflare.com/api/translate/groq',
       'http://127.0.0.1:8000/api/translate/groq',
-      'http://10.208.56.76:8000/api/translate/groq',
+      'http://10.31.66.76:8000/api/translate/groq',
     ];
     for (const ep of endpoints) {
       try {
@@ -431,20 +431,13 @@ export default function CommandCenterDashboard() {
     if (wsMessages && wsMessages.length > 0) {
       const latest: any = wsMessages[wsMessages.length - 1];
       if (latest && latest.text) {
-        // 🛑 ABSOLUTE PRIVACY FIREWALL: Never show Mode 1, Mode 2, or Voice Notes in Command Center!
-        const isMode1Or2OrLocalMesh = (
+        // 🛑 ABSOLUTE PRIVACY FIREWALL: Never show private Local Mesh in Command Center!
+        const isPrivateLocalMesh = (
           latest.is_local_mesh_private ||
           latest.session_id === 'LOCAL_MESH_PRIVATE' ||
-          latest.network_mode === 'mode-1-hd-call' ||
-          latest.network_mode === 'mode-1' ||
-          latest.network_mode === 'mode-2-compressed-voice' ||
-          latest.network_mode === 'mode-2' ||
-          latest.local_mode === 'mode-1-p2p-hd' ||
-          latest.local_mode === 'mode-2-p2p-2g' ||
-          (latest.text && (latest.text.includes('Voice Note') || latest.text.includes('HD Voice') || latest.text.includes('2G Voice'))) ||
-          (latest.target_username && latest.target_username !== '@command_center' && latest.target_username !== '@all_users' && !latest.is_emergency)
+          (latest.target_username && latest.target_username !== '@command_center' && latest.target_username !== '@all_users' && !latest.is_emergency && latest.sender_role !== 'command')
         );
-        if (isMode1Or2OrLocalMesh) return;
+        if (isPrivateLocalMesh) return;
 
         setFeed(prev => {
           const exists = prev.some(m => m.id === latest.id || (m.timestamp === latest.timestamp && m.text === latest.text));
@@ -533,13 +526,10 @@ export default function CommandCenterDashboard() {
         }
         if (!data || !Array.isArray(data)) return;
 
-        // 🛑 ABSOLUTE PRIVACY FIREWALL: Exclude Mode 1, Mode 2, Voice Notes, and Local Mesh from Command Center
+        // 🛑 ABSOLUTE PRIVACY FIREWALL: Exclude private Local Mesh from Command Center
         const cleanData = data.filter((m: any) => {
           if (m.is_local_mesh_private || m.session_id === 'LOCAL_MESH_PRIVATE') return false;
-          if (m.network_mode === 'mode-1-hd-call' || m.network_mode === 'mode-1' || m.network_mode === 'mode-2-compressed-voice' || m.network_mode === 'mode-2') return false;
-          if (m.local_mode === 'mode-1-p2p-hd' || m.local_mode === 'mode-2-p2p-2g') return false;
-          if (m.text && (m.text.includes('Voice Note') || m.text.includes('HD Voice') || m.text.includes('2G Voice'))) return false;
-          if (m.target_username && m.target_username !== '@command_center' && m.target_username !== '@all_users' && !m.is_emergency) return false;
+          if (m.target_username && m.target_username !== '@command_center' && m.target_username !== '@all_users' && m.target_username !== '@all_citizens' && !m.is_emergency && m.sender_role !== 'command') return false;
           return true;
         });
 

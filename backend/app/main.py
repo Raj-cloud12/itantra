@@ -889,11 +889,7 @@ def get_all_messages():
     c.execute("""
     SELECT * FROM messages 
     WHERE (session_id IS NULL OR session_id != 'LOCAL_MESH_PRIVATE')
-      AND (is_emergency = 1 OR target_username = '@command_center' OR sender_role = 'command')
-      AND (network_mode NOT IN ('mode-1-hd-call', 'mode-2-compressed-voice', 'mode-1', 'mode-2'))
-      AND (text NOT LIKE '%Voice Note%')
-      AND (text NOT LIKE '%HD Voi%')
-      AND (text NOT LIKE '%2G Voi%')
+      AND (is_emergency = 1 OR target_username = '@command_center' OR sender_role = 'command' OR target_username = '@all_citizens')
     ORDER BY id DESC LIMIT 60
     """)
     rows = c.fetchall()
@@ -1012,18 +1008,13 @@ async def send_message(payload: MessagePayload):
 
     msg_uuid = payload.id or str(datetime.utcnow().timestamp())
     sender_name = payload.sender_username or f"@{payload.sender_role}"
-    target_name = payload.target_username or "@all_friends"
+    target_name = payload.target_username or "@command_center"
     is_private_mesh = (
-        payload.is_local_mesh_private or 
-        payload.session_id == "LOCAL_MESH_PRIVATE" or 
-        mode in ('mode-1-hd-call', 'mode-2-compressed-voice') or
-        payload.local_mode in ('mode-1-p2p-hd', 'mode-2-p2p-2g') or
-        'Voice Note' in (final_text or '') or
-        'HD Voice' in (final_text or '') or
-        '2G Voice' in (final_text or '') or
-        (target_name != "@command_center" and not payload.is_emergency and payload.sender_role != "command")
+        bool(payload.is_local_mesh_private) or 
+        payload.session_id == "LOCAL_MESH_PRIVATE" or
+        (target_name not in ("@command_center", "@all_citizens", "@all_users") and not payload.is_emergency and payload.sender_role != "command")
     )
-    if is_private_mesh and target_name == "@command_center":
+    if is_private_mesh and target_name in ("@command_center", "@all_citizens"):
         target_name = "@all_friends"
 
     msg_id = int(datetime.utcnow().timestamp() * 1000) % 1000000
