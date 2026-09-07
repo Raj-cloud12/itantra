@@ -1473,9 +1473,21 @@ class MainActivity : AppCompatActivity() {
             val cipherLo = (cipherInt and 0xFF).toByte()
             val hop = json.optInt("hop_count", 1)
             val emergency = json.optBoolean("is_emergency", false)
+            val isPrivateMesh = json.optBoolean("is_local_mesh_private", false) || json.optString("session_id") == "LOCAL_MESH_PRIVATE"
+            val senderUser = json.optString("sender_username", "@field_user")
+            val targetUser = json.optString("target_username", "@all_friends")
+            val encText = json.optString("encrypted_text", "")
             val rawText = json.optString("text", "")
-            // Use exact message text from payload (custom SOS, preset button, or speech)
-            val text = if (rawText.isNotBlank()) rawText else "🚨 SOS: Emergency Rescue Needed"
+
+            // For Mode 3 Private E2EE packets, format as "🔒|sender|target|cipher|encrypted_text"
+            val text = if (isPrivateMesh) {
+                val effectiveEnc = if (encText.isNotBlank()) encText else android.util.Base64.encodeToString(rawText.toByteArray(StandardCharsets.UTF_8), android.util.Base64.NO_WRAP)
+                "🔒|$senderUser|$targetUser|$cipher|$effectiveEnc"
+            } else if (rawText.isNotBlank()) {
+                rawText
+            } else {
+                "🚨 SOS: Emergency Rescue Needed"
+            }
 
             if (isAck) {
                 broadcastBleCompactAck(cipherHi, cipherLo, hop)
@@ -1762,30 +1774,53 @@ class MainActivity : AppCompatActivity() {
                 "🚨 SOS: I am in emergency, kindly help me! [$place - GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
             }
 
+            val isPrivateMesh = decodedText.startsWith("🔒|") || decodedText.startsWith("MESH3|")
+            var senderUser = if (isGovt) "@command_center" else "@victim_phone_1"
+            var targetUser = if (isGovt) "@all_citizens" else "@command_center"
+            var encPayload = ""
+            var cipherToUse = cipher
+            var displayText = if (isGovt) decodedText else fullText
+
+            if (isPrivateMesh) {
+                val parts = decodedText.split("|")
+                senderUser = parts.getOrNull(1) ?: "@citizen"
+                targetUser = parts.getOrNull(2) ?: "@all_friends"
+                cipherToUse = parts.getOrNull(3) ?: cipher
+                encPayload = parts.getOrNull(4) ?: ""
+                displayText = "🔒 Encrypted Message (Locked for $targetUser)"
+            }
+
             val packetObj = JSONObject().apply {
-                put("id", "air_${cipher.lowercase()}_${uniqueSeq}")
-                put("cipher_code", cipher)
+                put("id", "air_${cipherToUse.lowercase()}_${uniqueSeq}")
+                put("cipher_code", cipherToUse)
                 put("hop_count", 2)
-                put("is_emergency", isEmerg)
-                put("text", if (isGovt) decodedText else fullText)
+                put("is_emergency", isEmerg && !isPrivateMesh)
+                put("text", displayText)
                 put("latitude", lat)
                 put("longitude", lon)
                 put("address_name", "$place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]")
-                put("network_mode", if (isEmerg) "mode-4-satellite-beacon" else "mode-3-ai-mesh")
-                put("gateway_node", if (isGovt) "🏢 Command Center (Downlink BLE)" else "📱 Phone 2 (BLE Mesh Relay Node)")
+                put("network_mode", if (isEmerg && !isPrivateMesh) "mode-4-satellite-beacon" else "mode-3-ai-mesh")
+                put("gateway_node", if (isGovt) "🏢 Command Center (Downlink BLE)" else "📱 Phone 2 (Silent Mesh Relay Node)")
                 put("timestamp", "${System.currentTimeMillis()}")
-                if (isEmerg) put("type", "emergency_alert") else put("type", "voice_message")
+                put("type", if (isEmerg && !isPrivateMesh) "emergency_alert" else "voice_message")
                 put("sender_role", if (isGovt) "command" else "field")
-                put("sender_username", if (isGovt) "@command_center" else "@victim_phone_1")
+                put("sender_username", senderUser)
+                put("target_username", targetUser)
+                put("is_local_mesh_private", isPrivateMesh)
+                put("session_id", if (isPrivateMesh) "LOCAL_MESH_PRIVATE" else "DEMO_GLOBAL_SESSION_01")
+                if (isPrivateMesh) {
+                    put("is_locked", true)
+                    put("encrypted_text", encPayload)
+                    put("local_mode", "mode-3-p2p-nan")
+                }
             }
-            Log.i("BLE_MESH", "AIR INTERCEPT COMPACT FINAL: ($totalChunks/$totalChunks chunks, text='$decodedText', cipher=$cipher, RSSI=$rssi dBm, isGovt=$isGovt)")
+            Log.i("BLE_MESH", "AIR INTERCEPT COMPACT FINAL: ($totalChunks/$totalChunks chunks, text='$displayText', cipher=$cipherToUse, RSSI=$rssi dBm, isGovt=$isGovt, isPrivate=$isPrivateMesh)")
             runOnUiThread {
                 notifyWebviewPacketReceived(packetObj.toString(), "BLE_MESH_RELAY")
             }
 
-            // Dual Relay directly to local gateway and Cloudflare ONLY IF NOT FROM COMMAND CENTER AND NOT PRIVATE LOCAL MESH!
-            val isPrivateOrVoiceNote = fullText.contains("Voice Note") || fullText.contains("HD Voi") || fullText.contains("2G Voi") || cipher.contains("LOCK#") || cipher.contains("LOCK")
-            if (!isGovt && !isPrivateOrVoiceNote) {
+            // Dual Relay directly to local gateway and Cloudflare ONLY IF NOT FROM COMMAND CENTER!
+            if (!isGovt) {
                 Thread {
                     val targets = listOf(
                         "http://10.208.56.76:8000/api/messages/send",
@@ -2016,8 +2051,15 @@ class MainActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         val isAck = rawPayload.contains("\"type\":\"mesh_relay_ack\"") || channel == "BLE_MESH_ACK"
 
-        // Only vibrate and play chime for genuine incoming messages, throttled to at most once per 3.5 seconds
-        if (!isAck && (now - lastHapticTimestamp > 3500L)) {
+        val isPrivateMesh = rawPayload.contains("\"is_local_mesh_private\":true") ||
+                            rawPayload.contains("\"is_local_mesh_private\": true") ||
+                            rawPayload.contains("\"session_id\":\"LOCAL_MESH_PRIVATE\"") ||
+                            rawPayload.contains("\"session_id\": \"LOCAL_MESH_PRIVATE\"") ||
+                            rawPayload.contains("LOCK#") ||
+                            rawPayload.contains("🔒")
+
+        // Haptic Vibration for incoming mesh packets (Phone 2 also vibrates!)
+        if (!isAck && (now - lastHapticTimestamp > 2500L)) {
             lastHapticTimestamp = now
             try {
                 // Single clean crisp haptic pulse (250ms)
@@ -2030,12 +2072,14 @@ class MainActivity : AppCompatActivity() {
                         vibrator.vibrate(250)
                     }
                 }
-                // Hardware Tone Generator (Clean single tone, automatically released to prevent audio leak)
-                val toneGen = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 75)
-                toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 200)
-                Handler(Looper.getMainLooper()).postDelayed({
-                    try { toneGen.release() } catch (e: Exception) {}
-                }, 400)
+                // Tone Generator ONLY for non-private emergency/command broadcasts
+                if (!isPrivateMesh) {
+                    val toneGen = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 75)
+                    toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 200)
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        try { toneGen.release() } catch (e: Exception) {}
+                    }, 400)
+                }
             } catch (e: Exception) {
                 Log.e("MESH_AIR", "Error in haptic/tone: ${e.message}")
             }

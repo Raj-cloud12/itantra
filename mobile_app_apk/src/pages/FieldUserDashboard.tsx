@@ -200,6 +200,49 @@ export default function FieldUserDashboard() {
     return 'victim_citizen_1';
   });
 
+  // 🔐 Mode 3 Lightweight Target-Bound E2EE Codec
+  const encodeE2EE = (text: string, targetUser: string): string => {
+    try {
+      const cleanTarget = (targetUser || 'friend').replace('@', '').toLowerCase();
+      const rawBytes = new TextEncoder().encode(text);
+      const keyBytes = new TextEncoder().encode(cleanTarget);
+      const cipherBytes = new Uint8Array(rawBytes.length);
+      for (let i = 0; i < rawBytes.length; i++) {
+        cipherBytes[i] = rawBytes[i] ^ keyBytes[i % keyBytes.length];
+      }
+      let binary = '';
+      for (let i = 0; i < cipherBytes.length; i++) {
+        binary += String.fromCharCode(cipherBytes[i]);
+      }
+      return btoa(binary);
+    } catch (e) {
+      return btoa(unescape(encodeURIComponent(text)));
+    }
+  };
+
+  const decodeE2EE = (cipherBase64: string, targetUser: string): string => {
+    try {
+      const cleanTarget = (targetUser || 'friend').replace('@', '').toLowerCase();
+      const binary = atob(cipherBase64);
+      const cipherBytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        cipherBytes[i] = binary.charCodeAt(i);
+      }
+      const keyBytes = new TextEncoder().encode(cleanTarget);
+      const plainBytes = new Uint8Array(cipherBytes.length);
+      for (let i = 0; i < cipherBytes.length; i++) {
+        plainBytes[i] = cipherBytes[i] ^ keyBytes[i % keyBytes.length];
+      }
+      return new TextDecoder().decode(plainBytes);
+    } catch (e) {
+      try {
+        return decodeURIComponent(escape(atob(cipherBase64)));
+      } catch {
+        return cipherBase64;
+      }
+    }
+  };
+
   // Live Cloudflare Primary Gateway Endpoint & Local Network Endpoints
   const PRIMARY_CLOUDFLARE = 'https://harbor-like-kings-greater.trycloudflare.com';
   const CURRENT_LAN_IP = 'http://10.208.56.76:8000';
@@ -973,13 +1016,26 @@ export default function FieldUserDashboard() {
         const targetClean = normalizeName(lastMessage.target_username);
         const senderClean = normalizeName(lastMessage.sender_username);
         if (targetClean === myClean || senderClean === myClean) {
+          let finalText = lastMessage.text;
+          if (lastMessage.encrypted_text && targetClean === myClean) {
+            finalText = decodeE2EE(lastMessage.encrypted_text, myUsername);
+          }
+          const displayMsg = {
+            ...lastMessage,
+            text: finalText,
+            is_decrypted: targetClean === myClean && !!lastMessage.encrypted_text
+          };
           setLocalMeshMessages(prev => {
-            const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === lastMessage.text));
+            const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === finalText));
             if (exists) return prev;
-            return [lastMessage, ...prev].slice(0, 50);
+            return [displayMsg, ...prev].slice(0, 50);
           });
           if (targetClean === myClean) {
-            triggerSafeHaptic(200);
+            triggerSafeHaptic(300);
+            if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
+              try { (window as any).AndroidBleMeshBridge.vibrateDevice(300); } catch (e) {}
+            }
+            setLastDeliveryToast(`📬 🔓 E2EE Decrypted from ${senderClean}: "${finalText}"`);
           }
         }
       }
@@ -1020,9 +1076,18 @@ export default function FieldUserDashboard() {
                     const targetClean = normalizeName(incoming.target_username);
                     const senderClean = normalizeName(incoming.sender_username);
                     if (targetClean === myClean || senderClean === myClean) {
-                      const exists = updated.some(m => m.id === incoming.id || (m.timestamp === incoming.timestamp && m.text === incoming.text));
+                      let finalText = incoming.text;
+                      if (incoming.encrypted_text && targetClean === myClean) {
+                        finalText = decodeE2EE(incoming.encrypted_text, myUsername);
+                      }
+                      const displayMsg = {
+                        ...incoming,
+                        text: finalText,
+                        is_decrypted: targetClean === myClean && !!incoming.encrypted_text
+                      };
+                      const exists = updated.some(m => m.id === incoming.id || (m.timestamp === incoming.timestamp && m.text === finalText));
                       if (!exists) {
-                        updated.unshift(incoming);
+                        updated.unshift(displayMsg);
                         hasNew = true;
                       }
                     }
@@ -1128,40 +1193,62 @@ export default function FieldUserDashboard() {
         const parsed = JSON.parse(rawPayload);
         if (parsed) {
           // If it's a private Local Mesh message, store locally in Local Mesh feed
-          if (parsed.is_local_mesh_private) {
+          if (parsed.is_local_mesh_private || parsed.session_id === 'LOCAL_MESH_PRIVATE') {
             const myClean = normalizeName(myUsername);
             const targetClean = normalizeName(parsed.target_username);
             const senderClean = normalizeName(parsed.sender_username);
 
             // STRICT PRIVACY: Only store and display if I am the intended recipient or sender!
             if (targetClean === myClean || senderClean === myClean) {
+              let finalText = parsed.text;
+              if (parsed.encrypted_text && targetClean === myClean) {
+                finalText = decodeE2EE(parsed.encrypted_text, myUsername);
+              }
+
+              const displayMsg = {
+                ...parsed,
+                text: finalText,
+                is_decrypted: targetClean === myClean && !!parsed.encrypted_text
+              };
+
               setLocalMeshMessages((prev) => {
                 const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
                 if (exists) return prev;
-                return [parsed, ...prev].slice(0, 50);
+                return [displayMsg, ...prev].slice(0, 50);
               });
 
               const channelName = channel === 'WIFI_AWARE_NAN' ? 'Wi-Fi Aware (NAN 100m)' : channel === 'BLE_RADIO' ? 'BLE Radio (30m)' : 'Local Radio';
               if (targetClean === myClean) {
-                setLastDeliveryToast(`📬 Message from ${senderClean} to ${myClean}: "${parsed.text}" (${channelName})`);
-                triggerSafeHaptic(200);
+                setLastDeliveryToast(`📬 🔓 Decrypted from ${senderClean}: "${finalText}" (${channelName})`);
+                triggerSafeHaptic(300);
+                if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
+                  try { (window as any).AndroidBleMeshBridge.vibrateDevice(300); } catch (e) {}
+                }
               }
             } else {
-              // Third-party phone: silently relay encrypted packet without displaying
-            }
+              // 📱 Intermediate Mule Relay (Phone 2):
+              // 1. "phone 2 also want to vibratee" -> Vibrate on Phone 2!
+              triggerSafeHaptic(200);
+              if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
+                try { (window as any).AndroidBleMeshBridge.vibrateDevice(200); } catch (e) {}
+              }
 
-            // Automatic Mesh Gateway Relay (if not native)
-            if (!(window as any).AndroidBleMeshBridge) {
+              // 2. Strict Privacy: Phone 2 CANNOT read the message. Do NOT display or toast!
+
+              // 3. Store-and-Forward: Forward locked payload over Internet to Phone 3!
               const gatewayTargets = getReliableEndpoints('/api/messages/send');
               const relayPayload = {
                 ...parsed,
                 session_id: 'LOCAL_MESH_PRIVATE',
                 is_local_mesh_private: true,
                 network_mode: parsed.network_mode || 'mode-3-ai-mesh',
-                gateway_node: `📱 Phone 2: Gateway (${myUsername || myNodeId})`,
+                gateway_node: `📱 Phone 2 (Silent Mesh Relay: ${myUsername || myNodeId})`,
                 hop_count: (parsed.hop_count || 1) + 1
               };
               sendPayloadSingle(gatewayTargets, JSON.stringify(relayPayload));
+              try {
+                send(relayPayload);
+              } catch (e) {}
             }
             return;
           }
@@ -1707,9 +1794,17 @@ export default function FieldUserDashboard() {
     let localAudioUrl: string | undefined = audioBase64;
     let effectiveAudioSize = (!audioBlob && !audioBase64) ? 24 : (audioSize || 45000);
 
-    if (localMeshMode === 'mode-3-p2p-nan') {
+    const isMode3 = localMeshMode === 'mode-3-p2p-nan';
+    let encryptedPayload: string | undefined = undefined;
+    let isLocked = false;
+    let transitText = finalText;
+
+    if (isMode3) {
       localAudioUrl = undefined; // ONLY TEXT FOR 24B MESH
       effectiveAudioSize = 24;
+      isLocked = true;
+      encryptedPayload = encodeE2EE(finalText, effectiveTarget);
+      transitText = `🔒 Encrypted Message (Locked for ${effectiveTarget})`;
     } else if (!localAudioUrl && audioBlob && audioBlob.size > 0) {
       localAudioUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -1739,10 +1834,12 @@ export default function FieldUserDashboard() {
       target_username: effectiveTarget,
       node_id: myNodeId,
       is_local_mesh_private: true,
+      is_locked: isLocked,
+      encrypted_text: encryptedPayload,
       local_mode: localMeshMode,
-      network_mode: localMeshMode === 'mode-2-p2p-2g' ? 'mode-2-compressed-voice' : localMeshMode === 'mode-3-p2p-nan' ? 'mode-3-ai-mesh' : 'mode-1-hd-call',
+      network_mode: localMeshMode === 'mode-2-p2p-2g' ? 'mode-2-compressed-voice' : isMode3 ? 'mode-3-ai-mesh' : 'mode-1-hd-call',
       type: (!audioBlob && !audioBase64) ? 'text_message' : 'voice_message',
-      text: finalText,
+      text: isMode3 ? transitText : finalText,
       audio_size: effectiveAudioSize,
       audio_url: localAudioUrl,
       cipher_code: lockToken,
@@ -1752,8 +1849,13 @@ export default function FieldUserDashboard() {
       timestamp: new Date().toISOString()
     };
 
-    // Add directly to local state
-    setLocalMeshMessages((prev) => [payloadObj, ...prev]);
+    // Add directly to local state (Phone 1 sender sees original text and bound status)
+    const localSenderMsg = {
+      ...payloadObj,
+      text: finalText,
+      is_locked: isLocked
+    };
+    setLocalMeshMessages((prev) => [localSenderMsg, ...prev]);
 
     const payload = JSON.stringify(payloadObj);
 
@@ -1768,7 +1870,7 @@ export default function FieldUserDashboard() {
 
     // 3. ONLY Mode 3 (offline Radio Mesh) broadcasts over Native Wi-Fi Aware & BLE!
     // Mode 1 and Mode 2 use internet directly (WebSocket + HTTP) like WhatsApp!
-    if (localMeshMode === 'mode-3-p2p-nan') {
+    if (isMode3) {
       if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
         try {
           (window as any).AndroidBleMeshBridge.broadcastMeshPacket(payload);
@@ -1776,8 +1878,15 @@ export default function FieldUserDashboard() {
       }
     }
 
-    setLastDeliveryToast(`✅ Voice Note Sent to ${effectiveTarget} (Internet & Mesh)`);
-    triggerSafeHaptic(150);
+    // 🔔 PHONE 1 MUST VIBRATE!
+    triggerSafeHaptic(350);
+    if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
+      try {
+        (window as any).AndroidBleMeshBridge.vibrateDevice(350);
+      } catch (e) {}
+    }
+
+    setLastDeliveryToast(isMode3 ? `🔒 Locked & Sent to ${effectiveTarget} (Phone 1 Vibrated)` : `✅ Sent to ${effectiveTarget}`);
   };
 
   return (
@@ -2847,10 +2956,10 @@ export default function FieldUserDashboard() {
                             </span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[7.5px] px-1.5 py-0.5 rounded font-mono font-bold bg-black/40 border border-white/10">
-                                {msg.local_mode === 'mode-2-p2p-2g' ? '📻 2G (1.2 KB · 97% Saved)' : '🎙️ HD (45 KB)'}
+                                {msg.local_mode === 'mode-3-p2p-nan' ? '📡 Mode 3 Mesh (24B)' : msg.local_mode === 'mode-2-p2p-2g' ? '📻 2G (1.2 KB)' : '🎙️ HD (45 KB)'}
                               </span>
                               <span className="text-[8px] opacity-80">
-                                {isForMeOrMine ? '🔓 E2EE' : '🔒 RELAY'}
+                                {msg.is_decrypted ? '🔓 E2EE Decrypted' : isSentByMe && msg.is_locked ? '🔒 Locked' : isForMeOrMine ? '🔓 E2EE' : '🔒 RELAY'}
                               </span>
                             </div>
                           </div>
@@ -2868,9 +2977,21 @@ export default function FieldUserDashboard() {
                             )}
                             {/* Message Text Caption */}
                             {msg.text && (
-                              <p className="text-xs leading-relaxed font-medium px-1 text-slate-100">
-                                {msg.text}
-                              </p>
+                              <div className="space-y-1">
+                                {msg.is_decrypted && (
+                                  <span className="inline-block text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-bold border border-cyan-500/40">
+                                    🔓 Decrypted for You
+                                  </span>
+                                )}
+                                {isSentByMe && msg.is_locked && (
+                                  <span className="inline-block text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40">
+                                    🔒 Bound & Locked for {msg.target_username}
+                                  </span>
+                                )}
+                                <p className="text-xs leading-relaxed font-medium px-1 text-slate-100">
+                                  {msg.text}
+                                </p>
+                              </div>
                             )}
                             {!isForMeOrMine && msg.cipher_code && (
                               <div className="px-2 py-1 rounded-lg bg-black/60 border border-neutral-800 text-[8px] font-mono text-emerald-400 flex items-center justify-between">

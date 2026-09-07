@@ -552,6 +552,9 @@ class MessagePayload(BaseModel):
     latitude: Optional[float] = 12.8718
     longitude: Optional[float] = 80.2185
     address_name: Optional[str] = None 
+    is_locked: Optional[bool] = False
+    encrypted_text: Optional[str] = None
+    lock_key: Optional[str] = None
 
 class ModeUpdatePayload(BaseModel):
     network_mode: Optional[str] = None
@@ -1086,6 +1089,9 @@ async def send_message(payload: MessagePayload):
         "latitude": payload.latitude,
         "longitude": payload.longitude,
         "address_name": payload.address_name,
+        "is_locked": bool(payload.is_locked),
+        "encrypted_text": payload.encrypted_text,
+        "lock_key": payload.lock_key,
         "timestamp": datetime.utcnow().isoformat()
     }
 
