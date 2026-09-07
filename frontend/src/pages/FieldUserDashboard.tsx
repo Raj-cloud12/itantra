@@ -1884,17 +1884,7 @@ export default function FieldUserDashboard() {
 
     const payload = JSON.stringify(payloadObj);
 
-    // 1. Direct WebSocket send for instant real-time internet delivery
-    try {
-      send(payloadObj);
-    } catch (e) {}
-
-    // 2. Dispatch via Reliable HTTP Endpoints (Internet / LAN / Cloudflare)
-    const meshTargets = getReliableEndpoints('/api/messages/send');
-    await sendPayloadSingle(meshTargets, payload);
-
-    // 3. ONLY Mode 3 (offline Radio Mesh) broadcasts over Native Wi-Fi Aware & BLE!
-    // Mode 1 and Mode 2 use internet directly (WebSocket + HTTP) like WhatsApp!
+    // 1. In Mode 3 (Offline Radio Mesh), broadcast IMMEDIATELY via Native BLE & Wi-Fi Aware!
     if (isMode3) {
       if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
         try {
@@ -1903,7 +1893,7 @@ export default function FieldUserDashboard() {
       }
     }
 
-    // 🔔 PHONE 1 MUST VIBRATE!
+    // 🔔 PHONE 1 MUST VIBRATE IMMEDIATELY ON SEND!
     triggerSafeHaptic(350);
     if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
       try {
@@ -1912,6 +1902,17 @@ export default function FieldUserDashboard() {
     }
 
     setLastDeliveryToast(isMode3 ? `🔒 Locked & Sent to ${effectiveTarget} (Phone 1 Vibrated)` : `✅ Sent to ${effectiveTarget}`);
+
+    // 2. Direct WebSocket send for online internet delivery (non-blocking)
+    try {
+      send(payloadObj);
+    } catch (e) {}
+
+    // 3. Dispatch via HTTP Endpoints (Internet / LAN / Cloudflare) in background
+    if (!isMode3) {
+      const meshTargets = getReliableEndpoints('/api/messages/send');
+      sendPayloadSingle(meshTargets, payload);
+    }
   };
 
   return (
