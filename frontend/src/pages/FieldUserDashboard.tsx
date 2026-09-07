@@ -1049,44 +1049,12 @@ export default function FieldUserDashboard() {
       return;
     }
 
-    // 1. Strictly isolate Local Mesh Private messages: ONLY goes to Local Mesh feed, NEVER Alert/SOS!
-    if (lastMessage.is_local_mesh_private || lastMessage.session_id === 'LOCAL_MESH_PRIVATE' || lastMessage.local_mode) {
-      const myClean = normalizeName(myUsername);
-      const targetClean = normalizeName(lastMessage.target_username);
-      const senderClean = normalizeName(lastMessage.sender_username);
-      if (targetClean === myClean || senderClean === myClean) {
-        let finalText = lastMessage.text;
-        if (lastMessage.encrypted_text && targetClean === myClean) {
-          finalText = decodeE2EE(lastMessage.encrypted_text, myUsername);
-        }
-        const displayMsg = {
-          ...lastMessage,
-          text: finalText,
-          is_decrypted: targetClean === myClean && !!lastMessage.encrypted_text
-        };
-        setLocalMeshMessages(prev => {
-          const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === finalText));
-          if (exists) return prev;
-          return [displayMsg, ...prev].slice(0, 50);
-        });
-        if (targetClean === myClean) {
-          triggerSafeHaptic(300);
-          if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
-            try { (window as any).AndroidBleMeshBridge.vibrateDevice(300); } catch (e) {}
-          }
-          const toastPrefix = lastMessage.local_mode === 'mode-1-p2p-hd' ? '🎙️ HD Voice' : lastMessage.local_mode === 'mode-2-p2p-2g' ? '📻 2G Voice' : '📬 Message';
-          setLastDeliveryToast(`${toastPrefix} from ${senderClean}`);
-        }
-      }
-      return; // 🛑 STRICT PRIVACY: NEVER leak into Alert or SOS tab!
-    }
-
-    // 2. Handle Incoming Live Message from Govt Command Center or Mesh Peer
+    // Handle Incoming Live Message from Govt Command Center or Mesh Peer
     if (lastMessage.text) {
       const isFromCommand = lastMessage.sender_role === 'command' || lastMessage.sender_username === '@command_center';
       const isEmergency = !!lastMessage.is_emergency;
 
-      // If SOS or from Command Center, add to SOS feed
+      // 1. If SOS or from Command Center, add to SOS feed
       if (isEmergency || isFromCommand) {
         setSosHistory(prev => {
           const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === lastMessage.text));
@@ -1117,6 +1085,36 @@ export default function FieldUserDashboard() {
                 (window as any).AndroidBleMeshBridge.broadcastMeshPacket(JSON.stringify(commandAirPayload));
               } catch (e) {}
             }
+          }
+        }
+      }
+
+      // 2. Add to Local Mesh Feed if applicable (Only private messages meant for me or sent by me!)
+      if (lastMessage.is_local_mesh_private || lastMessage.session_id === 'LOCAL_MESH_PRIVATE' || lastMessage.local_mode) {
+        const myClean = normalizeName(myUsername);
+        const targetClean = normalizeName(lastMessage.target_username);
+        const senderClean = normalizeName(lastMessage.sender_username);
+        if (targetClean === myClean || senderClean === myClean) {
+          let finalText = lastMessage.text;
+          if (lastMessage.encrypted_text && targetClean === myClean) {
+            finalText = decodeE2EE(lastMessage.encrypted_text, myUsername);
+          }
+          const displayMsg = {
+            ...lastMessage,
+            text: finalText,
+            is_decrypted: targetClean === myClean && !!lastMessage.encrypted_text
+          };
+          setLocalMeshMessages(prev => {
+            const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === finalText));
+            if (exists) return prev;
+            return [displayMsg, ...prev].slice(0, 50);
+          });
+          if (targetClean === myClean) {
+            triggerSafeHaptic(300);
+            if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
+              try { (window as any).AndroidBleMeshBridge.vibrateDevice(300); } catch (e) {}
+            }
+            setLastDeliveryToast(`📬 🔓 E2EE Decrypted from ${senderClean}: "${finalText}"`);
           }
         }
       }
@@ -1952,17 +1950,7 @@ export default function FieldUserDashboard() {
 
     const payload = JSON.stringify(payloadObj);
 
-    // 1. Direct WebSocket send for instant real-time internet delivery
-    try {
-      send(payloadObj);
-    } catch (e) {}
-
-    // 2. Dispatch via Reliable HTTP Endpoints (Internet / LAN / Cloudflare)
-    const meshTargets = getReliableEndpoints('/api/messages/send');
-    await sendPayloadSingle(meshTargets, payload);
-
-    // 3. ONLY Mode 3 (offline Radio Mesh) broadcasts over Native Wi-Fi Aware & BLE!
-    // Mode 1 and Mode 2 use internet directly (WebSocket + HTTP) like WhatsApp!
+    // 1. In Mode 3 (Offline Radio Mesh), broadcast IMMEDIATELY via Native BLE & Wi-Fi Aware!
     if (isMode3) {
       if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
         try {
@@ -1971,7 +1959,7 @@ export default function FieldUserDashboard() {
       }
     }
 
-    // 🔔 PHONE 1 MUST VIBRATE!
+    // 🔔 PHONE 1 MUST VIBRATE IMMEDIATELY ON SEND!
     triggerSafeHaptic(350);
     if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
       try {
@@ -1980,6 +1968,17 @@ export default function FieldUserDashboard() {
     }
 
     setLastDeliveryToast(isMode3 ? `🔒 Locked & Sent to ${effectiveTarget} (Phone 1 Vibrated)` : `✅ Sent to ${effectiveTarget}`);
+
+    // 2. Direct WebSocket send for online internet delivery (non-blocking)
+    try {
+      send(payloadObj);
+    } catch (e) {}
+
+    // 3. Dispatch via HTTP Endpoints (Internet / LAN / Cloudflare) in background
+    if (!isMode3) {
+      const meshTargets = getReliableEndpoints('/api/messages/send');
+      sendPayloadSingle(meshTargets, payload);
+    }
   };
 
   return (
