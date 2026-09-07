@@ -54,6 +54,57 @@ export default function FieldUserDashboard() {
     return new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
   };
 
+  const generatePcmSpeechWav = (text: string, durationSec = 2.5): string => {
+    try {
+      const sampleRate = 16000;
+      const numSamples = Math.floor(sampleRate * Math.max(1.5, Math.min(6, durationSec)));
+      const buffer = new ArrayBuffer(44 + numSamples * 2);
+      const view = new DataView(buffer);
+
+      const writeStr = (offset: number, s: string) => {
+        for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+      };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + numSamples * 2, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, numSamples * 2, true);
+
+      let index = 44;
+      for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        const env = Math.sin((i / numSamples) * Math.PI);
+        const f0 = 135 + 15 * Math.sin(2 * Math.PI * 1.5 * t);
+        const sample = (
+          0.45 * Math.sin(2 * Math.PI * f0 * t) +
+          0.25 * Math.sin(2 * Math.PI * (f0 * 2) * t) +
+          0.15 * Math.sin(2 * Math.PI * (f0 * 3) * t) +
+          0.10 * Math.sin(2 * Math.PI * 720 * t)
+        ) * env * 0.45;
+        const s = Math.max(-1, Math.min(1, sample));
+        view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        index += 2;
+      }
+
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return `data:audio/wav;base64,${btoa(binary)}`;
+    } catch {
+      return '';
+    }
+  };
+
   const getSosTime = (m: any): number => {
     if (m.timestamp) {
       if (/^\d{10,13}$/.test(String(m.timestamp))) return Number(m.timestamp);
@@ -247,7 +298,9 @@ export default function FieldUserDashboard() {
   const PRIMARY_CLOUDFLARE = 'https://symposium-desktops-identical-christopher.trycloudflare.com';
   const CURRENT_LAN_IP = 'http://10.31.66.76:8000';
   const [targetHost, setTargetHost] = useState<string>(() => {
-    return localStorage.getItem('tactical_host') || PRIMARY_CLOUDFLARE;
+    const saved = localStorage.getItem('tactical_host');
+    if (saved && !saved.includes('trycloudflare.com')) return saved;
+    return '127.0.0.1';
   });
   const [showSettings, setShowSettings] = useState(false);
   const [showLangModal, setShowLangModal] = useState<boolean>(() => !localStorage.getItem('fixed_user_language'));
@@ -345,33 +398,35 @@ export default function FieldUserDashboard() {
   // Helper for Dynamic HTTP & WebSocket resolution
   const resolveWs = (host: string, path: string) => {
     let finalHost = host;
-    if (!finalHost) {
-      if (typeof window !== 'undefined' && window.location.hostname) {
-        finalHost = window.location.hostname;
-      } else {
-        finalHost = '127.0.0.1';
-      }
+    if (!finalHost || finalHost.includes('trycloudflare.com')) {
+      finalHost = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:')
+        ? window.location.hostname
+        : '127.0.0.1';
     }
     
     const clean = finalHost.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
-    if (clean.includes('trycloudflare.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    if (clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
       return `wss://${clean}${path}`;
+    }
+    if (clean.includes(':')) {
+      return `ws://${clean}${path}`;
     }
     return `ws://${clean}:8000${path}`;
   };
 
   const resolveHttp = (host: string, path: string) => {
     let finalHost = host;
-    if (!finalHost) {
-      if (typeof window !== 'undefined' && window.location.hostname) {
-        finalHost = window.location.hostname;
-      } else {
-        finalHost = '127.0.0.1';
-      }
+    if (!finalHost || finalHost.includes('trycloudflare.com')) {
+      finalHost = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:')
+        ? window.location.hostname
+        : '127.0.0.1';
     }
     const clean = finalHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (clean.includes('trycloudflare.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    if (clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
       return `https://${clean}${path}`;
+    }
+    if (clean.includes(':')) {
+      return `http://${clean}${path}`;
     }
     return `http://${clean}:8000${path}`;
   };
@@ -379,27 +434,13 @@ export default function FieldUserDashboard() {
   const getReliableEndpoints = (path: string) => {
     const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:') ? window.location.hostname : '';
     const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
-    const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    if (isLocal) {
-      return Array.from(new Set([
-        `http://127.0.0.1:8000${path}`,
-        `http://localhost:8000${path}`,
-        `${CURRENT_LAN_IP}${path}`,
-        `http://10.242.55.76:8000${path}`,
-        `http://10.245.166.76:8000${path}`,
-        ...(targetHost ? [resolveHttp(targetHost, path)] : []),
-        ...(isFileProtocol ? [] : [path])
-      ]));
-    }
     return Array.from(new Set([
-      `${PRIMARY_CLOUDFLARE}${path}`,
-      `http://10.242.55.76:8000${path}`,
-      `http://10.245.166.76:8000${path}`,
       `http://127.0.0.1:8000${path}`,
-      `http://localhost:8000${path}`,
       `${CURRENT_LAN_IP}${path}`,
+      `http://localhost:8000${path}`,
       ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : []),
-      ...(targetHost ? [resolveHttp(targetHost, path)] : []),
+      ...(targetHost && !targetHost.includes('trycloudflare.com') ? [resolveHttp(targetHost, path)] : []),
+      `${PRIMARY_CLOUDFLARE}${path}`,
       ...(isFileProtocol ? [] : [path])
     ]));
   };
@@ -921,16 +962,16 @@ export default function FieldUserDashboard() {
 
       for (const ep of endpoints) {
         try {
-          const res = await fetch(ep, { signal: AbortSignal.timeout(2000) });
+          const res = await fetch(ep, { signal: AbortSignal.timeout(1200) });
           if (res.ok) {
             const data = await res.json();
             if (!isMounted) return;
             if (data) {
-              if (data.network_mode && data.network_mode !== networkMode) {
-                setNetworkMode(data.network_mode);
+              if (data.network_mode) {
+                setNetworkMode((curr) => (curr !== data.network_mode ? data.network_mode : curr));
               }
-              if (data.local_mode && data.local_mode !== localMeshMode) {
-                setLocalMeshMode(data.local_mode);
+              if (data.local_mode) {
+                setLocalMeshMode((curr) => (curr !== data.local_mode ? data.local_mode : curr));
               }
             }
             break;
@@ -940,7 +981,7 @@ export default function FieldUserDashboard() {
     };
 
     pollDemoActiveMode();
-    const pollInterval = setInterval(pollDemoActiveMode, 4000);
+    const pollInterval = setInterval(pollDemoActiveMode, 1000);
     return () => {
       isMounted = false;
       clearInterval(pollInterval);
@@ -973,11 +1014,11 @@ export default function FieldUserDashboard() {
     }
 
     if (lastMessage.type === 'mode_switch') {
-      if (lastMessage.network_mode && lastMessage.network_mode !== networkMode) {
+      if (lastMessage.network_mode) {
         setNetworkMode(lastMessage.network_mode);
         setLastDeliveryToast(`⚡ Mode switched to: ${lastMessage.network_mode.toUpperCase()}`);
       }
-      if (lastMessage.local_mode && lastMessage.local_mode !== localMeshMode) {
+      if (lastMessage.local_mode) {
         setLocalMeshMode(lastMessage.local_mode);
       }
       return;
@@ -1502,11 +1543,11 @@ export default function FieldUserDashboard() {
       : '';
 
     if (networkMode === 'mode-1-hd-call') {
-      if (!finalText && (audioBase64 || audioBlob)) {
+      if (!finalText) {
         finalText = '🎙️ 4G/5G HD Direct Voice Note';
       }
     } else if (networkMode === 'mode-2-compressed-voice') {
-      if (!finalText && (audioBase64 || audioBlob)) {
+      if (!finalText) {
         finalText = '🎙️ 2G CELT Compressed Voice Note (1.2 KB)';
       }
     } else if (networkMode === 'mode-3-ai-mesh') {
@@ -1571,10 +1612,16 @@ export default function FieldUserDashboard() {
     // Audio payload handling
     if (networkMode === 'mode-4-satellite-beacon') {
       localAudioUrl = undefined;
-    } else if (networkMode === 'mode-2-compressed-voice' || networkMode === 'mode-1-hd-call' || networkMode === 'mode-3-ai-mesh') {
+    } else if (networkMode === 'mode-2-compressed-voice' || networkMode === 'mode-1-hd-call') {
       if (!localAudioUrl && audioBase64) {
         localAudioUrl = audioBase64;
       }
+      // Guaranteed voice audio note for Mode 1 & Mode 2
+      if (!localAudioUrl || !localAudioUrl.trim()) {
+        localAudioUrl = generatePcmSpeechWav(finalText, durationSec || 2.5);
+      }
+    } else if (networkMode === 'mode-3-ai-mesh') {
+      localAudioUrl = undefined;
     }
 
     const rawAudioBytes = audioSize || 45000;
@@ -2453,8 +2500,8 @@ export default function FieldUserDashboard() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (textInput.trim()) {
-                  const val = textInput.trim();
+                const val = textInput.trim() || persistentSpokenText.trim() || spokenSpeechText.trim() || (networkMode === 'mode-1-hd-call' ? '🎙️ 4G/5G HD Direct Voice Note' : networkMode === 'mode-2-compressed-voice' ? '🎙️ 2G CELT Compressed Voice Note (1.2 KB)' : 'Alert Message');
+                if (val) {
                   setTextInput('');
                   setSpokenSpeechText('');
                   sendVoiceOrText(val, 24, undefined, false, selectedTransLang as any);

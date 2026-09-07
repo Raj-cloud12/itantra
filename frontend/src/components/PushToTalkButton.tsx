@@ -84,10 +84,15 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       }
     }
 
-    // 2. Android Bridge Native SpeechRecognizer
+    // 2. Android Bridge Native SpeechRecognizer & Native Audio Recorder
     if ((window as any).AndroidBleMeshBridge?.startSpeechRecognition) {
       try {
         (window as any).AndroidBleMeshBridge.startSpeechRecognition(language || 'ta');
+      } catch (e) {}
+    }
+    if ((window as any).AndroidBleMeshBridge?.startNativeAudioRecording) {
+      try {
+        (window as any).AndroidBleMeshBridge.startNativeAudioRecording();
       } catch (e) {}
     }
 
@@ -114,13 +119,19 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       recognitionRef.current = null;
     }
 
-    // Stop Android Native SpeechRecognizer
+    // Stop Android Native SpeechRecognizer & Native Audio Recorder
     if ((window as any).AndroidBleMeshBridge?.stopSpeechRecognition) {
       try {
         const nativeText = (window as any).AndroidBleMeshBridge.stopSpeechRecognition();
         if (nativeText && nativeText.trim()) {
           recognizedTextRef.current = nativeText.trim();
         }
+      } catch (e) {}
+    }
+    let nativeVoiceBase64 = '';
+    if ((window as any).AndroidBleMeshBridge?.stopNativeAudioRecording) {
+      try {
+        nativeVoiceBase64 = (window as any).AndroidBleMeshBridge.stopNativeAudioRecording() || '';
       } catch (e) {}
     }
 
@@ -137,6 +148,11 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       audioSize = result.size || audioSize;
     } catch (e) {
       console.warn('Microphone stop error:', e);
+    }
+
+    if (nativeVoiceBase64 && nativeVoiceBase64.startsWith('data:audio/')) {
+      audioBase64 = nativeVoiceBase64;
+      audioSize = Math.round(nativeVoiceBase64.length * 0.75);
     }
 
     const effectiveLang = language || 'ta';

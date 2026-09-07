@@ -1006,6 +1006,17 @@ async def send_message(payload: MessagePayload):
         payload.audio_url = None
         payload.audio_size = 24
 
+    # Guaranteed Audio for Mode 1 & Mode 2: If audio_url is missing, generate AI Voice Note
+    if mode in ('mode-1-hd-call', 'mode-2-compressed-voice'):
+        if not payload.audio_url or not str(payload.audio_url).strip():
+            try:
+                spoken = final_text or ("4G HD Voice Note" if mode == 'mode-1-hd-call' else "2G Compressed Voice Note")
+                generated_audio = await generate_ai_voice(spoken, payload.language or "ta")
+                if generated_audio:
+                    payload.audio_url = generated_audio
+            except Exception as e:
+                print(f"[Mode 1/2 voice generation error]: {e}", flush=True)
+
     msg_uuid = payload.id or str(datetime.utcnow().timestamp())
     sender_name = payload.sender_username or f"@{payload.sender_role}"
     target_name = payload.target_username or "@command_center"

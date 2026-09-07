@@ -121,6 +121,8 @@ class MainActivity : AppCompatActivity() {
     private var isRecordingAudio = false
     private val asrExecutor = Executors.newSingleThreadExecutor()
     private val downloadExecutor = Executors.newSingleThreadExecutor()
+    private var nativeMediaRecorder: MediaRecorder? = null
+    private var nativeAudioFile: File? = null
 
     private fun downloadFileWithProgress(sourceUrl: String, destFile: File, onProgress: (Int) -> Unit): Boolean {
         var currentUrl = sourceUrl
@@ -1342,6 +1344,62 @@ class MainActivity : AppCompatActivity() {
                 Log.e("SHERPA_ASR", "transcribeAudioBase64 failed: ${e.message}", e)
                 return ""
             }
+        }
+
+        @JavascriptInterface
+        fun startNativeAudioRecording() {
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestAllPermissions()
+                return
+            }
+            try {
+                try {
+                    nativeMediaRecorder?.stop()
+                    nativeMediaRecorder?.release()
+                } catch (e: Exception) {}
+                nativeMediaRecorder = null
+
+                val file = File(cacheDir, "native_voice_${System.currentTimeMillis()}.m4a")
+                val rec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    MediaRecorder(this@MainActivity)
+                } else {
+                    @Suppress("DEPRECATION")
+                    MediaRecorder()
+                }
+                rec.setAudioSource(MediaRecorder.AudioSource.MIC)
+                rec.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                rec.setAudioSamplingRate(16000)
+                rec.setAudioEncodingBitRate(32000)
+                rec.setOutputFile(file.absolutePath)
+                rec.prepare()
+                rec.start()
+                nativeMediaRecorder = rec
+                nativeAudioFile = file
+                Log.i("NATIVE_AUDIO", "Native MediaRecorder started: ${file.absolutePath}")
+            } catch (e: Exception) {
+                Log.e("NATIVE_AUDIO", "Failed to start MediaRecorder: ${e.message}", e)
+            }
+        }
+
+        @JavascriptInterface
+        fun stopNativeAudioRecording(): String {
+            try {
+                nativeMediaRecorder?.stop()
+                nativeMediaRecorder?.release()
+                nativeMediaRecorder = null
+                val file = nativeAudioFile ?: return ""
+                if (file.exists() && file.length() > 0) {
+                    val bytes = file.readBytes()
+                    val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                    Log.i("NATIVE_AUDIO", "Native MediaRecorder captured ${bytes.size} bytes audio")
+                    file.delete()
+                    return "data:audio/mp4;base64,$b64"
+                }
+            } catch (e: Exception) {
+                Log.e("NATIVE_AUDIO", "Failed to stop MediaRecorder: ${e.message}", e)
+            }
+            return ""
         }
 
         @JavascriptInterface
