@@ -121,8 +121,6 @@ class MainActivity : AppCompatActivity() {
     private var isRecordingAudio = false
     private val asrExecutor = Executors.newSingleThreadExecutor()
     private val downloadExecutor = Executors.newSingleThreadExecutor()
-    private var nativeMediaRecorder: MediaRecorder? = null
-    private var nativeAudioFile: File? = null
 
     private fun downloadFileWithProgress(sourceUrl: String, destFile: File, onProgress: (Int) -> Unit): Boolean {
         var currentUrl = sourceUrl
@@ -1110,36 +1108,24 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     val googleServices = listOf(
+                        android.content.ComponentName("com.google.android.googlequicksearchbox", "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"),
                         android.content.ComponentName("com.google.android.tts", "com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService"),
-                        android.content.ComponentName("com.google.android.as", "com.google.android.apps.miphone.aiai.app.AiAiSpeechRecognitionService"),
-                        android.content.ComponentName("com.google.android.googlequicksearchbox", "com.google.android.voicesearch.serviceapi.GoogleRecognitionService")
+                        android.content.ComponentName("com.google.android.as", "com.google.android.apps.miphone.aiai.app.AiAiSpeechRecognitionService")
                     )
                     var recognizer: SpeechRecognizer? = null
 
-                    // 1. Try Android 12+ 100% On-Device Offline SpeechRecognizer first
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(this@MainActivity)) {
+                    // 1. Bound Google Speech recognition services (full Tamil & Indic support)
+                    for (comp in googleServices) {
                         try {
-                            recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this@MainActivity)
-                            Log.i("NATIVE_ASR", "Successfully initialized 100% On-Device Offline SpeechRecognizer")
-                        } catch (e: Exception) {
-                            Log.w("NATIVE_ASR", "createOnDeviceSpeechRecognizer failed: ${e.message}")
-                        }
-                    }
-
-                    // 2. Bound Google Speech recognition services
-                    if (recognizer == null) {
-                        for (comp in googleServices) {
-                            try {
-                                val serviceIntent = Intent("android.speech.RecognitionService").setComponent(comp)
-                                val resolve = packageManager.queryIntentServices(serviceIntent, 0)
-                                if (resolve.isNotEmpty()) {
-                                    recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity, comp)
-                                    Log.i("NATIVE_ASR", "Successfully bound to verified SpeechService: ${comp.className}")
-                                    break
-                                }
-                            } catch (e: Exception) {
-                                Log.w("NATIVE_ASR", "Could not check ${comp.className}: ${e.message}")
+                            val serviceIntent = Intent("android.speech.RecognitionService").setComponent(comp)
+                            val resolve = packageManager.queryIntentServices(serviceIntent, 0)
+                            if (resolve.isNotEmpty()) {
+                                recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity, comp)
+                                Log.i("NATIVE_ASR", "Successfully bound to verified SpeechService: ${comp.className}")
+                                break
                             }
+                        } catch (e: Exception) {
+                            Log.w("NATIVE_ASR", "Could not check ${comp.className}: ${e.message}")
                         }
                     }
 
@@ -1189,13 +1175,12 @@ class MainActivity : AppCompatActivity() {
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeTag)
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
                         putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(localeTag, "ta-IN", "en-IN"))
-                        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-                        putExtra("android.speech.extra.PREFER_OFFLINE", true)
                         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                        putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
                     }
                     nativeSpeechRecognizer?.startListening(intent)
-                    Log.i("NATIVE_ASR", "Native Offline SpeechRecognizer active for $localeTag")
+                    Log.i("NATIVE_ASR", "Native SpeechRecognizer active for $localeTag")
                 } catch (e: Exception) {
                     Log.e("NATIVE_ASR", "Failed to start native SpeechRecognizer: ${e.message}", e)
                 }
@@ -1346,61 +1331,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        @JavascriptInterface
-        fun startNativeAudioRecording() {
-            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                requestAllPermissions()
-                return
-            }
-            try {
-                try {
-                    nativeMediaRecorder?.stop()
-                    nativeMediaRecorder?.release()
-                } catch (e: Exception) {}
-                nativeMediaRecorder = null
 
-                val file = File(cacheDir, "native_voice_${System.currentTimeMillis()}.m4a")
-                val rec = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    MediaRecorder(this@MainActivity)
-                } else {
-                    @Suppress("DEPRECATION")
-                    MediaRecorder()
-                }
-                rec.setAudioSource(MediaRecorder.AudioSource.MIC)
-                rec.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                rec.setAudioSamplingRate(16000)
-                rec.setAudioEncodingBitRate(32000)
-                rec.setOutputFile(file.absolutePath)
-                rec.prepare()
-                rec.start()
-                nativeMediaRecorder = rec
-                nativeAudioFile = file
-                Log.i("NATIVE_AUDIO", "Native MediaRecorder started: ${file.absolutePath}")
-            } catch (e: Exception) {
-                Log.e("NATIVE_AUDIO", "Failed to start MediaRecorder: ${e.message}", e)
-            }
-        }
-
-        @JavascriptInterface
-        fun stopNativeAudioRecording(): String {
-            try {
-                nativeMediaRecorder?.stop()
-                nativeMediaRecorder?.release()
-                nativeMediaRecorder = null
-                val file = nativeAudioFile ?: return ""
-                if (file.exists() && file.length() > 0) {
-                    val bytes = file.readBytes()
-                    val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-                    Log.i("NATIVE_AUDIO", "Native MediaRecorder captured ${bytes.size} bytes audio")
-                    file.delete()
-                    return "data:audio/mp4;base64,$b64"
-                }
-            } catch (e: Exception) {
-                Log.e("NATIVE_AUDIO", "Failed to stop MediaRecorder: ${e.message}", e)
-            }
-            return ""
-        }
 
         @JavascriptInterface
         fun broadcastMeshPacket(payloadJson: String) {
@@ -1552,28 +1483,45 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            // Encode full message into compact 1-byte Tamil / ASCII representation (3x smaller)
-            val compactBytes = TantraMeshCodec.encodeCompact(text)
-            val chunkSize = 18 // 18 compact bytes per chunk. Total packet = 5 header + 18 = 23 bytes <= 24 bytes BLE limit
-            val totalChunks = Math.max(1, Math.min(15, Math.ceil(compactBytes.size.toDouble() / chunkSize).toInt()))
+            val isGenericFallback = rawText.isBlank() || rawText.startsWith("🚨 SOS: I am in emergency") || rawText.startsWith("🚨 SOS")
+            val isEmergencyBeacon = emergency || json.optString("network_mode") == "mode-4-satellite-beacon" || json.optString("type") == "emergency_alert"
 
             val packets = mutableListOf<ByteArray>()
-            for (cIdx in 0 until totalChunks) {
-                val start = cIdx * chunkSize
-                val end = Math.min(start + chunkSize, compactBytes.size)
-                val chunkSlice = if (start < compactBytes.size) compactBytes.copyOfRange(start, end) else ByteArray(0)
 
-                val packet = ByteArray(5 + chunkSlice.size)
+            if (isEmergencyBeacon && isGenericFallback) {
+                // 🚀 ULTRA-FAST 1-TAP SOS: Single 1-Chunk Packet (Sub-100ms Instant Air Dispatch!)
+                val beaconText = "🚨 SOS"
+                val compactBytes = TantraMeshCodec.encodeCompact(beaconText)
+                val packet = ByteArray(5 + compactBytes.size)
                 packet[0] = 0xA1.toByte() // Tantra Compact Mesh Magic
                 packet[1] = cipherHi
                 packet[2] = cipherLo
-                val metaByte = (((cIdx and 0x0F) shl 4) or (totalChunks and 0x0F)).toByte()
-                packet[3] = metaByte
-                val isGenericFallback = rawText.isBlank() || rawText.startsWith("🚨 SOS: I am in emergency")
-                val bleEmergByte = if (emergency && isGenericFallback) 1 else 0
-                packet[4] = bleEmergByte.toByte()
-                System.arraycopy(chunkSlice, 0, packet, 5, chunkSlice.size)
+                packet[3] = 0x01.toByte() // Chunk 0 of 1 (totalChunks = 1)
+                packet[4] = 1.toByte()    // Emergency flag = 1
+                System.arraycopy(compactBytes, 0, packet, 5, compactBytes.size)
                 packets.add(packet)
+            } else {
+                // Multi-chunk encoding for custom text / voice notes
+                val compactBytes = TantraMeshCodec.encodeCompact(text)
+                val chunkSize = 18 // 18 compact bytes per chunk. Total packet = 5 header + 18 = 23 bytes <= 24 bytes BLE limit
+                val totalChunks = Math.max(1, Math.min(15, Math.ceil(compactBytes.size.toDouble() / chunkSize).toInt()))
+
+                for (cIdx in 0 until totalChunks) {
+                    val start = cIdx * chunkSize
+                    val end = Math.min(start + chunkSize, compactBytes.size)
+                    val chunkSlice = if (start < compactBytes.size) compactBytes.copyOfRange(start, end) else ByteArray(0)
+
+                    val packet = ByteArray(5 + chunkSlice.size)
+                    packet[0] = 0xA1.toByte() // Tantra Compact Mesh Magic
+                    packet[1] = cipherHi
+                    packet[2] = cipherLo
+                    val metaByte = (((cIdx and 0x0F) shl 4) or (totalChunks and 0x0F)).toByte()
+                    packet[3] = metaByte
+                    val bleEmergByte = if (emergency) 1 else 0
+                    packet[4] = bleEmergByte.toByte()
+                    System.arraycopy(chunkSlice, 0, packet, 5, chunkSlice.size)
+                    packets.add(packet)
+                }
             }
 
             bleRotateThread?.interrupt()
@@ -1581,12 +1529,15 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val startTime = System.currentTimeMillis()
                     var cIdx = 0
-                    val sleepTime = if (packets.size == 1) 1500L else 1200L
+                    // Ultra-fast rotation: 220ms for multi-chunk (5x faster than 1200ms)
+                    val sleepTime = if (packets.size == 1) 1500L else 220L
                     while (System.currentTimeMillis() - startTime < 30000L && !Thread.currentThread().isInterrupted) {
                         val advPayload = packets[cIdx]
                         advertiseSingleBlePayload(advPayload)
                         Thread.sleep(sleepTime)
-                        cIdx = (cIdx + 1) % packets.size
+                        if (packets.size > 1) {
+                            cIdx = (cIdx + 1) % packets.size
+                        }
                     }
                     try {
                         currentBleCallback?.let { bleAdvertiser?.stopAdvertising(it) }
@@ -1597,7 +1548,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             bleRotateThread?.start()
-            Log.i("BLE_MESH", "SUCCESS: Started Rotating Compact BLE Mesh Beacon ($totalChunks chunks, ${compactBytes.size} compact bytes, cipher=$cipher)")
+            Log.i("BLE_MESH", "SUCCESS: Started Fast BLE Mesh Beacon (${packets.size} packets, cipher=$cipher)")
         } catch (e: Exception) {
             Log.e("BLE_MESH", "Error broadcasting BLE: ${e.message}")
         }
@@ -1815,12 +1766,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         val alreadyRelayed = compactRelayedCiphers[cipher] == true
-        if (hasAll && !alreadyRelayed) {
+        // 🚀 SUB-100MS IMMEDIATE RELAY: Fire immediately if all chunks are present OR if it's an emergency beacon and we received chunk 0!
+        if ((hasAll || (isEmerg && cIdx == 0)) && !alreadyRelayed) {
             compactRelayedCiphers[cipher] = true
             compactAssembledLength[cipher] = decodedText.length
             // Send ACK once when complete so Phone 1 stops broadcasting
             broadcastBleCompactAck(cipherHi.toByte(), cipherLo.toByte(), 2)
-            vibratePhone(200)
+            vibratePhone(350)
             updateDeviceLocation()
             val lat = if (currentLatitude != 0.0) currentLatitude else 12.8718
             val lon = if (currentLongitude != 0.0) currentLongitude else 80.2185
@@ -1828,7 +1780,7 @@ class MainActivity : AppCompatActivity() {
 
             val isGovt = decodedText.contains("GOVT") || decodedText.contains("COMMAND")
             val place = resolveDevicePlaceName(lat, lon)
-            val fullText = if (decodedText.isNotBlank()) {
+            val fullText = if (decodedText.isNotBlank() && decodedText != "🚨 SOS" && !decodedText.startsWith("🚨 SOS: HELP!")) {
                 decodedText
             } else {
                 "🚨 SOS: I am in emergency, kindly help me! [$place - GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"

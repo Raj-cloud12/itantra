@@ -605,6 +605,7 @@ class STTPayload(BaseModel):
     language: Optional[str] = "ta"
 
 @app.post("/api/stt/base64")
+@app.post("/api/stt/transcribe")
 def api_speech_to_text(payload: STTPayload):
     text, lang = transcribe_indic_neural_base64(payload.audio_base64, payload.language)
     translations = translate_indic_9(text, lang)

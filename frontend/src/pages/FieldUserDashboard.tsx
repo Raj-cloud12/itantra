@@ -758,7 +758,16 @@ export default function FieldUserDashboard() {
     // PHONE 2 PRIVACY: Encrypted Civilian Relay Pipe
     // Never display Phone 1's private messages or ciphers on Phone 2's screen. Phone 2 vibrates once on relay.
     if (nodeRole === 'rescue_volunteer_2') {
-      triggerSafeHaptic(200);
+      triggerSafeHaptic(300);
+
+      if (isEmergencyAlert) {
+        setSosHistory(prev => {
+          const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+          if (exists) return prev;
+          return [{ ...parsed, text, is_emergency: true, display_time: formatTimeIST() }, ...prev].slice(0, 30);
+        });
+        setLastDeliveryToast(`🚨 EMERGENCY RELAY: ${text.slice(0, 35)}`);
+      }
 
       const bestText = (packetTrackId && latestPacketTextRef.current[packetTrackId] && latestPacketTextRef.current[packetTrackId].length > text.length)
         ? latestPacketTextRef.current[packetTrackId]
@@ -806,6 +815,16 @@ export default function FieldUserDashboard() {
     }
 
     // Otherwise, standard node reception
+    if (isEmergencyAlert) {
+      setSosHistory(prev => {
+        const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+        if (exists) return prev;
+        return [{ ...parsed, text, is_emergency: true, display_time: formatTimeIST() }, ...prev].slice(0, 30);
+      });
+      setLastDeliveryToast(`🚨 EMERGENCY SOS: ${text.slice(0, 40)}`);
+      triggerSafeHaptic(400);
+    }
+
     setLocalMeshMessages(prev => {
       const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
       if (exists) return prev;
@@ -2423,21 +2442,25 @@ export default function FieldUserDashboard() {
 
                     // Network STT fallback if connected
                     if (!candidateText && audioBase64) {
-                      try {
-                        const sttRes = await fetch('/api/stt/transcribe', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ audio_base64: audioBase64, language: selectedTransLang || 'ta' }),
-                          signal: AbortSignal.timeout(2500)
-                        });
-                        if (sttRes.ok) {
-                          const sttData = await sttRes.json();
-                          if (sttData.text && sttData.text.trim()) {
-                            candidateText = sttData.text.trim();
-                            setPersistentSpokenText(candidateText);
+                      const sttEndpoints = getReliableEndpoints('/api/stt/transcribe');
+                      for (const ep of sttEndpoints) {
+                        try {
+                          const sttRes = await fetch(ep, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ audio_base64: audioBase64, language: selectedTransLang || 'ta' }),
+                            signal: AbortSignal.timeout(2000)
+                          });
+                          if (sttRes.ok) {
+                            const sttData = await sttRes.json();
+                            if (sttData.text && sttData.text.trim()) {
+                              candidateText = sttData.text.trim();
+                              setPersistentSpokenText(candidateText);
+                              break;
+                            }
                           }
-                        }
-                      } catch {}
+                        } catch {}
+                      }
                     }
 
                     setSpokenSpeechText('');
