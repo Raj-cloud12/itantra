@@ -208,28 +208,47 @@ export class UniversalWavRecorder {
   }
 
   private encodeWAV(samples: Float32Array, sampleRate: number): Blob {
-    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    let finalSamples = samples;
+    let finalSampleRate = sampleRate;
+
+    // Guaranteed 16kHz resampling for on-device Sherpa ONNX Whisper model
+    if (sampleRate !== 16000 && sampleRate > 0 && samples.length > 0) {
+      const ratio = sampleRate / 16000;
+      const newLen = Math.max(1, Math.floor(samples.length / ratio));
+      const resampled = new Float32Array(newLen);
+      for (let i = 0; i < newLen; i++) {
+        const srcIdx = i * ratio;
+        const idx0 = Math.floor(srcIdx);
+        const idx1 = Math.min(idx0 + 1, samples.length - 1);
+        const frac = srcIdx - idx0;
+        resampled[i] = samples[idx0] * (1 - frac) + samples[idx1] * frac;
+      }
+      finalSamples = resampled;
+      finalSampleRate = 16000;
+    }
+
+    const buffer = new ArrayBuffer(44 + finalSamples.length * 2);
     const view = new DataView(buffer);
 
     this.writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + samples.length * 2, true);
+    view.setUint32(4, 36 + finalSamples.length * 2, true);
     this.writeString(view, 8, 'WAVE');
 
     this.writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true); // PCM format
     view.setUint16(22, 1, true); // Mono channel
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true); // Byte rate
+    view.setUint32(24, finalSampleRate, true);
+    view.setUint32(28, finalSampleRate * 2, true); // Byte rate
     view.setUint16(32, 2, true); // Block align
     view.setUint16(34, 16, true); // 16-bit depth
 
     this.writeString(view, 36, 'data');
-    view.setUint32(40, samples.length * 2, true);
+    view.setUint32(40, finalSamples.length * 2, true);
 
     let index = 44;
-    for (let i = 0; i < samples.length; i++) {
-      let s = Math.max(-1, Math.min(1, samples[i]));
+    for (let i = 0; i < finalSamples.length; i++) {
+      let s = Math.max(-1, Math.min(1, finalSamples[i]));
       view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7fff, true);
       index += 2;
     }
@@ -250,4 +269,70 @@ export class UniversalWavRecorder {
       reader.readAsDataURL(blob);
     });
   }
+}
+
+/**
+ * Downsamples and compresses high-definition PCM audio to low-bitrate 8kHz 8-bit mono WAV.
+ * Reduces bandwidth by 75-90% for Mode 2 (2G/3G low-bandwidth cellular).
+ */
+export async function compressWavFor2G(audioBase64: string): Promise<{ compressedBase64: string; size: number }> {
+  try {
+    const rawBase64 = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
+    const binaryStr = atob(rawBase64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    // Validate WAV RIFF header
+    if (bytes.length > 44 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+      const view = new DataView(bytes.buffer);
+      const originalRate = view.getUint32(24, true);
+      const targetRate = 8000;
+      const step = Math.max(1, Math.round(originalRate / targetRate));
+      const numSamples = Math.floor((bytes.length - 44) / 2);
+      const newLen = Math.floor(numSamples / step);
+
+      const newBuffer = new ArrayBuffer(44 + newLen);
+      const newView = new DataView(newBuffer);
+
+      const writeStr = (v: DataView, offset: number, str: string) => {
+        for (let j = 0; j < str.length; j++) v.setUint8(offset + j, str.charCodeAt(j));
+      };
+
+      writeStr(newView, 0, 'RIFF');
+      newView.setUint32(4, 36 + newLen, true);
+      writeStr(newView, 8, 'WAVE');
+      writeStr(newView, 12, 'fmt ');
+      newView.setUint32(16, 16, true);
+      newView.setUint16(20, 1, true); // PCM format
+      newView.setUint16(22, 1, true); // Mono
+      newView.setUint32(24, targetRate, true); // 8000 Hz
+      newView.setUint32(28, targetRate, true); // Byte rate (8000 * 1)
+      newView.setUint16(32, 1, true); // Block align (1 byte)
+      newView.setUint16(34, 8, true); // 8-bit depth
+      writeStr(newView, 36, 'data');
+      newView.setUint32(40, newLen, true);
+
+      let outIdx = 44;
+      for (let s = 0; s < numSamples; s += step) {
+        if (outIdx >= 44 + newLen) break;
+        const int16 = view.getInt16(44 + s * 2, true);
+        // Map -32768..32767 to 0..255 (standard unsigned 8-bit PCM)
+        const uint8 = Math.max(0, Math.min(255, Math.floor((int16 + 32768) / 256)));
+        newView.setUint8(outIdx++, uint8);
+      }
+
+      const newBlob = new Blob([newView], { type: 'audio/wav' });
+      const reader = new FileReader();
+      const b64 = await new Promise<string>((res) => {
+        reader.onloadend = () => res(reader.result as string);
+        reader.readAsDataURL(newBlob);
+      });
+      return { compressedBase64: b64, size: newBlob.size };
+    }
+  } catch (err) {
+    console.warn('Mode 2 2G audio compression notice:', err);
+  }
+  return { compressedBase64: audioBase64, size: audioBase64.length };
 }

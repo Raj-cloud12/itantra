@@ -21,6 +21,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { PushToTalkButton } from '../components/PushToTalkButton';
 import { PipelineProgress } from '../components/PipelineProgress';
 import { VoiceNotePlayer } from '../components/VoiceNotePlayer';
+import { compressWavFor2G } from '../utils/wavRecorder';
 import { ChatMessage, MessageStats, SupportedLanguage } from '../types';
 
 export default function FieldUserDashboard() {
@@ -847,8 +848,8 @@ export default function FieldUserDashboard() {
     }
   }, []);
 
-  // WebSocket Connection
-  const wsUrl = resolveWs(targetHost, '/ws/field/DEMO_GLOBAL_SESSION_01');
+  // WebSocket Connection with user registration
+  const wsUrl = resolveWs(targetHost, `/ws/field/DEMO_GLOBAL_SESSION_01?username=${encodeURIComponent(myUsername || '')}`);
 
   // 🔄 Continuous Sync: Poll Demo Controller Mode so phones always reflect mode switches instantly
   useEffect(() => {
@@ -863,11 +864,11 @@ export default function FieldUserDashboard() {
             const data = await res.json();
             if (!isMounted) return;
             if (data) {
-              if (data.network_mode) {
-                setNetworkMode((prev) => (prev !== data.network_mode ? data.network_mode : prev));
+              if (data.network_mode && data.network_mode !== networkMode) {
+                setNetworkMode(data.network_mode);
               }
-              if (data.local_mode) {
-                setLocalMeshMode((prev) => (prev !== data.local_mode ? data.local_mode : prev));
+              if (data.local_mode && data.local_mode !== localMeshMode) {
+                setLocalMeshMode(data.local_mode);
               }
             }
             break;
@@ -884,6 +885,14 @@ export default function FieldUserDashboard() {
     };
   }, [targetHost]);
   const { connected, messages, send, lastMessage } = useWebSocket(wsUrl);
+
+  useEffect(() => {
+    if (connected && myUsername) {
+      try {
+        send({ type: 'register_user', username: myUsername });
+      } catch (e) {}
+    }
+  }, [connected, myUsername, send]);
 
     // 🔄 Instant WebSocket Listener: Mode Switches & Live Command Center / SOS Broadcasts
   useEffect(() => {
@@ -1146,7 +1155,8 @@ export default function FieldUserDashboard() {
               const gatewayTargets = getReliableEndpoints('/api/messages/send');
               const relayPayload = {
                 ...parsed,
-                session_id: 'DEMO_GLOBAL_SESSION_01',
+                session_id: 'LOCAL_MESH_PRIVATE',
+                is_local_mesh_private: true,
                 network_mode: parsed.network_mode || 'mode-3-ai-mesh',
                 gateway_node: `📱 Phone 2: Gateway (${myUsername || myNodeId})`,
                 hop_count: (parsed.hop_count || 1) + 1
@@ -1695,8 +1705,11 @@ export default function FieldUserDashboard() {
     const lockToken = `LOCK#${effectiveTarget.replace('@', '')}-${randomKey}`;
 
     let localAudioUrl: string | undefined = audioBase64;
+    let effectiveAudioSize = (!audioBlob && !audioBase64) ? 24 : (audioSize || 45000);
+
     if (localMeshMode === 'mode-3-p2p-nan') {
       localAudioUrl = undefined; // ONLY TEXT FOR 24B MESH
+      effectiveAudioSize = 24;
     } else if (!localAudioUrl && audioBlob && audioBlob.size > 0) {
       localAudioUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -1707,6 +1720,15 @@ export default function FieldUserDashboard() {
 
     if (localAudioUrl && !localAudioUrl.startsWith('data:') && !localAudioUrl.startsWith('http')) {
       localAudioUrl = `data:audio/wav;base64,${localAudioUrl}`;
+    }
+
+    // 📡 2G LOW-BANDWIDTH AUDIO COMPRESSION (Mode 2)
+    if (localMeshMode === 'mode-2-p2p-2g' && localAudioUrl) {
+      try {
+        const comp = await compressWavFor2G(localAudioUrl);
+        localAudioUrl = comp.compressedBase64;
+        effectiveAudioSize = comp.size;
+      } catch (e) {}
     }
 
     const payloadObj = {
@@ -1721,7 +1743,7 @@ export default function FieldUserDashboard() {
       network_mode: localMeshMode === 'mode-2-p2p-2g' ? 'mode-2-compressed-voice' : localMeshMode === 'mode-3-p2p-nan' ? 'mode-3-ai-mesh' : 'mode-1-hd-call',
       type: (!audioBlob && !audioBase64) ? 'text_message' : 'voice_message',
       text: finalText,
-      audio_size: (!audioBlob && !audioBase64) ? 24 : (localMeshMode === 'mode-2-p2p-2g' ? 1200 : (audioSize || 45000)),
+      audio_size: effectiveAudioSize,
       audio_url: localAudioUrl,
       cipher_code: lockToken,
       lock_key: `KEY-${randomKey}`,

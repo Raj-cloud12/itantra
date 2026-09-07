@@ -211,10 +211,12 @@ async def post_message(msg: MessageCreatePayload):
     if len(recent_mesh_messages) > 100:
         recent_mesh_messages = recent_mesh_messages[-100:]
 
-    # Broadcast live payload to ALL active websocket connections across all sessions & roles
+    # Broadcast live payload to active websocket connections
     for sess_id, conns in list(manager.active_connections.items()):
         for role, ws in list(conns.items()):
             if ws:
+                if is_private_mesh and role == 'command':
+                    continue
                 try:
                     asyncio.create_task(ws.send_json(mesh_msg_item))
                 except:

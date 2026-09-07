@@ -429,18 +429,44 @@ def voice_ocr_refine_and_translate(raw_text: str, source_lang: str = "ta") -> tu
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        # Map websocket -> dict(role=..., username=...)
+        self.active_connections: Dict[WebSocket, dict] = {}
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, role: str = "field", username: Optional[str] = None):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        norm_u = username.lower().strip() if username else None
+        self.active_connections[websocket] = {"role": role, "username": norm_u}
+
+    def update_user(self, websocket: WebSocket, username: str):
+        if websocket in self.active_connections:
+            self.active_connections[websocket]["username"] = username.lower().strip()
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+            del self.active_connections[websocket]
 
     async def broadcast(self, message: dict):
-        for connection in list(self.active_connections):
+        is_private = (
+            message.get("is_local_mesh_private") or 
+            message.get("session_id") == "LOCAL_MESH_PRIVATE" or
+            (message.get("target_username") and message.get("target_username") != "@command_center" and not message.get("is_emergency") and message.get("sender_role") != "command")
+        )
+        target_u = (message.get("target_username") or "").lower().strip()
+        sender_u = (message.get("sender_username") or "").lower().strip()
+
+        for connection, meta in list(self.active_connections.items()):
+            conn_role = meta.get("role", "field")
+            conn_user = meta.get("username")
+
+            # 🛑 USER HARD REQUIREMENT: Control Center must NEVER receive Local Mesh messages!
+            if is_private and conn_role == "command":
+                continue
+
+            # 🛑 USER HARD REQUIREMENT: Only the target user and sender can receive/open!
+            if is_private and conn_user and target_u and sender_u:
+                if conn_user != target_u and conn_user != sender_u:
+                    continue
+
             try:
                 await connection.send_text(json.dumps(message))
             except Exception:
@@ -857,7 +883,12 @@ def get_all_messages():
     conn = sqlite3.connect(DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("SELECT * FROM messages ORDER BY id DESC LIMIT 60")
+    c.execute("""
+    SELECT * FROM messages 
+    WHERE (session_id IS NULL OR session_id != 'LOCAL_MESH_PRIVATE')
+      AND (is_emergency = 1 OR target_username = '@command_center' OR sender_role = 'command')
+    ORDER BY id DESC LIMIT 60
+    """)
     rows = c.fetchall()
     messages = [dict(r) for r in rows]
     conn.close()
@@ -975,38 +1006,45 @@ async def send_message(payload: MessagePayload):
     msg_uuid = payload.id or str(datetime.utcnow().timestamp())
     sender_name = payload.sender_username or f"@{payload.sender_role}"
     target_name = payload.target_username or "@all_friends"
+    is_private_mesh = (
+        payload.is_local_mesh_private or 
+        payload.session_id == "LOCAL_MESH_PRIVATE" or 
+        (target_name != "@command_center" and not payload.is_emergency and payload.sender_role != "command")
+    )
 
-    try:
-        conn = sqlite3.connect(DB_PATH, timeout=10.0)
-        c = conn.cursor()
-        c.execute("""
-        INSERT INTO messages (session_id, sender_role, sender_username, target_username, type, text, network_mode, audio_size, audio_url, is_emergency, language, latitude, longitude, address_name, cipher_code, gateway_node, hop_count, display_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            payload.session_id,
-            payload.sender_role,
-            sender_name,
-            target_name,
-            payload.type,
-            final_text,
-            mode,
-            payload.audio_size,
-            payload.audio_url,
-            1 if payload.is_emergency else 0,
-            final_lang,
-            payload.latitude,
-            payload.longitude,
-            payload.address_name,
-            payload.cipher_code or "0x4954015F01414F67AE42A082C502448A",
-            payload.gateway_node or "🏢 Government Control Centre",
-            payload.hop_count or 2,
-            payload.display_time or datetime.now().strftime("%I:%M %p")
-        ))
-        msg_id = c.lastrowid
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        msg_id = int(datetime.utcnow().timestamp() * 1000) % 1000000
+    msg_id = int(datetime.utcnow().timestamp() * 1000) % 1000000
+    if not is_private_mesh:
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=10.0)
+            c = conn.cursor()
+            c.execute("""
+            INSERT INTO messages (session_id, sender_role, sender_username, target_username, type, text, network_mode, audio_size, audio_url, is_emergency, language, latitude, longitude, address_name, cipher_code, gateway_node, hop_count, display_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                payload.session_id,
+                payload.sender_role,
+                sender_name,
+                target_name,
+                payload.type,
+                final_text,
+                mode,
+                payload.audio_size,
+                payload.audio_url,
+                1 if payload.is_emergency else 0,
+                final_lang,
+                payload.latitude,
+                payload.longitude,
+                payload.address_name,
+                payload.cipher_code or "0x4954015F01414F67AE42A082C502448A",
+                payload.gateway_node or "🏢 Government Control Centre",
+                payload.hop_count or 2,
+                payload.display_time or datetime.now().strftime("%I:%M %p")
+            ))
+            msg_id = c.lastrowid
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            pass
 
     translations = translate_indic_9(final_text, final_lang)
     
@@ -1063,7 +1101,7 @@ def clear_messages():
 
 @app.websocket("/ws/command/{session_id}")
 async def ws_command(websocket: WebSocket, session_id: str):
-    await manager.connect(websocket)
+    await manager.connect(websocket, role="command")
     try:
         while True:
             await websocket.receive_text()
@@ -1072,10 +1110,21 @@ async def ws_command(websocket: WebSocket, session_id: str):
 
 @app.websocket("/ws/field/{session_id}")
 async def ws_field(websocket: WebSocket, session_id: str):
-    await manager.connect(websocket)
+    user_param = websocket.query_params.get("username")
+    await manager.connect(websocket, role="field", username=user_param)
     try:
         while True:
-            await websocket.receive_text()
+            data_str = await websocket.receive_text()
+            try:
+                data = json.loads(data_str)
+                if data.get("type") == "register_user" and data.get("username"):
+                    manager.update_user(websocket, data.get("username"))
+                elif data.get("sender_username"):
+                    manager.update_user(websocket, data.get("sender_username"))
+                if data.get("text") or data.get("audio_url") or data.get("type") == "voice":
+                    await manager.broadcast(data)
+            except Exception:
+                pass
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 

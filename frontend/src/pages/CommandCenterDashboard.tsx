@@ -431,6 +431,14 @@ export default function CommandCenterDashboard() {
     if (wsMessages && wsMessages.length > 0) {
       const latest: any = wsMessages[wsMessages.length - 1];
       if (latest && latest.text) {
+        // 🛑 STRICT PRIVACY FIREWALL: Never show civilian Local Mesh private messages in Command Center!
+        const isPrivateMesh = (
+          latest.is_local_mesh_private ||
+          latest.session_id === 'LOCAL_MESH_PRIVATE' ||
+          (latest.target_username && latest.target_username !== '@command_center' && latest.target_username !== '@all_users' && !latest.is_emergency)
+        );
+        if (isPrivateMesh) return;
+
         setFeed(prev => {
           const exists = prev.some(m => m.id === latest.id || (m.timestamp === latest.timestamp && m.text === latest.text));
           if (exists) return prev;
@@ -518,15 +526,22 @@ export default function CommandCenterDashboard() {
         }
         if (!data || !Array.isArray(data)) return;
 
+        // 🛑 STRICT PRIVACY FIREWALL: Exclude any civilian private Local Mesh messages from Command Center
+        const cleanData = data.filter((m: any) => {
+          if (m.is_local_mesh_private || m.session_id === 'LOCAL_MESH_PRIVATE') return false;
+          if (m.target_username && m.target_username !== '@command_center' && m.target_username !== '@all_users' && !m.is_emergency) return false;
+          return true;
+        });
+
         // If initial load, record all existing IDs so we don't replay history
         if (!hasInitialLoadedRef.current) {
-          data.forEach((m: any) => playedTtsRef.current.add(String(m.id || m.text)));
+          cleanData.forEach((m: any) => playedTtsRef.current.add(String(m.id || m.text)));
           hasInitialLoadedRef.current = true;
         } else {
           // Check for newly arrived messages to trigger tactical ding-ding chime (NO auto-speaking voice!)
           let hasNewMessage = false;
           let burstArrivals = 0;
-          data.forEach((m: any) => {
+          cleanData.forEach((m: any) => {
             const k = String(m.id || m.text);
             if (!playedTtsRef.current.has(k)) {
               playedTtsRef.current.add(k);
@@ -543,7 +558,7 @@ export default function CommandCenterDashboard() {
           }
         }
 
-        const mapped: FeedMsg[] = data.map((m: any) => {
+        const mapped: FeedMsg[] = cleanData.map((m: any) => {
           const isEmergency = !!m.is_emergency;
           const isMode4 = m.network_mode === 'mode-4-satellite-beacon' || isEmergency;
           const isMode3 = m.network_mode === 'mode-3-ai-mesh';
