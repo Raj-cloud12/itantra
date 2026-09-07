@@ -431,13 +431,20 @@ export default function CommandCenterDashboard() {
     if (wsMessages && wsMessages.length > 0) {
       const latest: any = wsMessages[wsMessages.length - 1];
       if (latest && latest.text) {
-        // 🛑 STRICT PRIVACY FIREWALL: Never show civilian Local Mesh private messages in Command Center!
-        const isPrivateMesh = (
+        // 🛑 ABSOLUTE PRIVACY FIREWALL: Never show Mode 1, Mode 2, or Voice Notes in Command Center!
+        const isMode1Or2OrLocalMesh = (
           latest.is_local_mesh_private ||
           latest.session_id === 'LOCAL_MESH_PRIVATE' ||
+          latest.network_mode === 'mode-1-hd-call' ||
+          latest.network_mode === 'mode-1' ||
+          latest.network_mode === 'mode-2-compressed-voice' ||
+          latest.network_mode === 'mode-2' ||
+          latest.local_mode === 'mode-1-p2p-hd' ||
+          latest.local_mode === 'mode-2-p2p-2g' ||
+          (latest.text && (latest.text.includes('Voice Note') || latest.text.includes('HD Voice') || latest.text.includes('2G Voice'))) ||
           (latest.target_username && latest.target_username !== '@command_center' && latest.target_username !== '@all_users' && !latest.is_emergency)
         );
-        if (isPrivateMesh) return;
+        if (isMode1Or2OrLocalMesh) return;
 
         setFeed(prev => {
           const exists = prev.some(m => m.id === latest.id || (m.timestamp === latest.timestamp && m.text === latest.text));
@@ -526,9 +533,12 @@ export default function CommandCenterDashboard() {
         }
         if (!data || !Array.isArray(data)) return;
 
-        // 🛑 STRICT PRIVACY FIREWALL: Exclude any civilian private Local Mesh messages from Command Center
+        // 🛑 ABSOLUTE PRIVACY FIREWALL: Exclude Mode 1, Mode 2, Voice Notes, and Local Mesh from Command Center
         const cleanData = data.filter((m: any) => {
           if (m.is_local_mesh_private || m.session_id === 'LOCAL_MESH_PRIVATE') return false;
+          if (m.network_mode === 'mode-1-hd-call' || m.network_mode === 'mode-1' || m.network_mode === 'mode-2-compressed-voice' || m.network_mode === 'mode-2') return false;
+          if (m.local_mode === 'mode-1-p2p-hd' || m.local_mode === 'mode-2-p2p-2g') return false;
+          if (m.text && (m.text.includes('Voice Note') || m.text.includes('HD Voice') || m.text.includes('2G Voice'))) return false;
           if (m.target_username && m.target_username !== '@command_center' && m.target_username !== '@all_users' && !m.is_emergency) return false;
           return true;
         });

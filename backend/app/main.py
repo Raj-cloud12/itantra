@@ -887,6 +887,10 @@ def get_all_messages():
     SELECT * FROM messages 
     WHERE (session_id IS NULL OR session_id != 'LOCAL_MESH_PRIVATE')
       AND (is_emergency = 1 OR target_username = '@command_center' OR sender_role = 'command')
+      AND (network_mode NOT IN ('mode-1-hd-call', 'mode-2-compressed-voice', 'mode-1', 'mode-2'))
+      AND (text NOT LIKE '%Voice Note%')
+      AND (text NOT LIKE '%HD Voi%')
+      AND (text NOT LIKE '%2G Voi%')
     ORDER BY id DESC LIMIT 60
     """)
     rows = c.fetchall()
@@ -1009,8 +1013,15 @@ async def send_message(payload: MessagePayload):
     is_private_mesh = (
         payload.is_local_mesh_private or 
         payload.session_id == "LOCAL_MESH_PRIVATE" or 
+        mode in ('mode-1-hd-call', 'mode-2-compressed-voice') or
+        payload.local_mode in ('mode-1-p2p-hd', 'mode-2-p2p-2g') or
+        'Voice Note' in (final_text or '') or
+        'HD Voice' in (final_text or '') or
+        '2G Voice' in (final_text or '') or
         (target_name != "@command_center" and not payload.is_emergency and payload.sender_role != "command")
     )
+    if is_private_mesh and target_name == "@command_center":
+        target_name = "@all_friends"
 
     msg_id = int(datetime.utcnow().timestamp() * 1000) % 1000000
     if not is_private_mesh:

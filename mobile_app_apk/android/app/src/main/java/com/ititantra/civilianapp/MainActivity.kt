@@ -1783,8 +1783,9 @@ class MainActivity : AppCompatActivity() {
                 notifyWebviewPacketReceived(packetObj.toString(), "BLE_MESH_RELAY")
             }
 
-            // Dual Relay directly to local gateway and Cloudflare ONLY IF NOT FROM COMMAND CENTER!
-            if (!isGovt) {
+            // Dual Relay directly to local gateway and Cloudflare ONLY IF NOT FROM COMMAND CENTER AND NOT PRIVATE LOCAL MESH!
+            val isPrivateOrVoiceNote = fullText.contains("Voice Note") || fullText.contains("HD Voi") || fullText.contains("2G Voi") || cipher.contains("LOCK#") || cipher.contains("LOCK")
+            if (!isGovt && !isPrivateOrVoiceNote) {
                 Thread {
                     val targets = listOf(
                         "http://10.208.56.76:8000/api/messages/send",

@@ -1766,11 +1766,14 @@ export default function FieldUserDashboard() {
     const meshTargets = getReliableEndpoints('/api/messages/send');
     await sendPayloadSingle(meshTargets, payload);
 
-    // 3. Broadcast over Native Wi-Fi Aware (NAN 100M) + BLE (30M) + UDP Radio for offline fallback
-    if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
-      try {
-        (window as any).AndroidBleMeshBridge.broadcastMeshPacket(payload);
-      } catch (e) {}
+    // 3. ONLY Mode 3 (offline Radio Mesh) broadcasts over Native Wi-Fi Aware & BLE!
+    // Mode 1 and Mode 2 use internet directly (WebSocket + HTTP) like WhatsApp!
+    if (localMeshMode === 'mode-3-p2p-nan') {
+      if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
+        try {
+          (window as any).AndroidBleMeshBridge.broadcastMeshPacket(payload);
+        } catch (e) {}
+      }
     }
 
     setLastDeliveryToast(`✅ Voice Note Sent to ${effectiveTarget} (Internet & Mesh)`);
