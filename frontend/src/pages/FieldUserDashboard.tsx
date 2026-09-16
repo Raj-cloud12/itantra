@@ -308,15 +308,10 @@ export default function FieldUserDashboard() {
     }
   };
 
-  // Live Render Primary Gateway Endpoint & Local Network Endpoints
-  const PRIMARY_CLOUDFLARE = 'https://itantra-4yzo.onrender.com';
+  // 🌐 Permanent Cloud Gateway on Render (24/7 Cloud Backend - Zero Cloudflare needed)
+  const PERMANENT_RENDER_GATEWAY = 'https://itantra-4yzo.onrender.com';
   const CURRENT_LAN_IP = 'http://10.64.235.76:8000';
-  const [targetHost, setTargetHost] = useState<string>(() => {
-    const saved = localStorage.getItem('tactical_host');
-    if (saved && !saved.includes('trycloudflare.com')) return saved;
-    return '127.0.0.1';
-  });
-  const [showSettings, setShowSettings] = useState(false);
+  const [targetHost] = useState<string>('https://itantra-4yzo.onrender.com');
   const [showLangModal, setShowLangModal] = useState<boolean>(() => !localStorage.getItem('fixed_user_language'));
   const [lastDeliveryToast, setLastDeliveryToast] = useState<string>('');
 
@@ -414,12 +409,12 @@ export default function FieldUserDashboard() {
     let finalHost = host;
     if (!finalHost || finalHost.includes('trycloudflare.com')) {
       finalHost = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:')
-        ? window.location.hostname
-        : '127.0.0.1';
+        ? window.location.host
+        : 'itantra-4yzo.onrender.com';
     }
     
     const clean = finalHost.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
-    if (clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    if (clean.includes('onrender.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
       return `wss://${clean}${path}`;
     }
     if (clean.includes(':')) {
@@ -432,11 +427,11 @@ export default function FieldUserDashboard() {
     let finalHost = host;
     if (!finalHost || finalHost.includes('trycloudflare.com')) {
       finalHost = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:')
-        ? window.location.hostname
-        : '127.0.0.1';
+        ? window.location.host
+        : 'itantra-4yzo.onrender.com';
     }
     const clean = finalHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    if (clean.includes('onrender.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
       return `https://${clean}${path}`;
     }
     if (clean.includes(':')) {
@@ -449,12 +444,11 @@ export default function FieldUserDashboard() {
     const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:') ? window.location.hostname : '';
     const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
     return Array.from(new Set([
+      `${PERMANENT_RENDER_GATEWAY}${path}`,
       `http://127.0.0.1:8000${path}`,
       `${CURRENT_LAN_IP}${path}`,
       `http://localhost:8000${path}`,
       ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : []),
-      ...(targetHost && !targetHost.includes('trycloudflare.com') ? [resolveHttp(targetHost, path)] : []),
-      `${PRIMARY_CLOUDFLARE}${path}`,
       ...(isFileProtocol ? [] : [path])
     ]));
   };
@@ -1149,9 +1143,9 @@ export default function FieldUserDashboard() {
           'http://127.0.0.1:8000',
           'http://localhost:8000',
           CURRENT_LAN_IP,
-          PRIMARY_CLOUDFLARE
+          PERMANENT_RENDER_GATEWAY
         ] : [
-          PRIMARY_CLOUDFLARE,
+          PERMANENT_RENDER_GATEWAY,
           CURRENT_LAN_IP,
           'http://127.0.0.1:8000',
           'http://localhost:8000',
@@ -2028,13 +2022,6 @@ export default function FieldUserDashboard() {
       {/* 1. TOP HEADER */}
       <header className="px-3.5 py-2 bg-black/95 border-b border-neutral-900 flex items-center justify-between shadow-xl shrink-0">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="w-8 h-8 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-slate-300 active:scale-95"
-            title="Settings"
-          >
-            ⚙️
-          </button>
 
           {/* 👤 Tactical User CallSign / Profile Button */}
           <button
@@ -2336,68 +2323,6 @@ export default function FieldUserDashboard() {
             >
               <span>🔒</span>
               <span>Save & Lock Username</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* WIRELESS SETTINGS DRAWER */}
-      {showSettings && (
-        <div className="bg-neutral-950 border-b border-neutral-800 p-3 flex flex-col gap-2 shrink-0 animate-fadeIn text-xs font-mono">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono font-bold text-slate-300">Select This Phone's Identity:</span>
-            <button onClick={() => setShowSettings(false)} className="text-slate-400 font-bold text-xs">✕</button>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setNodeRole('victim_citizen_1');
-                setDeviceRole('victim');
-                localStorage.setItem('node_role', 'victim_citizen_1');
-              }}
-              className={`flex-1 py-1.5 rounded-xl font-mono text-[10px] font-bold border transition-all ${
-                nodeRole === 'victim_citizen_1'
-                  ? 'bg-amber-600 text-white border-amber-400'
-                  : 'bg-slate-900 text-slate-400 border-slate-800'
-              }`}
-            >
-              📱 Phone #1: Victim (Pure Mesh)
-            </button>
-            <button
-              onClick={() => {
-                setNodeRole('rescue_volunteer_2');
-                setDeviceRole('relay');
-                localStorage.setItem('node_role', 'rescue_volunteer_2');
-              }}
-              className={`flex-1 py-1.5 rounded-xl font-mono text-[10px] font-bold border transition-all ${
-                nodeRole === 'rescue_volunteer_2'
-                  ? 'bg-emerald-600 text-white border-emerald-400'
-                  : 'bg-slate-900 text-slate-400 border-slate-800'
-              }`}
-            >
-              🔄 Phone #2: Relay Gateway
-            </button>
-          </div>
-
-          <div className="pt-1 flex gap-2">
-            <input
-              type="text"
-              value={targetHost}
-              onChange={(e) => {
-                setTargetHost(e.target.value);
-                localStorage.setItem('tactical_host', e.target.value);
-              }}
-              placeholder="Enter Relay Gateway Tunnel Host (Phone 2 only)..."
-              className="flex-1 bg-slate-950 border border-neutral-700 rounded-xl px-3 py-1 font-mono text-[10px] text-blue-200"
-            />
-            <button
-              onClick={() => {
-                setShowSettings(false);
-                alert(`Gateway Host Saved: ${targetHost}`);
-              }}
-              className="bg-blue-600 px-3 py-1 rounded-xl font-bold text-white text-[10px]"
-            >
-              Save
             </button>
           </div>
         </div>

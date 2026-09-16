@@ -1844,8 +1844,7 @@ class MainActivity : AppCompatActivity() {
                         "https://itantra-4yzo.onrender.com$relayPath",
                         "http://127.0.0.1:8000$relayPath",
                         "http://192.168.137.146:8000$relayPath",
-                        "http://192.168.137.1:8000$relayPath",
-                        "https://symposium-desktops-identical-christopher.trycloudflare.com$relayPath"
+                        "http://192.168.137.1:8000$relayPath"
                     )
                     for (target in targets) {
                         try {
@@ -2147,8 +2146,7 @@ class MainActivity : AppCompatActivity() {
                     "https://itantra-4yzo.onrender.com$relayPath",
                     "http://127.0.0.1:8000$relayPath",
                     "http://192.168.137.146:8000$relayPath",
-                    "http://192.168.137.1:8000$relayPath",
-                    "https://symposium-desktops-identical-christopher.trycloudflare.com$relayPath"
+                    "http://192.168.137.1:8000$relayPath"
                 )
                 for (ep in endpoints) {
                     try {
