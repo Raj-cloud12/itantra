@@ -137,6 +137,7 @@ export default function FieldUserDashboard() {
   // Navigation Tabs: talk (Main/Govt) | sos | relay (Air Relay & Judge Demo Hub) | mesh (Local Mesh Friends P2P)
   const [activeTab, setActiveTab] = useState<'talk' | 'sos' | 'relay' | 'mesh'>('talk');
   const [textInput, setTextInput] = useState('');
+  const [localMeshTextInput, setLocalMeshTextInput] = useState('');
   const [spokenSpeechText, setSpokenSpeechText] = useState('');
   const [persistentSpokenText, setPersistentSpokenText] = useState('');
   const [sosHistory, setSosHistory] = useState<any[]>([]);
@@ -231,11 +232,11 @@ export default function FieldUserDashboard() {
   });
   const [targetFriend, setTargetFriend] = useState<string>(() => {
     const saved = localStorage.getItem('target_friend');
-    if (saved && saved !== '@all_friends' && saved !== '@kavya') return saved;
-    const myUser = localStorage.getItem('local_username') || '';
+    const myUser = (localStorage.getItem('local_username') || '').trim();
+    if (saved && saved !== '@all_friends' && saved !== '@not_set' && saved !== myUser) return saved;
     if (myUser === '@kk' || myUser === 'kk') return '@raj';
     if (myUser === '@raj' || myUser === 'raj') return '@kk';
-    return '@raj';
+    return '@kk';
   });
   const [showUserModal, setShowUserModal] = useState<boolean>(() => {
     return localStorage.getItem('local_username_locked') !== 'true' || !localStorage.getItem('local_username');
@@ -243,6 +244,19 @@ export default function FieldUserDashboard() {
   const [editUsernameInput, setEditUsernameInput] = useState('');
   const [registrationError, setRegistrationError] = useState<string>('');
   const [customFriendInput, setCustomFriendInput] = useState('');
+
+  // Auto-pair targetFriend whenever myUsername is updated (ensure user is never talking to themselves)
+  useEffect(() => {
+    if (myUsername) {
+      const myNorm = myUsername.startsWith('@') ? myUsername.toLowerCase() : `@${myUsername.toLowerCase()}`;
+      const targetNorm = targetFriend.startsWith('@') ? targetFriend.toLowerCase() : `@${targetFriend.toLowerCase()}`;
+      if (!targetFriend || targetNorm === myNorm || targetFriend === '@not_set') {
+        const paired = myNorm === '@raj' ? '@kk' : '@raj';
+        setTargetFriend(paired);
+        localStorage.setItem('target_friend', paired);
+      }
+    }
+  }, [myUsername, targetFriend]);
 
   // Node Role Identity: Phone 1 vs Phone 2
   const [nodeRole, setNodeRole] = useState<'victim_citizen_1' | 'rescue_volunteer_2'>(() => {
@@ -296,7 +310,7 @@ export default function FieldUserDashboard() {
 
   // Live Cloudflare Primary Gateway Endpoint & Local Network Endpoints
   const PRIMARY_CLOUDFLARE = 'https://symposium-desktops-identical-christopher.trycloudflare.com';
-  const CURRENT_LAN_IP = 'http://10.31.66.76:8000';
+  const CURRENT_LAN_IP = 'http://10.64.235.76:8000';
   const [targetHost, setTargetHost] = useState<string>(() => {
     const saved = localStorage.getItem('tactical_host');
     if (saved && !saved.includes('trycloudflare.com')) return saved;
@@ -678,8 +692,14 @@ export default function FieldUserDashboard() {
       text = `🚨 SOS: I am in emergency, kindly help me! [GPS: ${lat}°N, ${lng}°E]`;
     }
 
-    // Play Alert Chime & Haptic Vibration on Phone 2 (throttled)
-    playRelayChime();
+    const packetMode = parsed.network_mode || (isEmergencyAlert ? 'mode-4-satellite-beacon' : 'mode-3-ai-mesh');
+    const isMode3Or4 = packetMode === 'mode-3-ai-mesh' || packetMode === 'mode-4-satellite-beacon' || isEmergencyAlert;
+
+    // Play Alert Chime & Haptic Vibration on Phone 2 ONLY in Mode 3 (Disaster Mesh) or Mode 4 (Satellite SOS)!
+    // Mode 1 and Mode 2 peer phones must remain completely silent!
+    if (isMode3Or4) {
+      playRelayChime();
+    }
 
     // Register Peer in Mesh Uniqueness Registry
     if (parsed.sender_username && parsed.node_id) {
@@ -716,24 +736,13 @@ export default function FieldUserDashboard() {
         }, ...prev].slice(0, 30);
       });
 
-      // 2. Add to Tactical Comm / Mesh Messages feed
-      setLocalMeshMessages(prev => {
-        const exists = prev.some(m => m.id === parsed.id || (m.timestamp === parsed.timestamp && m.text === text));
-        if (exists) return prev;
-        return [{
-          ...parsed,
-          text,
-          sender_role: 'command',
-          sender_username: '@command_center',
-          display_time: formatTimeIST()
-        }, ...prev].slice(0, 30);
-      });
-
-      // 3. Prominent Toast Notification & Haptic
+      // 2. Prominent Toast Notification & Haptic (ONLY in Mode 3 / 4)
       setLastDeliveryToast(`📢 GOVT COMMAND ALERT: ${text.slice(0, 40)}`);
-      triggerSafeHaptic(300);
+      if (isMode3Or4) {
+        triggerSafeHaptic(300);
+      }
 
-      // 4. Mesh Multi-Hop Downlink: If this node is an offline phone and received it via BLE,
+      // 3. Mesh Multi-Hop Downlink: If this node is an offline phone and received it via BLE,
       // re-broadcast over BLE/Wi-Fi to neighboring offline phones (up to hop 3)!
       const currentHop = parsed.hop_count || 1;
       if (currentHop < 3) {
@@ -756,9 +765,11 @@ export default function FieldUserDashboard() {
     }
 
     // PHONE 2 PRIVACY: Encrypted Civilian Relay Pipe
-    // Never display Phone 1's private messages or ciphers on Phone 2's screen. Phone 2 vibrates once on relay.
+    // Never display Phone 1's private messages or ciphers on Phone 2's screen. Phone 2 vibrates once on relay in Mode 3/4.
     if (nodeRole === 'rescue_volunteer_2') {
-      triggerSafeHaptic(300);
+      if (isMode3Or4) {
+        triggerSafeHaptic(200);
+      }
 
       if (isEmergencyAlert) {
         setSosHistory(prev => {
@@ -825,11 +836,16 @@ export default function FieldUserDashboard() {
       triggerSafeHaptic(400);
     }
 
-    setLocalMeshMessages(prev => {
-      const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
-      if (exists) return prev;
-      return [{ ...parsed, text }, ...prev].slice(0, 30);
-    });
+    // Only civilian peer-to-peer messages enter Local Mesh feed; never emergency alerts or command center packets!
+    const isP2PPacket = (parsed.channel_type === 'CIVILIAN_P2P' || parsed.is_local_mesh_private || parsed.session_id === 'LOCAL_MESH_PRIVATE') &&
+                        !isEmergencyAlert && parsed.target_username !== '@command_center' && parsed.sender_role !== 'command';
+    if (isP2PPacket) {
+      setLocalMeshMessages(prev => {
+        const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+        if (exists) return prev;
+        return [{ ...parsed, text }, ...prev].slice(0, 30);
+      });
+    }
   };
 
   // 🚀 JUDGE DEMO: Trigger Phone 1 Air Toss (Simulate or Broadcast)
@@ -989,9 +1005,6 @@ export default function FieldUserDashboard() {
               if (data.network_mode) {
                 setNetworkMode((curr) => (curr !== data.network_mode ? data.network_mode : curr));
               }
-              if (data.local_mode) {
-                setLocalMeshMode((curr) => (curr !== data.local_mode ? data.local_mode : curr));
-              }
             }
             break;
           }
@@ -1089,8 +1102,13 @@ export default function FieldUserDashboard() {
         }
       }
 
-      // 2. Add to Local Mesh Feed if applicable (Only private messages meant for me or sent by me!)
-      if (lastMessage.is_local_mesh_private || lastMessage.session_id === 'LOCAL_MESH_PRIVATE' || lastMessage.local_mode) {
+      // 2. Add to Local Mesh Feed if applicable (Strictly private P2P messages between friends only!)
+      const isP2P = (lastMessage.channel_type === 'CIVILIAN_P2P' || lastMessage.is_local_mesh_private || lastMessage.session_id === 'LOCAL_MESH_PRIVATE') &&
+                    lastMessage.channel_type !== 'EMERGENCY_ALERT' &&
+                    lastMessage.target_username !== '@command_center' &&
+                    !lastMessage.is_emergency &&
+                    lastMessage.sender_role !== 'command';
+      if (isP2P) {
         const myClean = normalizeName(myUsername);
         const targetClean = normalizeName(lastMessage.target_username);
         const senderClean = normalizeName(lastMessage.sender_username);
@@ -1143,7 +1161,8 @@ export default function FieldUserDashboard() {
         for (const base of syncUrls) {
           try {
             const [meshRes, allRes] = await Promise.allSettled([
-              fetch(`${base}/api/messages/mesh`, { signal: AbortSignal.timeout(1500) }),
+              fetch(`${base}/api/mesh/p2p/all`, { signal: AbortSignal.timeout(1500) })
+                .catch(() => fetch(`${base}/api/messages/mesh`, { signal: AbortSignal.timeout(1500) })),
               fetch(`${base}/api/messages/all`, { signal: AbortSignal.timeout(1500) })
             ]);
 
@@ -1158,6 +1177,13 @@ export default function FieldUserDashboard() {
                   let updated = [...prev];
                   let hasNew = false;
                   for (const incoming of data) {
+                    const isP2P = (incoming.channel_type === 'CIVILIAN_P2P' || incoming.is_local_mesh_private || incoming.session_id === 'LOCAL_MESH_PRIVATE') &&
+                                  incoming.channel_type !== 'EMERGENCY_ALERT' &&
+                                  incoming.target_username !== '@command_center' &&
+                                  !incoming.is_emergency &&
+                                  incoming.sender_role !== 'command';
+                    if (!isP2P) continue;
+
                     const targetClean = normalizeName(incoming.target_username);
                     const senderClean = normalizeName(incoming.sender_username);
                     if (targetClean === myClean || senderClean === myClean) {
@@ -1254,22 +1280,28 @@ export default function FieldUserDashboard() {
     { label: '🏠 Trapped on Roof', text: 'Trapped on roof, need urgent evacuation' }
   ];
 
-  // 🎤 NATIVE ANDROID SPEECH-TO-TEXT AUTO-BROADCASTER (Mode 3 Whisper)
+  // 🎤 NATIVE ANDROID SPEECH-TO-TEXT AUTO-BROADCASTER (Context-Aware by Tab)
   useEffect(() => {
     (window as any).onNativeSpeechResult = (text: string, isFinal: boolean) => {
       if (text && text.trim()) {
         const clean = text.trim();
-        setSpokenSpeechText(clean);
-        setPersistentSpokenText(clean);
-        // If final speech result is ready in Mode 3, auto-broadcast immediately into the air!
-        if (isFinal && !isSilenceHallucination(clean) && networkMode === 'mode-3-ai-mesh') {
-          setTimeout(() => {
-            sendVoiceOrText(clean, 24, undefined, false, (selectedTransLang || 'ta') as any);
-          }, 80);
+        if (activeTab === 'mesh') {
+          // Strictly Local Mesh Tab: place spoken text into friend's message input
+          setLocalMeshTextInput(clean);
+        } else {
+          // Alert Tab: update Alert voice-to-text box
+          setSpokenSpeechText(clean);
+          setPersistentSpokenText(clean);
+          // Auto-broadcast alert strictly when in Mode 3 and user is on the Alert tab
+          if (isFinal && !isSilenceHallucination(clean) && networkMode === 'mode-3-ai-mesh' && activeTab === 'talk') {
+            setTimeout(() => {
+              sendVoiceOrText(clean, 24, undefined, false, (selectedTransLang || 'ta') as any);
+            }, 80);
+          }
         }
       }
     };
-  }, [selectedTransLang, networkMode, myUsername, coords, addressName]);
+  }, [selectedTransLang, networkMode, myUsername, coords, addressName, activeTab]);
 
   // NATIVE ANDROID WI-FI AWARE (NAN) & BLE RADIO MESH LISTENER
   useEffect(() => {
@@ -1278,7 +1310,12 @@ export default function FieldUserDashboard() {
         const parsed = JSON.parse(rawPayload);
         if (parsed) {
           // If it's a private Local Mesh message, store locally in Local Mesh feed
-          if (parsed.is_local_mesh_private || parsed.session_id === 'LOCAL_MESH_PRIVATE') {
+          const isP2P = (parsed.channel_type === 'CIVILIAN_P2P' || parsed.is_local_mesh_private || parsed.session_id === 'LOCAL_MESH_PRIVATE') &&
+                        parsed.channel_type !== 'EMERGENCY_ALERT' &&
+                        parsed.target_username !== '@command_center' &&
+                        !parsed.is_emergency;
+
+          if (isP2P) {
             const myClean = normalizeName(myUsername);
             const targetClean = normalizeName(parsed.target_username);
             const senderClean = normalizeName(parsed.sender_username);
@@ -1321,7 +1358,7 @@ export default function FieldUserDashboard() {
               // 2. Strict Privacy: Phone 2 CANNOT read the message. Do NOT display or toast!
 
               // 3. Store-and-Forward: Forward locked payload over Internet to Phone 3!
-              const gatewayTargets = getReliableEndpoints('/api/messages/send');
+              const gatewayTargets = getReliableEndpoints('/api/mesh/p2p/send');
               const relayPayload = {
                 ...parsed,
                 session_id: 'LOCAL_MESH_PRIVATE',
@@ -1519,25 +1556,22 @@ export default function FieldUserDashboard() {
       }
     }
 
-    // 2. Parallel Race across all endpoints via Promise.any - fastest responds in ~15-40ms!
-    const requests = urlList.map(async (url) => {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payloadStr,
-        signal: AbortSignal.timeout(1800)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      cachedWorkingEndpoint = url;
-      return true;
-    });
-
-    try {
-      await Promise.race(requests);
-      return true;
-    } catch {
-      return false;
+    // 2. Sequential fallback: send to one endpoint at a time to prevent duplicate HTTP bursts
+    for (const url of urlList) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payloadStr,
+          signal: AbortSignal.timeout(1500)
+        });
+        if (res.ok) {
+          cachedWorkingEndpoint = url;
+          return true;
+        }
+      } catch {}
     }
+    return false;
   };
 
 
@@ -1694,10 +1728,12 @@ export default function FieldUserDashboard() {
 
       const airPayloadObj = {
         id: msgId,
+        channel_type: 'EMERGENCY_ALERT',
         session_id: 'DEMO_GLOBAL_SESSION_01',
         sender_role: 'field',
         sender_username: myUsername || '@victim_phone_1',
         target_username: '@command_center',
+        is_local_mesh_private: false,
         type: emergencyFlag ? 'emergency_alert' : 'voice_message',
         text: airBroadcastText,
         network_mode: emergencyFlag ? 'mode-4-satellite-beacon' : 'mode-3-ai-mesh',
@@ -1753,10 +1789,12 @@ export default function FieldUserDashboard() {
 
     const payloadObj = {
       id: msgId,
+      channel_type: 'EMERGENCY_ALERT',
       session_id: 'DEMO_GLOBAL_SESSION_01',
       sender_role: 'field',
       sender_username: myUsername || '@citizen_field',
       target_username: '@command_center',
+      is_local_mesh_private: false,
       type: emergencyFlag ? 'emergency_alert' : 'voice_message',
       text: finalText, // NEVER BLANK OUT USER TEXT!
       network_mode: emergencyFlag ? 'mode-4-satellite-beacon' : networkMode,
@@ -1775,8 +1813,10 @@ export default function FieldUserDashboard() {
     };
     const payload = JSON.stringify(payloadObj);
 
-    // Broadcast over native mesh if available
-    if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
+    // ONLY broadcast over local radio mesh in Mode 3 (handled above) or Mode 4 (Satellite SOS) or if emergency!
+    // Mode 1 (HD 5G) and Mode 2 (2G Voice) are direct cellular/internet uplinks to Command Center and MUST NOT emit local radio mesh packets!
+    const isMeshRadioMode = (networkMode as string) === 'mode-4-satellite-beacon' || emergencyFlag;
+    if (isMeshRadioMode && (window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
       try {
         (window as any).AndroidBleMeshBridge.broadcastMeshPacket(payload);
       } catch (e) {}
@@ -1844,7 +1884,7 @@ export default function FieldUserDashboard() {
         const endpoints = [
           'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
           'http://localhost:8000/api/stt/transcribe-for-translate',
-          'http://10.245.166.76:8000/api/stt/transcribe-for-translate',
+          'http://10.64.235.76:8000/api/stt/transcribe-for-translate',
           '/api/stt/transcribe-for-translate'
         ];
         for (const ep of endpoints) {
@@ -1871,7 +1911,7 @@ export default function FieldUserDashboard() {
       } else if (localMeshMode === 'mode-2-p2p-2g') {
         finalText = `🎙️ 2G Voice Note (${actualDuration}s)`;
       } else {
-        finalText = textInput.trim();
+        finalText = localMeshTextInput.trim();
       }
     }
     if (localMeshMode === 'mode-3-p2p-nan' && !finalText) {
@@ -1919,6 +1959,7 @@ export default function FieldUserDashboard() {
 
     const payloadObj = {
       id: msgId,
+      channel_type: 'CIVILIAN_P2P',
       session_id: 'LOCAL_MESH_PRIVATE',
       sender_role: 'field',
       sender_username: effectiveSender,
@@ -1959,15 +2000,15 @@ export default function FieldUserDashboard() {
       }
     }
 
-    // 🔔 PHONE 1 MUST VIBRATE IMMEDIATELY ON SEND!
-    triggerSafeHaptic(350);
+    // Light sender feedback on message dispatch
+    triggerSafeHaptic(80);
     if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
       try {
-        (window as any).AndroidBleMeshBridge.vibrateDevice(350);
+        (window as any).AndroidBleMeshBridge.vibrateDevice(80);
       } catch (e) {}
     }
 
-    setLastDeliveryToast(isMode3 ? `🔒 Locked & Sent to ${effectiveTarget} (Phone 1 Vibrated)` : `✅ Sent to ${effectiveTarget}`);
+    setLastDeliveryToast(isMode3 ? `🔒 Locked & Dispatched to ${effectiveTarget}` : `✅ Sent to ${effectiveTarget}`);
 
     // 2. Direct WebSocket send for online internet delivery (non-blocking)
     try {
@@ -1976,7 +2017,7 @@ export default function FieldUserDashboard() {
 
     // 3. Dispatch via HTTP Endpoints (Internet / LAN / Cloudflare) in background
     if (!isMode3) {
-      const meshTargets = getReliableEndpoints('/api/messages/send');
+      const meshTargets = getReliableEndpoints('/api/mesh/p2p/send');
       sendPayloadSingle(meshTargets, payload);
     }
   };
@@ -2262,6 +2303,9 @@ export default function FieldUserDashboard() {
                 setIsUsernameLocked(true);
                 localStorage.setItem('local_username', formatted);
                 localStorage.setItem('local_username_locked', 'true');
+                const companion = formatted === '@raj' ? '@kk' : '@raj';
+                setTargetFriend(companion);
+                localStorage.setItem('target_friend', companion);
                 setShowUserModal(false);
                 // Prompt user to select & download their desired language pack
                 setShowLangModal(true);
@@ -2962,9 +3006,9 @@ export default function FieldUserDashboard() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (textInput.trim()) {
-                  const val = textInput.trim();
-                  setTextInput('');
+                if (localMeshTextInput.trim()) {
+                  const val = localMeshTextInput.trim();
+                  setLocalMeshTextInput('');
                   sendLocalMeshPrivateMessage(val, 24, undefined, undefined, 0);
                 }
               }}
@@ -2972,8 +3016,8 @@ export default function FieldUserDashboard() {
             >
               <input
                 type="text"
-                value={textInput}
-                onChange={(e) => { setTextInput(e.target.value); }}
+                value={localMeshTextInput}
+                onChange={(e) => { setLocalMeshTextInput(e.target.value); }}
                 placeholder={`Message ${targetFriend}...`}
                 className="flex-1 bg-neutral-950 border border-neutral-800 rounded-2xl px-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
@@ -3010,14 +3054,18 @@ export default function FieldUserDashboard() {
 
                     // Strictly 1-on-1 WhatsApp private chat:
                     // 1. Sent by ME to THIS FRIEND, OR
-                    // 2. Sent by THIS FRIEND to ME
+                    // 2. Sent by THIS FRIEND to ME, OR
+                    // 3. Broadcast to @all_friends by THIS FRIEND
                     const isDirectChat = (
-                      (senderClean === myClean && targetClean === activeFriend) ||
-                      (senderClean === activeFriend && targetClean === myClean)
+                      (senderClean === myClean && (targetClean === activeFriend || targetClean === '@all_friends')) ||
+                      (senderClean === activeFriend && (targetClean === myClean || targetClean === '@all_friends'))
                     );
 
                     // Must NOT be an emergency alert or command broadcast
-                    const isNotCommandOrSos = !msg.is_emergency && targetClean !== '@command_center' && senderClean !== '@command_center';
+                    const isNotCommandOrSos = !msg.is_emergency && 
+                                              msg.channel_type !== 'EMERGENCY_ALERT' && 
+                                              targetClean !== '@command_center' && 
+                                              senderClean !== '@command_center';
 
                     return isDirectChat && isNotCommandOrSos;
                   }).map((msg, i) => {

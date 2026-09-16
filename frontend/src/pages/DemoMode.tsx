@@ -53,8 +53,7 @@ export default function DemoMode() {
     return Array.from(new Set([
       customUrl,
       'https://symposium-desktops-identical-christopher.trycloudflare.com/api/network/set-mode',
-      'http://10.31.66.76:8000/api/network/set-mode',
-      'http://10.208.56.76:8000/api/network/set-mode',
+      'http://10.64.235.76:8000/api/network/set-mode',
       `${apiBase}/api/network/set-mode`,
       'http://localhost:8000/api/network/set-mode',
       'http://127.0.0.1:8000/api/network/set-mode',

@@ -1772,7 +1772,12 @@ class MainActivity : AppCompatActivity() {
             compactAssembledLength[cipher] = decodedText.length
             // Send ACK once when complete so Phone 1 stops broadcasting
             broadcastBleCompactAck(cipherHi.toByte(), cipherLo.toByte(), 2)
-            vibratePhone(350)
+
+            val isPrivateMesh = decodedText.startsWith("🔒|") || decodedText.startsWith("MESH3|")
+            // Strict Vibration Matrix: Only vibrate on emergency SOS or Mode 3/4 relay; NEVER on private civilian chats!
+            if (isEmerg || !isPrivateMesh) {
+                vibratePhone(250)
+            }
             updateDeviceLocation()
             val lat = if (currentLatitude != 0.0) currentLatitude else 12.8718
             val lon = if (currentLongitude != 0.0) currentLongitude else 80.2185
@@ -1786,7 +1791,6 @@ class MainActivity : AppCompatActivity() {
                 "🚨 SOS: I am in emergency, kindly help me! [$place - GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
             }
 
-            val isPrivateMesh = decodedText.startsWith("🔒|") || decodedText.startsWith("MESH3|")
             var senderUser = if (isGovt) "@command_center" else "@victim_phone_1"
             var targetUser = if (isGovt) "@all_citizens" else "@command_center"
             var encPayload = ""
@@ -1804,6 +1808,7 @@ class MainActivity : AppCompatActivity() {
 
             val packetObj = JSONObject().apply {
                 put("id", "air_${cipherToUse.lowercase()}_${uniqueSeq}")
+                put("channel_type", if (isPrivateMesh) "CIVILIAN_P2P" else "EMERGENCY_ALERT")
                 put("cipher_code", cipherToUse)
                 put("hop_count", 2)
                 put("is_emergency", isEmerg && !isPrivateMesh)
@@ -1833,12 +1838,13 @@ class MainActivity : AppCompatActivity() {
 
             // Dual Relay directly to local gateway and Cloudflare ONLY IF NOT FROM COMMAND CENTER!
             if (!isGovt) {
+                val relayPath = if (isPrivateMesh) "/api/mesh/p2p/send" else "/api/messages/send"
                 Thread {
                     val targets = listOf(
-                        "http://10.31.66.76:8000/api/messages/send",
-                        "https://symposium-desktops-identical-christopher.trycloudflare.com/api/messages/send",
-                        "http://10.208.56.76:8000/api/messages/send",
-                        "http://127.0.0.1:8000/api/messages/send"
+                        "http://127.0.0.1:8000$relayPath",
+                        "http://192.168.137.146:8000$relayPath",
+                        "http://192.168.137.1:8000$relayPath",
+                        "https://symposium-desktops-identical-christopher.trycloudflare.com$relayPath"
                     )
                     for (target in targets) {
                         try {
@@ -2071,22 +2077,33 @@ class MainActivity : AppCompatActivity() {
                             rawPayload.contains("LOCK#") ||
                             rawPayload.contains("🔒")
 
-        // Haptic Vibration for incoming mesh packets (Phone 2 also vibrates!)
-        if (!isAck && (now - lastHapticTimestamp > 2500L)) {
+        val isEmergency = rawPayload.contains("\"is_emergency\":true") || 
+                          rawPayload.contains("\"is_emergency\": true") ||
+                          rawPayload.contains("🚨") ||
+                          rawPayload.contains("SOS")
+        val isMode1Or2 = (rawPayload.contains("mode-1") || rawPayload.contains("mode-2")) && !isEmergency
+        val isMode3Or4 = rawPayload.contains("mode-3") || rawPayload.contains("mode-4") || isEmergency || channel.startsWith("BLE_")
+        
+        // Strict Vibration Matrix: ONLY Mode 3 and Mode 4 (or emergency SOS) vibrate!
+        // Mode 1 and Mode 2 peer devices must remain completely SILENT!
+        val shouldVibrate = isMode3Or4 && !isMode1Or2 && !isAck
+
+        // Haptic Vibration for incoming mesh packets
+        if (shouldVibrate && (now - lastHapticTimestamp > 2500L)) {
             lastHapticTimestamp = now
             try {
-                // Single clean crisp haptic pulse (250ms)
+                // Single clean crisp haptic pulse (200ms)
                 val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
                 if (vibrator != null && vibrator.hasVibrator()) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        vibrator.vibrate(android.os.VibrationEffect.createOneShot(250, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                        vibrator.vibrate(android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
                     } else {
                         @Suppress("DEPRECATION")
-                        vibrator.vibrate(250)
+                        vibrator.vibrate(200)
                     }
                 }
-                // Tone Generator ONLY for non-private emergency/command broadcasts
-                if (!isPrivateMesh) {
+                // Tone Generator ONLY for emergency/satellite distress alerts (never for private chats or routine mesh)
+                if (!isPrivateMesh && (isEmergency || rawPayload.contains("mode-4"))) {
                     val toneGen = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 75)
                     toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 200)
                     Handler(Looper.getMainLooper()).postDelayed({
@@ -2123,12 +2140,13 @@ class MainActivity : AppCompatActivity() {
             }
             relayedPacketKeys[dedupKey] = now
 
+            val relayPath = if (isPrivateMesh) "/api/mesh/p2p/send" else "/api/messages/send"
             Thread {
                 val endpoints = listOf(
-                    "http://10.31.66.76:8000/api/messages/send",
-                    "https://symposium-desktops-identical-christopher.trycloudflare.com/api/messages/send",
-                    "http://10.208.56.76:8000/api/messages/send",
-                    "http://127.0.0.1:8000/api/messages/send"
+                    "http://127.0.0.1:8000$relayPath",
+                    "http://192.168.137.146:8000$relayPath",
+                    "http://192.168.137.1:8000$relayPath",
+                    "https://symposium-desktops-identical-christopher.trycloudflare.com$relayPath"
                 )
                 for (ep in endpoints) {
                     try {

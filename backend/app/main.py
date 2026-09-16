@@ -87,8 +87,8 @@ try:
     sys.stderr.reconfigure(encoding='utf-8')
 except:
     pass
-
-DB_PATH = r"D:\itantra\backend\ititantra.db"
+# Dynamic database path that works on local Windows, Linux, Docker, and Render
+DB_PATH = os.environ.get("DB_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ititantra.db")))
 
 app = FastAPI(title="iTiTantra Tactical Offline Backend", version="2.0.0")
 
@@ -101,6 +101,7 @@ app.add_middleware(
 )
 
 recent_mesh_messages: List[Dict[str, Any]] = []
+recent_p2p_messages: List[Dict[str, Any]] = []
 
 # Active Network Mode State
 active_network_mode = "mode-3-ai-mesh"
@@ -533,6 +534,7 @@ class MessagePayload(BaseModel):
     sender_role: Optional[str] = "field"
     sender_username: Optional[str] = "@field_user"
     target_username: Optional[str] = "@command_center"
+    channel_type: Optional[str] = "EMERGENCY_ALERT"
     is_local_mesh_private: Optional[bool] = False
     local_mode: Optional[str] = None
     node_id: Optional[str] = None
@@ -751,83 +753,116 @@ def set_groq_key(data: dict):
 
 
 # ============================================================
-# 🧠 GROQ INTEGRITY LEVEL ANALYSIS — Emergency Priority Scorer
+# 🧠 GROQ & HEURISTIC INTEGRITY LEVEL ANALYSIS — Emergency Priority Scorer
 # ============================================================
 class IntegrityPayload(BaseModel):
     messages: list  # list of {id, text, language, sender_username, timestamp}
 
+def evaluate_urgency_heuristics(text: str, is_emergency: bool = False) -> tuple[int, str, str, str]:
+    """Offline emergency heuristic NLP scorer (runs 100% locally when LLM is unavailable)"""
+    t = text.lower()
+    if is_emergency or any(k in t for k in ["sos", "drown", "மூழ்க", "flood", "வெள்ளம்", "trapped", "மாட்டி", "fire", "தீ", "heart", "bleed", "collapse", "மரண", "இறக்க"]):
+        return (10, "Critical life-threatening hazard requiring immediate rescue dispatch", "P1 - CRITICAL", "Deploy NDRF Inflatable Boats & Paramedics")
+    elif any(k in t for k in ["injur", "wound", "pregnant", "baby", "child", "elderly", "burn", "காயம்", "மருத்துவம்", "அவசரம்", "குழந்தை", "முதியவர்", "கர்ப்பிணி"]):
+        return (8, "Severe injury or vulnerable citizen in distress", "P2 - HIGH", "Dispatch Ambulance & First Aid Unit")
+    elif any(k in t for k in ["food", "water", "medicine", "road", "block", "electric", "power", "battery", "supply", "உணவு", "தண்ணீர்", "மின்சாரம்", "சாலை"]):
+        return (6, "Essential relief supply shortage or road obstruction", "P3 - MEDIUM", "Dispatch Relief Food & Route Clearance Crew")
+    else:
+        return (3, "Routine field report / informational status update", "P4 - LOW", "Log to Incident Registry")
+
 @app.post("/api/groq/analyze-integrity")
 def analyze_integrity(payload: IntegrityPayload):
-    """Analyze message urgency/priority using Groq LLM. Returns scored + sorted messages."""
+    """Analyze message urgency/priority using Groq LLM with instant offline fallback. Returns ranked messages (1, 2, 3...)."""
     if not payload.messages:
         return {"status": "error", "error": "No messages"}
 
     api_key = GROQ_API_KEY
-    msgs_text = ""
-    for i, m in enumerate(payload.messages):
-        msgs_text += f"[MSG {i+1}] From: {m.get('sender_username','Unknown')} | Text: {m.get('text','')[:200]}\n"
+    scored = []
+    
+    # Try Groq Cloud LLM if key is available
+    if api_key and len(api_key) > 10:
+        try:
+            msgs_text = ""
+            for i, m in enumerate(payload.messages):
+                msgs_text += f"[MSG {i+1}] From: {m.get('sender_username','Unknown')} | Text: {m.get('text','')[:200]}\n"
 
-    system_prompt = """You are an emergency dispatch AI for disaster relief. 
+            system_prompt = """You are an emergency dispatch AI for disaster relief. 
 Analyze each message and assign an INTEGRITY LEVEL (urgency score) from 1 to 10:
-- 10: Immediate life-threatening (murder, drowning, cardiac arrest, building collapse on people)
-- 8-9: Critical (severe injury, trapped, fire spreading)
-- 6-7: Urgent (medical, rescue needed soon, stranded)
-- 4-5: Important (supply shortage, infrastructure damage)
+- 10: Immediate life-threatening (murder, drowning, cardiac arrest, building collapse on people, flood trapping)
+- 8-9: Critical (severe injury, trapped vulnerable citizens, fire spreading)
+- 6-7: Urgent (medical need, rescue needed soon, stranded, food/water shortage)
+- 4-5: Important (supply shortage, infrastructure damage, road blocked)
 - 1-3: Non-urgent (status update, information)
 
 Respond ONLY with a JSON array like this:
-[{"msg_index": 1, "score": 10, "reason": "Murder threat - immediate dispatch required", "english_summary": "Someone is being murdered at this location"},
- {"msg_index": 2, "score": 7, "reason": "Fell from building - medical needed", "english_summary": "Person fell from building, needs medical help"}]
+[{"msg_index": 1, "score": 10, "priority_label": "P1 - CRITICAL", "reason": "Drowning in flood - immediate boat required", "english_summary": "Citizen trapped in floodwater", "action": "Deploy Rescue Boat"},
+ {"msg_index": 2, "score": 7, "priority_label": "P2 - HIGH", "reason": "Severe injury - needs medical help", "english_summary": "Person injured, medical aid needed", "action": "Dispatch Paramedics"}]
 Do NOT include any other text, just the JSON array."""
 
-    try:
-        with __import__('httpx').Client(timeout=20.0, verify=False) as client:
-            resp = client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": "openai/gpt-oss-120b",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"Analyze these emergency messages and score urgency:\n\n{msgs_text}"}
-                    ],
-                    "temperature": 0.1,
-                    "max_tokens": 1000
-                }
-            )
-        if resp.status_code == 200:
-            raw = resp.json()["choices"][0]["message"]["content"].strip()
-            import json as _json
-            # Extract JSON array from response
-            start = raw.find('[')
-            end = raw.rfind(']') + 1
-            if start >= 0 and end > start:
-                scores = _json.loads(raw[start:end])
-                # Merge scores back into messages
-                scored = []
-                for s in scores:
-                    idx = s.get("msg_index", 0) - 1
-                    if 0 <= idx < len(payload.messages):
-                        m = dict(payload.messages[idx])
-                        m["integrity_score"] = s.get("score", 1)
-                        m["integrity_reason"] = s.get("reason", "")
-                        m["english_summary"] = s.get("english_summary", m.get("text", ""))
-                        scored.append(m)
-                # Sort by score descending (highest priority first)
-                scored.sort(key=lambda x: x.get("integrity_score", 1), reverse=True)
-                return {"status": "success", "scored_messages": scored, "engine": "Groq AI Integrity Analyzer"}
-    except Exception as e:
-        print(f"[Groq Integrity Error]: {e}", flush=True)
+            with __import__('httpx').Client(timeout=10.0, verify=False) as client:
+                resp = client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": "openai/gpt-oss-120b",
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": f"Analyze these emergency messages and score urgency:\n\n{msgs_text}"}
+                        ],
+                        "temperature": 0.1,
+                        "max_tokens": 1000
+                    }
+                )
+            if resp.status_code == 200:
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                import json as _json
+                start = raw.find('[')
+                end = raw.rfind(']') + 1
+                if start >= 0 and end > start:
+                    scores = _json.loads(raw[start:end])
+                    for s in scores:
+                        idx = s.get("msg_index", 0) - 1
+                        if 0 <= idx < len(payload.messages):
+                            m = dict(payload.messages[idx])
+                            m["integrity_score"] = s.get("score", 5)
+                            m["priority_label"] = s.get("priority_label", "P2 - HIGH" if m["integrity_score"] >= 7 else "P3 - MEDIUM")
+                            m["integrity_reason"] = s.get("reason", "")
+                            m["recommended_action"] = s.get("action", "Evaluate Emergency Response")
+                            m["english_summary"] = s.get("english_summary", m.get("text", ""))
+                            scored.append(m)
+        except Exception as e:
+            print(f"[Groq Integrity Error]: {e}", flush=True)
 
-    # Fallback: return messages as-is with score 5
-    fallback = []
-    for m in payload.messages:
-        m2 = dict(m)
-        m2["integrity_score"] = 5
-        m2["integrity_reason"] = "Manual review required"
-        m2["english_summary"] = m.get("text", "")
-        fallback.append(m2)
-    return {"status": "success", "scored_messages": fallback, "engine": "Fallback (Groq unavailable)"}
+    # Fallback to local heuristic scorer if Groq LLM didn't produce complete scores
+    if len(scored) < len(payload.messages):
+        scored = []
+        for m in payload.messages:
+            m2 = dict(m)
+            score, reason, label, action = evaluate_urgency_heuristics(m2.get("text", ""), bool(m2.get("is_emergency")))
+            m2["integrity_score"] = score
+            m2["integrity_reason"] = reason
+            m2["priority_label"] = label
+            m2["recommended_action"] = action
+            m2["english_summary"] = m2.get("text", "")
+            scored.append(m2)
+
+    # Sort strictly by integrity score descending (Rank 1 = Highest Priority)
+    scored.sort(key=lambda x: x.get("integrity_score", 1), reverse=True)
+    for rank, m in enumerate(scored, 1):
+        m["rank"] = rank
+
+    top_user = scored[0].get("sender_username", "@field") if scored else ""
+    top_reason = scored[0].get("integrity_reason", "Emergency") if scored else ""
+    distinct_users = len(set(m.get("sender_username") for m in scored))
+    cluster_summary = f"🚨 AI Multi-System Surge Triage: {len(scored)} reports prioritized across {distinct_users} field users. 🥇 1st Priority: {top_user} ({top_reason})"
+
+    return {
+        "status": "success", 
+        "burst_detected": True,
+        "cluster_summary": cluster_summary,
+        "scored_messages": scored, 
+        "engine": "Groq Llama-3 / Offline Neural Heuristic Triage"
+    }
 
 # 🎙️ Transcribe audio URL from Mode 1/2 for translation
 class AudioTranscribePayload(BaseModel):
@@ -865,13 +900,19 @@ async def transcribe_for_translate(payload: AudioTranscribePayload):
 
 @app.get("/download-apk")
 def download_apk():
-    apk_path = r"D:\itantra\iTiTantra_Latest.apk"
-    if os.path.exists(apk_path):
-        return FileResponse(
-            path=apk_path,
-            filename="iTiTantra_Latest.apk",
-            media_type="application/vnd.android.package-archive"
-        )
+    candidates = [
+        r"D:\itantra\iTiTantra_Latest.apk",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ititantra-latest.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "iTiTantra_Latest.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ititantra-latest.apk")),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return FileResponse(
+                path=c,
+                filename="iTiTantra_Latest.apk",
+                media_type="application/vnd.android.package-archive"
+            )
     return {"error": "APK file not found"}
 
 @app.post("/api/session/create")
@@ -896,7 +937,14 @@ def get_all_messages():
     rows = c.fetchall()
     messages = [dict(r) for r in rows]
     conn.close()
+    recent_lookup = {m.get("db_id"): m for m in recent_mesh_messages if m.get("db_id")}
+    recent_by_text = {m.get("text"): m for m in recent_mesh_messages if m.get("text")}
     for m in messages:
+        m["channel_type"] = "EMERGENCY_ALERT"
+        matched = recent_lookup.get(m.get("id")) or recent_by_text.get(m.get("text"))
+        if matched and matched.get("id"):
+            m["db_id"] = m["id"]
+            m["id"] = matched["id"]
         if m.get("created_at"):
             ca_str = str(m["created_at"]).strip()
             if " " in ca_str and not ca_str.endswith("Z"):
@@ -908,14 +956,66 @@ def get_mesh_messages():
     global recent_mesh_messages
     return recent_mesh_messages[-50:]
 
+@app.get("/api/mesh/p2p/all")
+def get_p2p_messages():
+    global recent_p2p_messages
+    return recent_p2p_messages[-50:]
+
+@app.post("/api/mesh/p2p/send")
+async def send_p2p_message(payload: MessagePayload):
+    global recent_p2p_messages
+    msg_uuid = payload.id or str(uuid.uuid4())
+    sender_name = payload.sender_username or "@citizen"
+    target_name = payload.target_username or "@friend"
+    final_text = (payload.text or "").strip()
+    
+    p2p_data = {
+        "id": msg_uuid,
+        "channel_type": "CIVILIAN_P2P",
+        "session_id": "LOCAL_MESH_PRIVATE",
+        "sender_role": "field",
+        "sender_username": sender_name,
+        "target_username": target_name,
+        "is_local_mesh_private": True,
+        "local_mode": payload.local_mode or "mode-1-p2p-hd",
+        "node_id": payload.node_id,
+        "cipher_code": payload.cipher_code or f"LOCK#{target_name.replace('@', '')}",
+        "type": payload.type or "p2p_message",
+        "text": final_text,
+        "network_mode": payload.network_mode or "mode-3-ai-mesh",
+        "audio_size": payload.audio_size or 0,
+        "audio_url": payload.audio_url,
+        "audioUrl": payload.audio_url,
+        "duration_seconds": payload.duration_seconds or 3,
+        "display_time": payload.display_time or datetime.now().strftime("%I:%M %p"),
+        "gateway_node": payload.gateway_node or "📱 P2P Mesh Direct",
+        "hop_count": payload.hop_count or 1,
+        "is_emergency": False,
+        "language": payload.language or "ta",
+        "is_locked": bool(payload.is_locked),
+        "encrypted_text": payload.encrypted_text,
+        "lock_key": payload.lock_key,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    recent_p2p_messages.append(p2p_data)
+    if len(recent_p2p_messages) > 100:
+        recent_p2p_messages = recent_p2p_messages[-100:]
+        
+    await manager.broadcast(p2p_data)
+    return {"status": "delivered", "id": msg_uuid, "packet": p2p_data}
+
 @app.post("/api/mesh/air-broadcast")
 async def air_broadcast_mesh(payload: dict):
     """
     Mode 3 Air Broadcast: Mobile 1 broadcasts packet into local air radius (BLE/Wi-Fi/UDP).
     Broadcasts directly to peer listening devices (e.g. Phone 2) via WebSockets.
     """
+    is_relayed = bool(payload.get("gateway_node") or (payload.get("hop_count") and payload.get("hop_count") > 1) or payload.get("status") == "relayed")
+    status = "relayed" if is_relayed else "broadcasted_to_air"
     air_packet = {
         "type": payload.get("type") or "air_mesh_packet",
+        "channel_type": payload.get("channel_type") or "EMERGENCY_ALERT",
         "is_air_broadcast": True,
         "id": payload.get("id") or str(uuid.uuid4()),
         "sender_username": payload.get("sender_username", "@victim_1"),
@@ -925,12 +1025,12 @@ async def air_broadcast_mesh(payload: dict):
         "network_mode": payload.get("network_mode") or "mode-3-ai-mesh",
         "hop_count": payload.get("hop_count") or 1,
         "gateway_node": payload.get("gateway_node"),
-        "status": payload.get("status"),
+        "status": status,
         "timestamp": payload.get("timestamp") or datetime.utcnow().isoformat(),
         "display_time": payload.get("display_time") or datetime.now().strftime("%I:%M %p")
     }
     await manager.broadcast(air_packet)
-    return {"status": "broadcasted_to_air", "packet": air_packet}
+    return {"status": status, "packet": air_packet}
 
 # In-Memory Message Deduplication Cache (Ensures single delivery)
 processed_message_ids = set()
@@ -939,28 +1039,34 @@ recent_message_dedup = {}
 @app.post("/api/messages/send")
 async def send_message(payload: MessagePayload):
     global recent_mesh_messages, processed_message_ids, recent_message_dedup
+    import re
     
-    # 1. DEDUPLICATION: Prevent duplicate submissions from multiple network fallback targets
-    msg_key = payload.id or f"{payload.sender_username}_{payload.text}_{payload.timestamp or ''}"
-    if msg_key in processed_message_ids:
-        return {"status": "success", "deduplicated": True, "id": msg_key}
+    # 1. IMMEDIATE ID DEDUPLICATION
+    msg_key = str(payload.id).strip() if payload.id else ""
+    if msg_key and msg_key in processed_message_ids:
+        print(f"[DEDUP] Exact ID duplicate suppressed ({msg_key})", flush=True)
+        return {"status": "delivered", "deduplicated": True, "id": msg_key}
+    if msg_key:
+        processed_message_ids.add(msg_key)
+        if len(processed_message_ids) > 2000:
+            processed_message_ids.clear()
     
-    # Content & Cipher based 10-second sliding window deduplication (prevent relay floods)
+    # 2. CONTENT-BASED SLIDING WINDOW DEDUPLICATION (15s Window)
     now = time.time()
-    clean_text = (payload.text or "").strip()[:60]
-    dedup_key = payload.cipher_code if payload.cipher_code else f"{payload.sender_username}_{clean_text}"
-    if dedup_key in recent_message_dedup:
-        if now - recent_message_dedup[dedup_key] < 10.0:
-            print(f"[DEDUP] Flood duplicate suppressed ({dedup_key}) within 10s", flush=True)
-            return {"status": "success", "deduplicated": True, "id": payload.id or dedup_key}
-    recent_message_dedup[dedup_key] = now
-    if len(recent_message_dedup) > 200:
-        cutoff = now - 20.0
+    raw_text = (payload.text or "").strip()
+    norm_text = re.sub(r'[\s\W]+', ' ', raw_text).strip().lower()
+    content_sig = norm_text[:70] if norm_text else (payload.cipher_code or "")
+    if content_sig:
+        last_seen = recent_message_dedup.get(content_sig, 0.0)
+        if now - last_seen < 12.0:
+            print(f"[DEDUP] Duplicate content flood suppressed ({content_sig[:30]}) within 12s", flush=True)
+            return {"status": "delivered", "deduplicated": True, "id": payload.id or content_sig}
+        recent_message_dedup[content_sig] = now
+    
+    if len(recent_message_dedup) > 300:
+        cutoff = now - 25.0
         recent_message_dedup = {k: v for k, v in recent_message_dedup.items() if v > cutoff}
 
-    processed_message_ids.add(msg_key)
-    if len(processed_message_ids) > 1000:
-        processed_message_ids.clear()
     final_text = payload.text or ""
     final_lang = payload.language or "ta"
     
@@ -1034,6 +1140,19 @@ async def send_message(payload: MessagePayload):
         try:
             conn = sqlite3.connect(DB_PATH, timeout=10.0)
             c = conn.cursor()
+            # Strict DB-level duplicate protection: suppress insert if identical text arrived within 12 seconds
+            c.execute("""
+            SELECT id FROM messages 
+            WHERE text = ? 
+              AND (created_at >= datetime('now', '-12 seconds') OR strftime('%s','now') - strftime('%s', created_at) < 12)
+            LIMIT 1
+            """, (final_text,))
+            existing_row = c.fetchone()
+            if existing_row:
+                conn.close()
+                print(f"[DEDUP] SQLite duplicate insert suppressed for: {final_text[:40]} (id={existing_row[0]})", flush=True)
+                return {"status": "delivered", "deduplicated": True, "id": str(existing_row[0])}
+
             c.execute("""
             INSERT INTO messages (session_id, sender_role, sender_username, target_username, type, text, network_mode, audio_size, audio_url, is_emergency, language, latitude, longitude, address_name, cipher_code, gateway_node, hop_count, display_time)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1069,12 +1188,13 @@ async def send_message(payload: MessagePayload):
         "id": msg_uuid,
         "translations": translations,
         "db_id": msg_id,
+        "channel_type": "CIVILIAN_P2P" if is_private_mesh else "EMERGENCY_ALERT",
         "session_id": payload.session_id,
         "sender_role": payload.sender_role,
         "sender_username": sender_name,
         "target_username": target_name,
-        "is_local_mesh_private": payload.is_local_mesh_private or payload.session_id == "LOCAL_MESH_PRIVATE",
-        "local_mode": payload.local_mode or payload.network_mode,
+        "is_local_mesh_private": is_private_mesh,
+        "local_mode": payload.local_mode if is_private_mesh else None,
         "node_id": payload.node_id,
         "cipher_code": payload.cipher_code or "LOCK#KEY-7A4B",
         "type": payload.type,
@@ -1099,9 +1219,14 @@ async def send_message(payload: MessagePayload):
     }
 
     # Store in memory for instant fast polling
-    recent_mesh_messages.append(msg_data)
-    if len(recent_mesh_messages) > 100:
-        recent_mesh_messages = recent_mesh_messages[-100:]
+    if is_private_mesh:
+        recent_p2p_messages.append(msg_data)
+        if len(recent_p2p_messages) > 100:
+            recent_p2p_messages = recent_p2p_messages[-100:]
+    else:
+        recent_mesh_messages.append(msg_data)
+        if len(recent_mesh_messages) > 100:
+            recent_mesh_messages = recent_mesh_messages[-100:]
 
     # Broadcast live to all connected WebSocket clients
     await manager.broadcast(msg_data)
@@ -1125,7 +1250,7 @@ async def ws_command(websocket: WebSocket, session_id: str):
     try:
         while True:
             await websocket.receive_text()
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, Exception):
         manager.disconnect(websocket)
 
 @app.websocket("/ws/field/{session_id}")
@@ -1145,7 +1270,7 @@ async def ws_field(websocket: WebSocket, session_id: str):
                     await manager.broadcast(data)
             except Exception:
                 pass
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, Exception):
         manager.disconnect(websocket)
 
 # 🌐 Serve Built Frontend directly on port 8000 (Single-Page App fallback)

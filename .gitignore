@@ -27,3 +27,7 @@ test_packet.json
 tokens_test.txt
 *.log
 *.onnx
+samsung_screen*.png
+out.json
+output.json
+auto_install.ps1

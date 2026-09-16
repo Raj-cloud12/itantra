@@ -267,7 +267,7 @@ export default function CommandCenterDashboard() {
       '/api/translate/groq',
       'https://symposium-desktops-identical-christopher.trycloudflare.com/api/translate/groq',
       'http://127.0.0.1:8000/api/translate/groq',
-      'http://10.31.66.76:8000/api/translate/groq',
+      'http://10.64.235.76:8000/api/translate/groq',
     ];
     for (const ep of endpoints) {
       try {
@@ -298,7 +298,7 @@ export default function CommandCenterDashboard() {
       '/api/stt/transcribe-for-translate',
       'https://harbor-like-kings-greater.trycloudflare.com/api/stt/transcribe-for-translate',
       'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
-      'http://10.208.56.76:8000/api/stt/transcribe-for-translate',
+      'http://10.64.235.76:8000/api/stt/transcribe-for-translate',
     ];
     for (const ep of endpoints) {
       try {
@@ -341,7 +341,7 @@ export default function CommandCenterDashboard() {
       '/api/groq/analyze-integrity',
       'https://harbor-like-kings-greater.trycloudflare.com/api/groq/analyze-integrity',
       'http://127.0.0.1:8000/api/groq/analyze-integrity',
-      'http://10.208.56.76:8000/api/groq/analyze-integrity',
+      'http://10.64.235.76:8000/api/groq/analyze-integrity',
     ];
     for (const ep of endpoints) {
       try {
@@ -492,6 +492,14 @@ export default function CommandCenterDashboard() {
               ciphertext_hex: cipherCode
             }
           };
+          // Deduplicate before adding to feed:
+          const cleanNewText = (newFeedItem.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
+          const isDuplicate = prev.some(m => 
+            m.id === newFeedItem.id || 
+            (cleanNewText && (m.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ') === cleanNewText && 
+             Math.abs(new Date(m.timestamp).getTime() - new Date(newFeedItem.timestamp).getTime()) < 15000)
+          );
+          if (isDuplicate) return prev;
           return [newFeedItem, ...prev];
         });
       }
@@ -508,7 +516,7 @@ export default function CommandCenterDashboard() {
           '/api/messages/all',
           'https://harbor-like-kings-greater.trycloudflare.com/api/messages/all',
           'http://127.0.0.1:8000/api/messages/all',
-          'http://10.208.56.76:8000/api/messages/all',
+          'http://10.64.235.76:8000/api/messages/all',
         ];
 
         let data: any = null;
@@ -552,9 +560,12 @@ export default function CommandCenterDashboard() {
           if (hasNewMessage) {
             playTacticalDingDing();
           }
-          // Only show burst alert if 10 or more simultaneous messages arrive at once!
-          if (burstArrivals >= 10) {
+          // Multi-User Surge / Burst Detection:
+          // Activate AI ONLY when multiple users/systems send messages simultaneously!
+          if (burstArrivals >= 5) {
             setClusterDetected(burstArrivals);
+            // Automatically invoke AI multi-incident triage to rank 1st, 2nd, 3rd...
+            analyzeIntegrity(true);
           }
         }
 
@@ -602,10 +613,19 @@ export default function CommandCenterDashboard() {
           };
         });
 
-        // Deduplicate feed by unique ID or signature to guarantee single display
-        const uniqueFeed = Array.from(
-          new Map(mapped.map((item: FeedMsg) => [item.id || `${item.sender_username}_${item.text}_${item.display_time}`, item])).values()
-        );
+        // Robust UI Deduplication: Deduplicate by clean normalized text signature within 15s window
+        const seenSignatures = new Set<string>();
+        const uniqueFeed: FeedMsg[] = [];
+        for (const item of mapped) {
+          const cleanText = (item.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
+          const timeBucket = Math.floor(new Date(item.timestamp).getTime() / 15000);
+          const sig = `${cleanText}_${timeBucket}`;
+          if (cleanText && seenSignatures.has(sig)) {
+            continue; // Suppress duplicate!
+          }
+          if (cleanText) seenSignatures.add(sig);
+          uniqueFeed.push(item);
+        }
         setFeed(uniqueFeed);
       } catch {}
     };
