@@ -55,40 +55,43 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       setRecordDuration(Math.max(1, Math.floor((Date.now() - startTimeRef.current) / 1000)));
     }, 300);
 
-    // 1. Start live real-time Speech Recognition so spoken words appear instantly in the box!
-    const SpeechRecClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecClass) {
-      try {
-        const recog = new SpeechRecClass();
-        recog.continuous = true;
-        recog.interimResults = true;
-        const targetLang = language || 'ta';
-        recog.lang = targetLang === 'ta' ? 'ta-IN' : targetLang === 'en' ? 'en-IN' : `${targetLang}-IN`;
-        recog.onresult = (event: any) => {
-          let fullStr = '';
-          for (let i = 0; i < event.results.length; i++) {
-            fullStr += event.results[i][0].transcript;
-          }
-          if (fullStr.trim()) {
-            recognizedTextRef.current = fullStr.trim();
-            onLiveInterimText?.(fullStr.trim());
-          }
-        };
-        recog.onerror = (err: any) => {
-          console.warn('Live SpeechRecognition notice:', err.error);
-        };
-        recog.start();
-        recognitionRef.current = recog;
-      } catch (e) {
-        console.warn('SpeechRecognition init:', e);
-      }
-    }
-
-    // 2. Android Bridge Native SpeechRecognizer
-    if ((window as any).AndroidBleMeshBridge?.startSpeechRecognition) {
+    // 1. Android Bridge Native SpeechRecognizer (Priority on Android App)
+    const hasAndroidNativeSpeech = Boolean((window as any).AndroidBleMeshBridge?.startSpeechRecognition);
+    if (hasAndroidNativeSpeech) {
       try {
         (window as any).AndroidBleMeshBridge.startSpeechRecognition(language || 'ta');
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Native SpeechRecognition error:', e);
+      }
+    } else {
+      // 2. Web Speech API (Used in desktop/laptop browser when Native Bridge is absent)
+      const SpeechRecClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecClass) {
+        try {
+          const recog = new SpeechRecClass();
+          recog.continuous = true;
+          recog.interimResults = true;
+          const targetLang = language || 'ta';
+          recog.lang = targetLang === 'ta' ? 'ta-IN' : targetLang === 'en' ? 'en-IN' : `${targetLang}-IN`;
+          recog.onresult = (event: any) => {
+            let fullStr = '';
+            for (let i = 0; i < event.results.length; i++) {
+              fullStr += event.results[i][0].transcript;
+            }
+            if (fullStr.trim()) {
+              recognizedTextRef.current = fullStr.trim();
+              onLiveInterimText?.(fullStr.trim());
+            }
+          };
+          recog.onerror = (err: any) => {
+            console.warn('Live SpeechRecognition notice:', err.error);
+          };
+          recog.start();
+          recognitionRef.current = recog;
+        } catch (e) {
+          console.warn('SpeechRecognition init:', e);
+        }
+      }
     }
 
     // 3. Start clean 16kHz PCM WAV recorder for Mode 1 & Mode 2 audio transmission
