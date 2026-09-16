@@ -308,8 +308,8 @@ export default function FieldUserDashboard() {
     }
   };
 
-  // Live Cloudflare Primary Gateway Endpoint & Local Network Endpoints
-  const PRIMARY_CLOUDFLARE = 'https://symposium-desktops-identical-christopher.trycloudflare.com';
+  // Live Render Primary Gateway Endpoint & Local Network Endpoints
+  const PRIMARY_CLOUDFLARE = 'https://itantra-4yzo.onrender.com';
   const CURRENT_LAN_IP = 'http://10.64.235.76:8000';
   const [targetHost, setTargetHost] = useState<string>(() => {
     const saved = localStorage.getItem('tactical_host');

@@ -52,6 +52,7 @@ export default function DemoMode() {
 
     return Array.from(new Set([
       customUrl,
+      'https://itantra-4yzo.onrender.com/api/network/set-mode',
       'https://symposium-desktops-identical-christopher.trycloudflare.com/api/network/set-mode',
       'http://10.64.235.76:8000/api/network/set-mode',
       `${apiBase}/api/network/set-mode`,

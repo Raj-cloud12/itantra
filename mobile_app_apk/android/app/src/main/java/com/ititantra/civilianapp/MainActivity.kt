@@ -1841,6 +1841,7 @@ class MainActivity : AppCompatActivity() {
                 val relayPath = if (isPrivateMesh) "/api/mesh/p2p/send" else "/api/messages/send"
                 Thread {
                     val targets = listOf(
+                        "https://itantra-4yzo.onrender.com$relayPath",
                         "http://127.0.0.1:8000$relayPath",
                         "http://192.168.137.146:8000$relayPath",
                         "http://192.168.137.1:8000$relayPath",
@@ -2143,6 +2144,7 @@ class MainActivity : AppCompatActivity() {
             val relayPath = if (isPrivateMesh) "/api/mesh/p2p/send" else "/api/messages/send"
             Thread {
                 val endpoints = listOf(
+                    "https://itantra-4yzo.onrender.com$relayPath",
                     "http://127.0.0.1:8000$relayPath",
                     "http://192.168.137.146:8000$relayPath",
                     "http://192.168.137.1:8000$relayPath",
