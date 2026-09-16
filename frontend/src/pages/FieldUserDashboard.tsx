@@ -308,45 +308,6 @@ export default function FieldUserDashboard() {
     }
   };
 
-  // 🎙️ Instant Client-Side Voice OCR Spell & Semantic Refiner
-  const refineTamilVoiceOcr = (rawText: string): string => {
-    if (!rawText) return '';
-    let clean = rawText.trim();
-    const rules: [RegExp, string][] = [
-      [/\bநாங்க\b/g, 'நாங்கள்'],
-      [/\bநாங்கல்லாம்\b/g, 'நாங்கள் அனைவரும்'],
-      [/\b(மாட்டிகிட்டோம்|மாடிகிட்டோம்|மாட்டிக்கிட்டோம்|மாட்டிடோம்|மாட்டிகிட்டம்)\b/g, 'மாட்டிக்கொண்டோம்'],
-      [/\b(காப்பாத்துங்க|காப்பாத்து|காபாத்துங்க|காபாத்து|காபத்துங்க)\b/g, 'காப்பாற்றுங்கள்'],
-      [/\b(தண்ணி|தன்னி)\b/g, 'தண்ணீர்'],
-      [/\b(தண்ணிக்குள்ள|தன்னிக்குள்ள)\b/g, 'தண்ணீருக்குள்'],
-      [/\b(வந்துருச்சு|வந்துடுச்சு|வந்துடிச்சி|வந்துருச்சி|வந்திருச்சி)\b/g, 'வந்துவிட்டது'],
-      [/\b(சாப்பாடு இல்ல|சாப்பாடில்லை)\b/g, 'உணவு இல்லை'],
-      [/\b(சாப்பாடு|சாப்பாட்டுக்கு)\b/g, 'உணவு'],
-      [/\b(குடிக்க தண்ணி இல்ல|குடிக்க தண்ணி)\b/g, 'குடிநீர் தேவை'],
-      [/\b(மருந்து இல்ல|மாத்திரை இல்ல|மருந்து மாத்திரை)\b/g, 'அவசர மருந்து தேவை'],
-      [/\b(கரண்ட் இல்ல|கரண்டு போச்சு|கரண்ட் போயிடுச்சு)\b/g, 'மின்சாரம் துண்டிக்கப்பட்டுள்ளது'],
-      [/\b(வீட்டுக்குள்ள|வீட்டுல|வீட்டுக்குள்ளார)\b/g, 'வீட்டிற்குள்'],
-      [/\b(மாடில|மொட்டை மாடில|மாடியில|மேல இருக்கோம்)\b/g, 'மொட்டை மாடியில்'],
-      [/\b(இருக்கோம்|இருக்கோங்க|இருக்கிறோம)\b/g, 'உள்ளோம்'],
-      [/\b(குழந்த இருக்கு|குழந்தைங்க இருக்கு|குழந்தை இருக்கு)\b/g, 'பச்சிளம் குழந்தைகள் உள்ளனர்'],
-      [/\b(வயசானவங்க|பெரியவங்க|முதியவர்கள்)\b/g, 'முதியவர்கள் உள்ளனர்'],
-      [/\b(நெஞ்சு வலி|நெஞ்சுவலி)\b/g, 'நெஞ்சு வலி (அவசர மருத்துவம் தேவை)'],
-      [/\b(சுவர் இடிஞ்சிடுச்சு|சுவர் இடிஞ்சு போச்சு|சுவத்துல விரிசல்)\b/g, 'சுவர் இடிந்து விழுந்துள்ளது'],
-      [/\b(ரோடு உடைஞ்சிடுச்சு|ரோடு போச்சு|ரோட்ல தண்ணி)\b/g, 'சாலை துண்டிக்கப்பட்டுள்ளது'],
-      [/\b(சீக்கிரம் வாங்க|உடனே வாங்க|சீக்கிரம் வரவும்)\b/g, 'உடனடியாக மீட்புக் குழுவை அனுப்பவும்'],
-      [/\b(ஹெல்ப்|ஹெல்ப் பண்ணுங்க|ப்ளீஸ் ஹெல்ப்)\b/g, 'அவசர உதவி தேவை'],
-      [/\b(மயங்கிட்டாரு|மயங்கி விழுந்துட்டாரு)\b/g, 'மயக்கமடைந்துள்ளார்'],
-      [/\b(ரத்தம் வருது|ரத்தம் போகுது|ரத்தக் காயம்)\b/g, 'கடுமையான இரத்தப்போக்கு ஏற்பட்டுள்ளது'],
-      [/\b(படகு வேணும்|போட் வேணும்|படகு அனுப்புங்க)\b/g, 'மீட்புப் படகு தேவைப்படுகிறது'],
-      [/\b(இருட்டா இருக்கு|இருட்டாயிடுச்சு)\b/g, 'முழுமையான இருள் சூழ்ந்துள்ளது'],
-    ];
-
-    for (const [pattern, replacement] of rules) {
-      clean = clean.replace(pattern, replacement);
-    }
-    return clean;
-  };
-
   // 🌐 Permanent Cloud Gateway on Render (24/7 Cloud Backend - Zero Cloudflare needed)
   const PERMANENT_RENDER_GATEWAY = 'https://itantra-4yzo.onrender.com';
   const CURRENT_LAN_IP = 'http://10.64.235.76:8000';
@@ -1317,7 +1278,7 @@ export default function FieldUserDashboard() {
   useEffect(() => {
     (window as any).onNativeSpeechResult = (text: string, isFinal: boolean) => {
       if (text && text.trim()) {
-        const clean = refineTamilVoiceOcr(text.trim());
+        const clean = text.trim();
         if (activeTab === 'mesh') {
           // Strictly Local Mesh Tab: place spoken text into friend's message input
           setLocalMeshTextInput(clean);
@@ -2417,22 +2378,21 @@ export default function FieldUserDashboard() {
                   }}
                   onLiveInterimText={(interim) => {
                     if (interim && interim.trim()) {
-                      const refined = interim.includes('Listening...') ? interim : refineTamilVoiceOcr(interim.trim());
-                      setSpokenSpeechText(refined);
+                      setSpokenSpeechText(interim.trim());
                       if (!interim.includes('Listening...')) {
-                        setPersistentSpokenText(refined);
+                        setPersistentSpokenText(interim.trim());
                       }
                     }
                   }}
                   onTranscript={async (text, audioSize, blob, detectedLang, audioBase64, durationSec) => {
-                    setSpokenSpeechText('⏳ Transcribing audio (Voice OCR)...');
-                    let candidateText = (text && text.trim() && !text.includes('Listening...')) ? refineTamilVoiceOcr(text.trim()) : '';
+                    setSpokenSpeechText('⏳ Transcribing audio (Sherpa AI)...');
+                    let candidateText = (text && text.trim() && !text.includes('Listening...')) ? text.trim() : '';
 
                     // If captured live during speech
                     if (candidateText) {
                       setPersistentSpokenText(candidateText);
                     } else if (spokenSpeechText && spokenSpeechText.trim() && !spokenSpeechText.includes('Listening...') && !spokenSpeechText.includes('Transcribing')) {
-                      candidateText = refineTamilVoiceOcr(spokenSpeechText.trim());
+                      candidateText = spokenSpeechText.trim();
                       setPersistentSpokenText(candidateText);
                     }
 

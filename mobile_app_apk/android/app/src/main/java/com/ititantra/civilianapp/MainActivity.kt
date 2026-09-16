@@ -1099,16 +1099,41 @@ class MainActivity : AppCompatActivity() {
 
             runOnUiThread {
                 try {
-                    // Fast instant reuse: avoid slow IPC destroy/create cycle
-                    if (nativeSpeechRecognizer == null) {
-                        nativeSpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
-                        Log.i("NATIVE_ASR", "System SpeechRecognizer initialized")
-                    } else {
+                    if (nativeSpeechRecognizer != null) {
                         try {
-                            nativeSpeechRecognizer?.cancel()
+                            nativeSpeechRecognizer?.stopListening()
+                            nativeSpeechRecognizer?.destroy()
                         } catch (e: Exception) {}
+                        nativeSpeechRecognizer = null
                     }
 
+                    val googleServices = listOf(
+                        android.content.ComponentName("com.google.android.googlequicksearchbox", "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"),
+                        android.content.ComponentName("com.google.android.tts", "com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService"),
+                        android.content.ComponentName("com.google.android.as", "com.google.android.apps.miphone.aiai.app.AiAiSpeechRecognitionService")
+                    )
+                    var recognizer: SpeechRecognizer? = null
+
+                    // 1. Bound Google Speech recognition services (full Tamil & Indic support)
+                    for (comp in googleServices) {
+                        try {
+                            val serviceIntent = Intent("android.speech.RecognitionService").setComponent(comp)
+                            val resolve = packageManager.queryIntentServices(serviceIntent, 0)
+                            if (resolve.isNotEmpty()) {
+                                recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity, comp)
+                                Log.i("NATIVE_ASR", "Successfully bound to verified SpeechService: ${comp.className}")
+                                break
+                            }
+                        } catch (e: Exception) {
+                            Log.w("NATIVE_ASR", "Could not check ${comp.className}: ${e.message}")
+                        }
+                    }
+
+                    if (recognizer == null) {
+                        recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
+                        Log.i("NATIVE_ASR", "Using system default SpeechRecognizer")
+                    }
+                    nativeSpeechRecognizer = recognizer
                     nativeSpeechRecognizer?.setRecognitionListener(object : RecognitionListener {
                         override fun onReadyForSpeech(params: Bundle?) {
                             Log.i("NATIVE_ASR", "Ready for speech in $localeTag")
@@ -1122,10 +1147,7 @@ class MainActivity : AppCompatActivity() {
                             Log.i("NATIVE_ASR", "User finished speaking in $localeTag")
                         }
                         override fun onError(error: Int) {
-                            Log.w("NATIVE_ASR", "SpeechRecognizer error code: $error (handled cleanly without popup)")
-                            if (lastRecognizedText.isNotEmpty()) {
-                                notifyWebviewSpeechResult(lastRecognizedText, true)
-                            }
+                            Log.w("NATIVE_ASR", "SpeechRecognizer error code: $error")
                         }
                         override fun onResults(results: Bundle?) {
                             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -1154,19 +1176,13 @@ class MainActivity : AppCompatActivity() {
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
                         putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(localeTag, "ta-IN", "en-IN"))
                         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                        putExtra("android.speech.extra.PREFER_OFFLINE", true)
+                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
                         putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
                     }
                     nativeSpeechRecognizer?.startListening(intent)
-                    Log.i("NATIVE_ASR", "Native SpeechRecognizer listening instantly for $localeTag")
+                    Log.i("NATIVE_ASR", "Native SpeechRecognizer active for $localeTag")
                 } catch (e: Exception) {
                     Log.e("NATIVE_ASR", "Failed to start native SpeechRecognizer: ${e.message}", e)
-                    // Recreate if fatal failure
-                    try {
-                        nativeSpeechRecognizer?.destroy()
-                        nativeSpeechRecognizer = null
-                    } catch (e2: Exception) {}
                 }
             }
         }
