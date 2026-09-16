@@ -1273,19 +1273,35 @@ async def ws_field(websocket: WebSocket, session_id: str):
     except (WebSocketDisconnect, Exception):
         manager.disconnect(websocket)
 
-# 🌐 Serve Built Frontend directly on port 8000 (Single-Page App fallback)
-DIST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
-if os.path.exists(DIST_DIR):
+# 🌐 Serve Built Frontend directly on port 8000 / Cloud (Single-Page App fallback)
+CANDIDATE_DIST_DIRS = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dist")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")),
+]
+DIST_DIR = next((d for d in CANDIDATE_DIST_DIRS if os.path.exists(d)), None)
+
+if DIST_DIR and os.path.exists(DIST_DIR):
     assets_dir = os.path.join(DIST_DIR, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/{full_path:path}")
     async def serve_spa_frontend(full_path: str):
-        if full_path.startswith("api/") or full_path.startswith("ws/"):
+        if full_path.startswith("api/") or full_path.startswith("ws/") or full_path == "docs" or full_path == "openapi.json":
             return {"error": "Endpoint not found"}
         target = os.path.join(DIST_DIR, full_path)
         if os.path.isfile(target):
             return FileResponse(target)
         return FileResponse(os.path.join(DIST_DIR, "index.html"))
+else:
+    @app.get("/")
+    async def root_fallback():
+        return {
+            "status": "online",
+            "service": "iTiTantra Tactical Offline Backend",
+            "health": "/api/health",
+            "docs": "/docs",
+            "version": "2.0.0"
+        }
+
 
