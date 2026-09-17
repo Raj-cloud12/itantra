@@ -456,6 +456,12 @@ export default function CommandCenterDashboard() {
         );
         if (isPrivateLocalMesh) return;
 
+        // 🛑 Block system/node-registration messages by text pattern
+        const WS_SYSTEM_PATTERNS = [/node registered/i, /node_register/i, /callsign locked/i, /🔔 node/i, /identity announcement/i, /device profile/i, /mesh_node_join/i, /ble_announce/i];
+        const latestText = (latest.text || '').trim();
+        if (!latestText || latestText.length < 2 || WS_SYSTEM_PATTERNS.some(p => p.test(latestText))) return;
+
+
         setFeed(prev => {
           const cleanLatestText = (latest.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
           const exists = prev.some(m => {
@@ -557,9 +563,24 @@ export default function CommandCenterDashboard() {
         if (!data || !Array.isArray(data)) return;
 
         // 🛑 ABSOLUTE PRIVACY FIREWALL: Exclude private Local Mesh from Command Center
+        const SYSTEM_MSG_PATTERNS = [
+          /node registered/i,
+          /node_register/i,
+          /callsign locked/i,
+          /🔔 node/i,
+          /identity announcement/i,
+          /device profile/i,
+          /mesh_node_join/i,
+          /ble_announce/i,
+        ];
         const cleanData = data.filter((m: any) => {
           if (m.is_local_mesh_private || m.session_id === 'LOCAL_MESH_PRIVATE') return false;
           if (m.target_username && m.target_username !== '@command_center' && m.target_username !== '@all_users' && m.target_username !== '@all_citizens' && !m.is_emergency && m.sender_role !== 'command') return false;
+          // Block system/registration messages by text pattern
+          const txt = (m.text || '').trim();
+          if (SYSTEM_MSG_PATTERNS.some(p => p.test(txt))) return false;
+          // Must have meaningful user-generated text (not just a callsign or whitespace)
+          if (!txt || txt.length < 2) return false;
           return true;
         });
 
