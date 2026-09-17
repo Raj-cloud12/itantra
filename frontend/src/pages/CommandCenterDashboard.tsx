@@ -683,9 +683,12 @@ export default function CommandCenterDashboard() {
             const tB = new Date(b.timestamp).getTime() || 0;
             return tB - tA;
           });
-          try {
-            localStorage.setItem('tantra_command_center_feed_v2', JSON.stringify(merged.slice(0, 500)));
-          } catch {}
+          // 🔒 ONLY save to localStorage if we have messages — NEVER overwrite with empty array
+          if (merged.length > 0) {
+            try {
+              localStorage.setItem('tantra_command_center_feed_v2', JSON.stringify(merged.slice(0, 500)));
+            } catch {}
+          }
           return merged;
         });
       } catch {}

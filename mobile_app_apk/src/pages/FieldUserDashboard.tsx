@@ -2122,7 +2122,23 @@ export default function FieldUserDashboard() {
       text: finalText,
       is_locked: isLocked
     };
-    setLocalMeshMessages((prev) => [localSenderMsg, ...prev]);
+
+    // 🔐 Register this outgoing message so BLE echo-back is NOT treated as a new incoming message
+    relayedPacketIdsRef.current.add(msgId);
+    if (payloadObj.cipher_code) {
+      const echoKey = `${payloadObj.cipher_code}_${payloadObj.text || ''}_h${1}`;
+      relayedPacketIdsRef.current.add(echoKey);
+    }
+    // Clear the echo block after 30 seconds
+    setTimeout(() => {
+      relayedPacketIdsRef.current.delete(msgId);
+    }, 30000);
+
+    setLocalMeshMessages((prev) => {
+      // Also deduplicate here: don't add if same id already exists
+      if (prev.some((m) => m.id === msgId)) return prev;
+      return [localSenderMsg, ...prev];
+    });
 
     const payload = JSON.stringify(payloadObj);
 
