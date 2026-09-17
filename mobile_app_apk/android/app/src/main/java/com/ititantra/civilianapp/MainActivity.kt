@@ -23,6 +23,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Vibrator
 import android.os.VibrationEffect
+import android.os.Environment
+import android.provider.Settings
 import android.content.Intent
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -1068,8 +1070,163 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // PERMANENT OFFLINE DEVICE IDENTITY (SURVIVES UNINSTALL & DATA WIPES)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private fun getHardwareDeviceId(): String {
+        return try {
+            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+            if (!androidId.isNullOrEmpty()) androidId else "node_${Build.MODEL.hashCode().toString(16)}"
+        } catch (e: Exception) {
+            "node_${Build.MODEL.hashCode().toString(16)}"
+        }
+    }
+
+    private fun getPersistentIdentityFiles(): List<File> {
+        val list = mutableListOf<File>()
+        try {
+            // 1. External Public Downloads (Survives app uninstall on Android)
+            val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (downloadDir != null) {
+                if (!downloadDir.exists()) downloadDir.mkdirs()
+                list.add(File(downloadDir, ".ititantra_device_profile.dat"))
+            }
+        } catch (e: Exception) {}
+        try {
+            // 2. External Public Documents (Survives app uninstall on Android)
+            val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            if (docsDir != null) {
+                if (!docsDir.exists()) docsDir.mkdirs()
+                list.add(File(docsDir, ".ititantra_device_profile.dat"))
+            }
+        } catch (e: Exception) {}
+        try {
+            // 3. App Internal Files (Private sandbox backup)
+            list.add(File(filesDir, "ititantra_device_profile.dat"))
+        } catch (e: Exception) {}
+        return list
+    }
+
+    private fun savePermanentIdentity(rawUsername: String): Boolean {
+        val clean = rawUsername.trim()
+        if (clean.length < 2) return false
+        val formatted = if (clean.startsWith("@")) clean else "@$clean"
+        val hwId = getHardwareDeviceId()
+        val hwFingerprint = "${Build.MANUFACTURER}_${Build.MODEL}_${Build.BOARD}"
+
+        val profileObj = JSONObject().apply {
+            put("username", formatted)
+            put("is_locked", true)
+            put("hardware_id", hwId)
+            put("hardware_fingerprint", hwFingerprint)
+            put("locked_at", System.currentTimeMillis())
+        }
+        val jsonStr = profileObj.toString()
+
+        // 1. Cache in SharedPreferences
+        try {
+            val prefs = getSharedPreferences("ititantra_device_identity", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("locked_username", formatted)
+                .putBoolean("is_locked", true)
+                .putString("hardware_id", hwId)
+                .putLong("locked_at", System.currentTimeMillis())
+                .apply()
+        } catch (e: Exception) {
+            Log.e("IDENTITY", "Error writing SharedPreferences: ${e.message}")
+        }
+
+        // 2. Save into External Public Files (Download & Documents)
+        var successCount = 0
+        for (file in getPersistentIdentityFiles()) {
+            try {
+                file.parentFile?.mkdirs()
+                val encoded = android.util.Base64.encodeToString(
+                    jsonStr.toByteArray(Charsets.UTF_8),
+                    android.util.Base64.NO_WRAP
+                )
+                file.writeText(encoded, Charsets.UTF_8)
+                successCount++
+                Log.i("IDENTITY", "Saved permanent profile to ${file.absolutePath}")
+            } catch (e: Exception) {
+                Log.w("IDENTITY", "Could not write to ${file.absolutePath}: ${e.message}")
+            }
+        }
+        return true
+    }
+
+    private fun loadPermanentIdentity(): JSONObject {
+        val hwId = getHardwareDeviceId()
+
+        // 1. Check SharedPreferences first (instant cache)
+        try {
+            val prefs = getSharedPreferences("ititantra_device_identity", Context.MODE_PRIVATE)
+            val cachedUser = prefs.getString("locked_username", "")
+            val isLocked = prefs.getBoolean("is_locked", false)
+            if (!cachedUser.isNullOrEmpty() && isLocked) {
+                return JSONObject().apply {
+                    put("username", cachedUser)
+                    put("is_locked", true)
+                    put("hardware_id", hwId)
+                    put("source", "shared_prefs")
+                }
+            }
+        } catch (e: Exception) {}
+
+        // 2. Check Persistent External Storage (Survives Uninstall & Clear Data)
+        for (file in getPersistentIdentityFiles()) {
+            try {
+                if (file.exists() && file.length() > 0) {
+                    val raw = file.readText(Charsets.UTF_8).trim()
+                    val decodedBytes = android.util.Base64.decode(raw, android.util.Base64.NO_WRAP)
+                    val jsonStr = String(decodedBytes, Charsets.UTF_8)
+                    val parsed = JSONObject(jsonStr)
+                    val username = parsed.optString("username")
+                    val isLocked = parsed.optBoolean("is_locked", false)
+
+                    if (!username.isNullOrEmpty() && isLocked) {
+                        Log.i("IDENTITY", "Restored identity '$username' from persistent file: ${file.absolutePath}")
+                        // Re-seed SharedPreferences cache
+                        try {
+                            val prefs = getSharedPreferences("ititantra_device_identity", Context.MODE_PRIVATE)
+                            prefs.edit()
+                                .putString("locked_username", username)
+                                .putBoolean("is_locked", true)
+                                .putString("hardware_id", hwId)
+                                .apply()
+                        } catch (e: Exception) {}
+
+                        parsed.put("source", "external_storage_recovery")
+                        return parsed
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("IDENTITY", "Could not read identity from ${file.absolutePath}: ${e.message}")
+            }
+        }
+
+        // 3. Not locked yet
+        return JSONObject().apply {
+            put("username", "")
+            put("is_locked", false)
+            put("hardware_id", hwId)
+        }
+    }
+
     // 5. JAVASCRIPT BRIDGE
     inner class BleMeshBridge {
+        @JavascriptInterface
+        fun getPermanentDeviceIdentity(): String {
+            return loadPermanentIdentity().toString()
+        }
+
+        @JavascriptInterface
+        fun lockPermanentDeviceIdentity(username: String): Boolean {
+            Log.i("IDENTITY", "lockPermanentDeviceIdentity called with: '$username'")
+            return savePermanentIdentity(username)
+        }
+
         @JavascriptInterface
         fun getDeviceGpsJson(): String {
             updateDeviceLocation()

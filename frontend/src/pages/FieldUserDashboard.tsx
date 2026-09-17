@@ -223,27 +223,79 @@ export default function FieldUserDashboard() {
     }
   });
 
-  // Permanent Unique Username (Write-Once Lock)
-  const [isUsernameLocked, setIsUsernameLocked] = useState<boolean>(() => {
-    return localStorage.getItem('local_username_locked') === 'true';
-  });
-  const [myUsername, setMyUsername] = useState<string>(() => {
-    return localStorage.getItem('local_username') || '';
-  });
+  // Permanent Unique Username (Write-Once Offline Hardware Lock)
+  const getInitialIdentity = (): { username: string; isLocked: boolean } => {
+    try {
+      if (typeof window !== 'undefined' && (window as any).AndroidBleMeshBridge?.getPermanentDeviceIdentity) {
+        const jsonStr = (window as any).AndroidBleMeshBridge.getPermanentDeviceIdentity();
+        const parsed = JSON.parse(jsonStr);
+        if (parsed && parsed.is_locked && parsed.username) {
+          localStorage.setItem('local_username', parsed.username);
+          localStorage.setItem('local_username_locked', 'true');
+          return { username: parsed.username, isLocked: true };
+        }
+      }
+    } catch (e) {
+      console.warn('Initial identity bridge check error:', e);
+    }
+    const localLocked = localStorage.getItem('local_username_locked') === 'true';
+    const localUser = localStorage.getItem('local_username') || '';
+    return { username: localUser, isLocked: localLocked };
+  };
+
+  const initialIdentity = getInitialIdentity();
+
+  const [isUsernameLocked, setIsUsernameLocked] = useState<boolean>(() => initialIdentity.isLocked);
+  const [myUsername, setMyUsername] = useState<string>(() => initialIdentity.username);
+  const [showLockedInfoModal, setShowLockedInfoModal] = useState<boolean>(false);
   const [targetFriend, setTargetFriend] = useState<string>(() => {
     const saved = localStorage.getItem('target_friend');
-    const myUser = (localStorage.getItem('local_username') || '').trim();
+    const myUser = initialIdentity.username.trim();
     if (saved && saved !== '@all_friends' && saved !== '@not_set' && saved !== myUser) return saved;
     if (myUser === '@kk' || myUser === 'kk') return '@raj';
     if (myUser === '@raj' || myUser === 'raj') return '@kk';
     return '@kk';
   });
   const [showUserModal, setShowUserModal] = useState<boolean>(() => {
-    return localStorage.getItem('local_username_locked') !== 'true' || !localStorage.getItem('local_username');
+    return !initialIdentity.isLocked || !initialIdentity.username;
   });
   const [editUsernameInput, setEditUsernameInput] = useState('');
   const [registrationError, setRegistrationError] = useState<string>('');
   const [customFriendInput, setCustomFriendInput] = useState('');
+
+  // 🛡️ Permanent Offline Identity Sync on Mount (survives app uninstall & data clear)
+  useEffect(() => {
+    const syncNativeIdentity = () => {
+      try {
+        if ((window as any).AndroidBleMeshBridge?.getPermanentDeviceIdentity) {
+          const jsonStr = (window as any).AndroidBleMeshBridge.getPermanentDeviceIdentity();
+          const parsed = JSON.parse(jsonStr);
+          if (parsed && parsed.is_locked && parsed.username) {
+            const restored = parsed.username;
+            setMyUsername(restored);
+            setIsUsernameLocked(true);
+            localStorage.setItem('local_username', restored);
+            localStorage.setItem('local_username_locked', 'true');
+            setShowUserModal(false);
+            const companion = restored === '@raj' ? '@kk' : '@raj';
+            setTargetFriend(companion);
+            localStorage.setItem('target_friend', companion);
+            console.log('✅ [Permanent Offline Identity Restored]', restored, parsed.source);
+          } else if (localStorage.getItem('local_username_locked') === 'true' && localStorage.getItem('local_username')) {
+            // Auto-persist existing locked username into indestructible native storage
+            const existing = localStorage.getItem('local_username')!;
+            (window as any).AndroidBleMeshBridge?.lockPermanentDeviceIdentity(existing);
+            console.log('🔒 [Auto-Persisted Existing Identity]', existing);
+          }
+        }
+      } catch (e) {
+        console.warn('Sync native identity error:', e);
+      }
+    };
+    syncNativeIdentity();
+    const t = setTimeout(syncNativeIdentity, 600);
+    return () => clearTimeout(t);
+  }, []);
 
   // Auto-pair targetFriend whenever myUsername is updated (ensure user is never talking to themselves)
   useEffect(() => {
@@ -2023,18 +2075,25 @@ export default function FieldUserDashboard() {
       <header className="px-3.5 py-2 bg-black/95 border-b border-neutral-900 flex items-center justify-between shadow-xl shrink-0">
         <div className="flex items-center gap-2">
 
-          {/* 👤 Tactical User CallSign / Profile Button */}
+          {/* 👤 Tactical User CallSign / Profile Button (Write-Once Hardware Locked) */}
           <button
             type="button"
             onClick={() => {
-              setEditUsernameInput(myUsername.replace(/^@/, ''));
-              setIsUsernameLocked(false);
-              setShowUserModal(true);
+              if (isUsernameLocked) {
+                setShowLockedInfoModal(true);
+              } else {
+                setEditUsernameInput(myUsername.replace(/^@/, ''));
+                setShowUserModal(true);
+              }
             }}
-            className="px-2.5 py-1 rounded-xl font-mono text-[9.5px] font-black border transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer bg-neutral-900 border-cyan-500/70 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)]"
-            title="Tap to view or change your username"
+            className={`px-2.5 py-1 rounded-xl font-mono text-[9.5px] font-black border transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer ${
+              isUsernameLocked
+                ? 'bg-neutral-900/90 border-emerald-500/70 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                : 'bg-neutral-900 border-cyan-500/70 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+            }`}
+            title={isUsernameLocked ? "🔒 Permanent Hardware-Locked Node CallSign" : "Tap to set CallSign"}
           >
-            <span className="text-[10px]">👤</span>
+            <span className="text-[10px]">{isUsernameLocked ? '🔒' : '👤'}</span>
             <span className="tracking-wide">{myUsername || '@citizen'}</span>
           </button>
 
@@ -2237,24 +2296,29 @@ export default function FieldUserDashboard() {
       )}
 
 
-      {/* ONE-TIME PERMANENT USERNAME REGISTRATION MODAL (NO PRESET SUGGESTIONS) */}
+      {/* ONE-TIME PERMANENT USERNAME REGISTRATION MODAL (WRITE-ONCE HARDWARE BINDING) */}
       {showUserModal && !isUsernameLocked && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none">
           <div className="bg-neutral-950 border-2 border-cyan-400 rounded-3xl p-6 w-full max-w-sm space-y-4 font-mono shadow-[0_0_40px_rgba(6,182,212,0.5)] animate-fadeIn">
             <div className="flex items-center justify-between border-b border-cyan-900/80 pb-3">
               <div className="flex items-center gap-2.5">
-                <span className="text-xl">👤</span>
-                <h3 className="text-sm font-black text-cyan-300 uppercase tracking-wide">Enter Your Username</h3>
+                <span className="text-xl">🔒</span>
+                <h3 className="text-sm font-black text-cyan-300 uppercase tracking-wide">Permanent Node CallSign</h3>
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-300 leading-relaxed">
-              Enter your personal unique username. Friends will connect with you using this name.
-            </p>
+            <div className="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-2.5">
+              <span className="text-[10px] text-amber-300 font-bold block mb-1">
+                ⚠️ WRITE-ONCE PERMANENT HARDWARE LOCK:
+              </span>
+              <p className="text-[9.5px] text-amber-200/80 leading-relaxed">
+                This username will be permanently bound to this physical device for offline mesh triage. It survives app reinstalls and cannot be changed once locked.
+              </p>
+            </div>
 
             <div>
               <label className="text-[10.5px] font-bold text-cyan-300 uppercase tracking-wide block mb-1.5">
-                👤 Your Username / Callsign:
+                👤 Enter Your CallSign / Name:
               </label>
               <input
                 type="text"
@@ -2264,7 +2328,7 @@ export default function FieldUserDashboard() {
                   setEditUsernameInput(e.target.value);
                   setRegistrationError('');
                 }}
-                placeholder="Type your username (e.g. shak)..."
+                placeholder="Type your username (e.g. raj or kk)..."
                 className={`w-full bg-slate-950 border-2 rounded-2xl px-4 py-2.5 text-sm text-cyan-200 focus:outline-none font-bold tracking-wide placeholder-slate-600 ${
                   registrationError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-cyan-600 focus:border-cyan-300'
                 }`}
@@ -2285,7 +2349,16 @@ export default function FieldUserDashboard() {
                   return;
                 }
 
-                // REGISTER USERNAME FRESHLY
+                // 1. Lock in Native Android Layer (survives app uninstall & data wipes)
+                if ((window as any).AndroidBleMeshBridge?.lockPermanentDeviceIdentity) {
+                  try {
+                    (window as any).AndroidBleMeshBridge.lockPermanentDeviceIdentity(formatted);
+                  } catch (e) {
+                    console.warn('Native lock error:', e);
+                  }
+                }
+
+                // 2. Lock in Frontend State & LocalStorage
                 setMyUsername(formatted);
                 setIsUsernameLocked(true);
                 localStorage.setItem('local_username', formatted);
@@ -2317,12 +2390,56 @@ export default function FieldUserDashboard() {
                   } catch (e) {}
                 }
 
-                setLastDeliveryToast(`🔒 Username Registered: ${formatted}`);
+                setLastDeliveryToast(`🔒 Permanent CallSign Locked: ${formatted}`);
               }}
-              className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl text-white font-black text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 tracking-wider uppercase border border-emerald-400"
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl text-white font-black text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 tracking-wider uppercase border border-emerald-400 cursor-pointer"
             >
               <span>🔒</span>
-              <span>Save & Lock Username</span>
+              <span>Confirm & Lock Permanently</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🔒 PERMANENT HARDWARE-LOCKED CALLSIGN INFO MODAL */}
+      {showLockedInfoModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none">
+          <div className="bg-neutral-950 border-2 border-emerald-500/60 rounded-3xl p-5 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] flex flex-col items-center text-center animate-fadeIn font-mono">
+            <div className="w-14 h-14 rounded-full bg-emerald-950/80 border-2 border-emerald-500/60 flex items-center justify-center text-2xl mb-3 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+              🔒
+            </div>
+            <h3 className="text-sm font-black text-emerald-300 tracking-wide uppercase">
+              Tactical CallSign Locked
+            </h3>
+            <span className="text-[9.5px] text-emerald-400/80 mt-0.5">
+              Write-Once Hardware Bound Node
+            </span>
+
+            <div className="w-full bg-neutral-900/90 border border-neutral-800 rounded-2xl p-3 my-4 flex flex-col gap-2.5 text-left">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400 text-[11px]">Your CallSign:</span>
+                <span className="font-bold text-emerald-300 text-sm">{myUsername}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs border-t border-neutral-800/80 pt-2">
+                <span className="text-slate-400 text-[10px]">Node ID:</span>
+                <span className="text-[10px] text-cyan-300">{myNodeId}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs border-t border-neutral-800/80 pt-2">
+                <span className="text-slate-400 text-[10px]">Persistence:</span>
+                <span className="text-[10px] text-emerald-400 font-bold">🛡️ Survives Reinstall & Offline</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed mb-4 text-left">
+              This node identity is permanently locked to this physical device hardware for disaster mesh routing. It cannot be altered to prevent identity spoofing during rescue operations.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowLockedInfoModal(false)}
+              className="w-full py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer"
+            >
+              Dismiss
             </button>
           </div>
         </div>
