@@ -31,8 +31,9 @@ export default function DemoMode() {
         if (!res || !res.ok) res = await fetch('/api/network/active-mode').catch(() => null);
         if (res && res.ok) {
           const data = await res.json();
-          if (data && data.network_mode) {
-            setGovtMode(data.network_mode);
+          if (data) {
+            if (data.network_mode) setGovtMode(data.network_mode);
+            if (data.local_mode) setFriendsMode(data.local_mode);
           }
         }
       } catch {}
@@ -52,8 +53,8 @@ export default function DemoMode() {
 
     return Array.from(new Set([
       customUrl,
-      'https://gains-uniform-end-asus.trycloudflare.com/api/network/set-mode',
-      'http://10.245.166.76:8000/api/network/set-mode',
+      'https://itantra-4yzo.onrender.com/api/network/set-mode',
+      'http://10.64.235.76:8000/api/network/set-mode',
       `${apiBase}/api/network/set-mode`,
       'http://localhost:8000/api/network/set-mode',
       'http://127.0.0.1:8000/api/network/set-mode',
@@ -154,12 +155,6 @@ export default function DemoMode() {
             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow transition-all active:scale-95"
           >
             🏛️ Command Center
-          </Link>
-          <Link
-            to="/field"
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow transition-all active:scale-95"
-          >
-            📱 Field App
           </Link>
         </div>
       </header>

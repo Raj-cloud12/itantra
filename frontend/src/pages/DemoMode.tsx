@@ -31,8 +31,9 @@ export default function DemoMode() {
         if (!res || !res.ok) res = await fetch('/api/network/active-mode').catch(() => null);
         if (res && res.ok) {
           const data = await res.json();
-          if (data && data.network_mode) {
-            setGovtMode(data.network_mode);
+          if (data) {
+            if (data.network_mode) setGovtMode(data.network_mode);
+            if (data.local_mode) setFriendsMode(data.local_mode);
           }
         }
       } catch {}
@@ -154,12 +155,6 @@ export default function DemoMode() {
             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow transition-all active:scale-95"
           >
             🏛️ Command Center
-          </Link>
-          <Link
-            to="/field"
-            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow transition-all active:scale-95"
-          >
-            📱 Field App
           </Link>
         </div>
       </header>

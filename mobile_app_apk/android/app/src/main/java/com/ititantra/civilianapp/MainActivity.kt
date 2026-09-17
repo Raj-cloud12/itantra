@@ -1214,8 +1214,93 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getPersistentChatFiles(): List<File> {
+        val list = ArrayList<File>()
+        try {
+            val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            if (docsDir != null) {
+                if (!docsDir.exists()) docsDir.mkdirs()
+                list.add(File(docsDir, ".ititantra_mesh_chats.dat"))
+            }
+        } catch (e: Exception) {}
+        try {
+            val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (downloadDir != null) {
+                if (!downloadDir.exists()) downloadDir.mkdirs()
+                list.add(File(downloadDir, ".ititantra_mesh_chats.dat"))
+            }
+        } catch (e: Exception) {}
+        try {
+            list.add(File(filesDir, "ititantra_mesh_chats.dat"))
+        } catch (e: Exception) {}
+        return list
+    }
+
+    private fun savePermanentChatHistory(chatJson: String): Boolean {
+        if (chatJson.isBlank()) return false
+        try {
+            val prefs = getSharedPreferences("ititantra_mesh_chats", Context.MODE_PRIVATE)
+            prefs.edit().putString("chat_history_json", chatJson).apply()
+        } catch (e: Exception) {}
+
+        for (file in getPersistentChatFiles()) {
+            try {
+                file.parentFile?.mkdirs()
+                val encoded = android.util.Base64.encodeToString(
+                    chatJson.toByteArray(Charsets.UTF_8),
+                    android.util.Base64.NO_WRAP
+                )
+                file.writeText(encoded, Charsets.UTF_8)
+            } catch (e: Exception) {
+                Log.w("CHAT_STORAGE", "Could not write chats to ${file.absolutePath}: ${e.message}")
+            }
+        }
+        return true
+    }
+
+    private fun loadPermanentChatHistory(): String {
+        try {
+            val prefs = getSharedPreferences("ititantra_mesh_chats", Context.MODE_PRIVATE)
+            val cached = prefs.getString("chat_history_json", "")
+            if (!cached.isNullOrEmpty() && cached.trim().startsWith("[")) {
+                return cached
+            }
+        } catch (e: Exception) {}
+
+        for (file in getPersistentChatFiles()) {
+            try {
+                if (file.exists() && file.length() > 0) {
+                    val raw = file.readText(Charsets.UTF_8).trim()
+                    val decodedBytes = android.util.Base64.decode(raw, android.util.Base64.NO_WRAP)
+                    val jsonStr = String(decodedBytes, Charsets.UTF_8).trim()
+                    if (jsonStr.startsWith("[")) {
+                        Log.i("CHAT_STORAGE", "Restored chat history from ${file.absolutePath}")
+                        try {
+                            getSharedPreferences("ititantra_mesh_chats", Context.MODE_PRIVATE)
+                                .edit().putString("chat_history_json", jsonStr).apply()
+                        } catch (e: Exception) {}
+                        return jsonStr
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("CHAT_STORAGE", "Could not read chats from ${file.absolutePath}: ${e.message}")
+            }
+        }
+        return "[]"
+    }
+
     // 5. JAVASCRIPT BRIDGE
     inner class BleMeshBridge {
+        @JavascriptInterface
+        fun savePermanentMeshChat(chatJson: String): Boolean {
+            return savePermanentChatHistory(chatJson)
+        }
+
+        @JavascriptInterface
+        fun getPermanentMeshChat(): String {
+            return loadPermanentChatHistory()
+        }
+
         @JavascriptInterface
         fun getPermanentDeviceIdentity(): String {
             return loadPermanentIdentity().toString()
@@ -1878,7 +1963,6 @@ class MainActivity : AppCompatActivity() {
             put("status", "delivered")
         }
         Log.i("BLE_MESH", "SUCCESS: Received Compact Mesh ACK for cipher=$cipher (Handled once)")
-        vibratePhone(200)
         // Stop transmitter carousel on Phone 1 immediately
         bleRotateThread?.interrupt()
         try { bleAdvertiser?.stopAdvertising(currentBleCallback) } catch (e: Exception) {}
@@ -1931,8 +2015,8 @@ class MainActivity : AppCompatActivity() {
             broadcastBleCompactAck(cipherHi.toByte(), cipherLo.toByte(), 2)
 
             val isPrivateMesh = decodedText.startsWith("🔒|") || decodedText.startsWith("MESH3|")
-            // Strict Vibration Matrix: Only vibrate on emergency SOS or Mode 3/4 relay; NEVER on private civilian chats!
-            if (isEmerg || !isPrivateMesh) {
+            // Strict Vibration: ONLY critical emergency SOS alerts vibrate
+            if (isEmerg) {
                 vibratePhone(250)
             }
             updateDeviceLocation()
@@ -2238,15 +2322,13 @@ class MainActivity : AppCompatActivity() {
                           rawPayload.contains("\"is_emergency\": true") ||
                           rawPayload.contains("🚨") ||
                           rawPayload.contains("SOS")
-        val isMode1Or2 = (rawPayload.contains("mode-1") || rawPayload.contains("mode-2")) && !isEmergency
-        val isMode3Or4 = rawPayload.contains("mode-3") || rawPayload.contains("mode-4") || isEmergency || channel.startsWith("BLE_")
-        
-        // Strict Vibration Matrix: ONLY Mode 3 and Mode 4 (or emergency SOS) vibrate!
-        // Mode 1 and Mode 2 peer devices must remain completely SILENT!
-        val shouldVibrate = isMode3Or4 && !isMode1Or2 && !isAck
+        val isMode3 = rawPayload.contains("mode-3") || rawPayload.contains("MESH3|")
+        // Strict Vibration Matrix: Vibrate on Mode 3 (both Alert and Local Mesh) and Emergency SOS!
+        // Mode 1 and Mode 2 peer devices and ACKs remain silent.
+        val shouldVibrate = (isEmergency || isMode3) && !isAck
 
-        // Haptic Vibration for incoming mesh packets
-        if (shouldVibrate && (now - lastHapticTimestamp > 2500L)) {
+        // Haptic Vibration for incoming Mode 3 or emergency SOS messages
+        if (shouldVibrate && (now - lastHapticTimestamp > 1500L)) {
             lastHapticTimestamp = now
             try {
                 // Single clean crisp haptic pulse (200ms)

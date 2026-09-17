@@ -932,7 +932,7 @@ def get_all_messages():
     SELECT * FROM messages 
     WHERE (session_id IS NULL OR session_id != 'LOCAL_MESH_PRIVATE')
       AND (is_emergency = 1 OR target_username = '@command_center' OR sender_role = 'command' OR target_username = '@all_citizens')
-    ORDER BY id DESC LIMIT 60
+    ORDER BY id DESC LIMIT 500
     """)
     rows = c.fetchall()
     messages = [dict(r) for r in rows]

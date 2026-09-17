@@ -1,13 +1,12 @@
-// No translation needed - Indic STT text sent as-is
 // 🌐 10 SUPPORTED DISASTER INDIC LANGUAGES (AI4Bharat IndicConformer On-Demand Packs)
 const INDIC_LANGUAGES_9 = [
   { code: 'ta',   name: 'தமிழ்',     label: 'Tamil',       flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ta-IN' },
   { code: 'en',   name: 'English',   label: 'English',     flag: '🇬🇧', packMB: 166,  modelName: 'NeMo FastConformer',       webLang: 'en-IN' },
-  { code: 'ta-en',name: 'Tanglish',  label: 'தமிழ்+English', flag: '🔀', packMB: 166,  modelName: 'English Indic Model',      webLang: 'en-IN' },
-  { code: 'te',   name: 'తెలుగు',    label: 'Telugu',      flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'te-IN' },
-  { code: 'ml',   name: 'മലയാളം',   label: 'Malayalam',   flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ml-IN' },
   { code: 'hi',   name: 'हिंदी',     label: 'Hindi',       flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'hi-IN' },
+  { code: 'ml',   name: 'മലയാളം',   label: 'Malayalam',   flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ml-IN' },
+  { code: 'te',   name: 'తెలుగు',    label: 'Telugu',      flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'te-IN' },
   { code: 'kn',   name: 'ಕನ್ನಡ',     label: 'Kannada',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'kn-IN' },
+  { code: 'ur',   name: 'اردو',      label: 'Urdu',        flag: '🇵🇰', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ur-IN' },
   { code: 'bn',   name: 'বাংলা',     label: 'Bengali',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'bn-IN' },
   { code: 'mr',   name: 'मराठी',     label: 'Marathi',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'mr-IN' },
   { code: 'gu',   name: 'ગુજરાતી',   label: 'Gujarati',    flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'gu-IN' },
@@ -54,6 +53,57 @@ export default function FieldUserDashboard() {
     return new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).toUpperCase();
   };
 
+  const generatePcmSpeechWav = (text: string, durationSec = 2.5): string => {
+    try {
+      const sampleRate = 16000;
+      const numSamples = Math.floor(sampleRate * Math.max(1.5, Math.min(6, durationSec)));
+      const buffer = new ArrayBuffer(44 + numSamples * 2);
+      const view = new DataView(buffer);
+
+      const writeStr = (offset: number, s: string) => {
+        for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+      };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + numSamples * 2, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, numSamples * 2, true);
+
+      let index = 44;
+      for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        const env = Math.sin((i / numSamples) * Math.PI);
+        const f0 = 135 + 15 * Math.sin(2 * Math.PI * 1.5 * t);
+        const sample = (
+          0.45 * Math.sin(2 * Math.PI * f0 * t) +
+          0.25 * Math.sin(2 * Math.PI * (f0 * 2) * t) +
+          0.15 * Math.sin(2 * Math.PI * (f0 * 3) * t) +
+          0.10 * Math.sin(2 * Math.PI * 720 * t)
+        ) * env * 0.45;
+        const s = Math.max(-1, Math.min(1, sample));
+        view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        index += 2;
+      }
+
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return `data:audio/wav;base64,${btoa(binary)}`;
+    } catch {
+      return '';
+    }
+  };
+
   const getSosTime = (m: any): number => {
     if (m.timestamp) {
       if (/^\d{10,13}$/.test(String(m.timestamp))) return Number(m.timestamp);
@@ -86,8 +136,11 @@ export default function FieldUserDashboard() {
   // Navigation Tabs: talk (Main/Govt) | sos | relay (Air Relay & Judge Demo Hub) | mesh (Local Mesh Friends P2P)
   const [activeTab, setActiveTab] = useState<'talk' | 'sos' | 'relay' | 'mesh'>('talk');
   const [textInput, setTextInput] = useState('');
+  const [localMeshTextInput, setLocalMeshTextInput] = useState('');
   const [spokenSpeechText, setSpokenSpeechText] = useState('');
   const [persistentSpokenText, setPersistentSpokenText] = useState('');
+  const [localMeshSpokenText, setLocalMeshSpokenText] = useState('');
+  const [localMeshPersistentText, setLocalMeshPersistentText] = useState('');
   const [sosHistory, setSosHistory] = useState<any[]>([]);
   const [sosCustomInput, setSosCustomInput] = useState<string>('');
   const [relayedAirPackets, setRelayedAirPackets] = useState<any[]>(() => {
@@ -105,6 +158,10 @@ export default function FieldUserDashboard() {
 
   // Local Mesh 3-Modes (Exclusive for Friends P2P)
   const [localMeshMode, setLocalMeshMode] = useState<'mode-1-p2p-hd' | 'mode-2-p2p-2g' | 'mode-3-p2p-nan'>('mode-1-p2p-hd');
+  const [showModeModal, setShowModeModal] = useState<boolean>(false);
+  const isSosTriggeringRef = useRef<boolean>(false);
+
+
 
   // Normalize username helper
   const normalizeName = (name: string) => {
@@ -171,27 +228,90 @@ export default function FieldUserDashboard() {
     }
   });
 
-  // Permanent Unique Username (Write-Once Lock)
-  const [isUsernameLocked, setIsUsernameLocked] = useState<boolean>(() => {
-    return localStorage.getItem('local_username_locked') === 'true';
-  });
-  const [myUsername, setMyUsername] = useState<string>(() => {
-    return localStorage.getItem('local_username') || '';
-  });
+  // Permanent Unique Username (Write-Once Offline Hardware Lock)
+  const getInitialIdentity = (): { username: string; isLocked: boolean } => {
+    try {
+      if (typeof window !== 'undefined' && (window as any).AndroidBleMeshBridge?.getPermanentDeviceIdentity) {
+        const jsonStr = (window as any).AndroidBleMeshBridge.getPermanentDeviceIdentity();
+        const parsed = JSON.parse(jsonStr);
+        if (parsed && parsed.is_locked && parsed.username) {
+          localStorage.setItem('local_username', parsed.username);
+          localStorage.setItem('local_username_locked', 'true');
+          return { username: parsed.username, isLocked: true };
+        }
+      }
+    } catch (e) {
+      console.warn('Initial identity bridge check error:', e);
+    }
+    const localLocked = localStorage.getItem('local_username_locked') === 'true';
+    const localUser = localStorage.getItem('local_username') || '';
+    return { username: localUser, isLocked: localLocked };
+  };
+
+  const initialIdentity = getInitialIdentity();
+
+  const [isUsernameLocked, setIsUsernameLocked] = useState<boolean>(() => initialIdentity.isLocked);
+  const [myUsername, setMyUsername] = useState<string>(() => initialIdentity.username);
+  const [showLockedInfoModal, setShowLockedInfoModal] = useState<boolean>(false);
   const [targetFriend, setTargetFriend] = useState<string>(() => {
     const saved = localStorage.getItem('target_friend');
-    if (saved && saved !== '@all_friends' && saved !== '@kavya') return saved;
-    const myUser = localStorage.getItem('local_username') || '';
-    if (myUser === '@kk' || myUser === 'kk') return '@raj';
-    if (myUser === '@raj' || myUser === 'raj') return '@kk';
-    return '@raj';
+    const myUser = initialIdentity.username.trim();
+    if (saved && saved !== '@not_set' && saved !== myUser) return saved;
+    return '@all_friends';
   });
   const [showUserModal, setShowUserModal] = useState<boolean>(() => {
-    return localStorage.getItem('local_username_locked') !== 'true' || !localStorage.getItem('local_username');
+    return !initialIdentity.isLocked || !initialIdentity.username;
   });
   const [editUsernameInput, setEditUsernameInput] = useState('');
   const [registrationError, setRegistrationError] = useState<string>('');
   const [customFriendInput, setCustomFriendInput] = useState('');
+
+  // 🛡️ Permanent Offline Identity Sync on Mount (survives app uninstall & data clear)
+  useEffect(() => {
+    const syncNativeIdentity = () => {
+      try {
+        if ((window as any).AndroidBleMeshBridge?.getPermanentDeviceIdentity) {
+          const jsonStr = (window as any).AndroidBleMeshBridge.getPermanentDeviceIdentity();
+          const parsed = JSON.parse(jsonStr);
+          if (parsed && parsed.is_locked && parsed.username) {
+            const restored = parsed.username;
+            setMyUsername(restored);
+            setIsUsernameLocked(true);
+            localStorage.setItem('local_username', restored);
+            localStorage.setItem('local_username_locked', 'true');
+            setShowUserModal(false);
+            if (!localStorage.getItem('target_friend')) {
+              setTargetFriend('@all_friends');
+              localStorage.setItem('target_friend', '@all_friends');
+            }
+            console.log('✅ [Permanent Offline Identity Restored]', restored, parsed.source);
+          } else if (localStorage.getItem('local_username_locked') === 'true' && localStorage.getItem('local_username')) {
+            // Auto-persist existing locked username into indestructible native storage
+            const existing = localStorage.getItem('local_username')!;
+            (window as any).AndroidBleMeshBridge?.lockPermanentDeviceIdentity(existing);
+            console.log('🔒 [Auto-Persisted Existing Identity]', existing);
+          }
+        }
+      } catch (e) {
+        console.warn('Sync native identity error:', e);
+      }
+    };
+    syncNativeIdentity();
+    const t = setTimeout(syncNativeIdentity, 600);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Ensure user is never targeted to themselves
+  useEffect(() => {
+    if (myUsername) {
+      const myNorm = myUsername.startsWith('@') ? myUsername.toLowerCase() : `@${myUsername.toLowerCase()}`;
+      const targetNorm = targetFriend.startsWith('@') ? targetFriend.toLowerCase() : `@${targetFriend.toLowerCase()}`;
+      if (!targetFriend || targetNorm === myNorm) {
+        setTargetFriend('@all_friends');
+        localStorage.setItem('target_friend', '@all_friends');
+      }
+    }
+  }, [myUsername, targetFriend]);
 
   // Node Role Identity: Phone 1 vs Phone 2
   const [nodeRole, setNodeRole] = useState<'victim_citizen_1' | 'rescue_volunteer_2'>(() => {
@@ -243,13 +363,10 @@ export default function FieldUserDashboard() {
     }
   };
 
-  // Live Cloudflare Primary Gateway Endpoint & Local Network Endpoints
-  const PRIMARY_CLOUDFLARE = 'https://harbor-like-kings-greater.trycloudflare.com';
-  const CURRENT_LAN_IP = 'http://10.208.56.76:8000';
-  const [targetHost, setTargetHost] = useState<string>(() => {
-    return localStorage.getItem('tactical_host') || PRIMARY_CLOUDFLARE;
-  });
-  const [showSettings, setShowSettings] = useState(false);
+  // 🌐 Permanent Cloud Gateway on Render (24/7 Cloud Backend - Zero Cloudflare needed)
+  const PERMANENT_RENDER_GATEWAY = 'https://itantra-4yzo.onrender.com';
+  const CURRENT_LAN_IP = 'http://10.64.235.76:8000';
+  const [targetHost] = useState<string>('https://itantra-4yzo.onrender.com');
   const [showLangModal, setShowLangModal] = useState<boolean>(() => !localStorage.getItem('fixed_user_language'));
   const [lastDeliveryToast, setLastDeliveryToast] = useState<string>('');
 
@@ -345,26 +462,35 @@ export default function FieldUserDashboard() {
   // Helper for Dynamic HTTP & WebSocket resolution
   const resolveWs = (host: string, path: string) => {
     let finalHost = host;
-    if (!finalHost) {
-      if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        finalHost = window.location.hostname;
-      } else {
-        finalHost = 'harbor-like-kings-greater.trycloudflare.com';
-      }
+    if (!finalHost || finalHost.includes('trycloudflare.com')) {
+      finalHost = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:')
+        ? window.location.host
+        : 'itantra-4yzo.onrender.com';
     }
     
     const clean = finalHost.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
-    if (clean.includes('trycloudflare.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    if (clean.includes('onrender.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
       return `wss://${clean}${path}`;
+    }
+    if (clean.includes(':')) {
+      return `ws://${clean}${path}`;
     }
     return `ws://${clean}:8000${path}`;
   };
 
   const resolveHttp = (host: string, path: string) => {
-    const finalHost = host || PRIMARY_CLOUDFLARE;
+    let finalHost = host;
+    if (!finalHost || finalHost.includes('trycloudflare.com')) {
+      finalHost = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:')
+        ? window.location.host
+        : 'itantra-4yzo.onrender.com';
+    }
     const clean = finalHost.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    if (clean.includes('trycloudflare.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    if (clean.includes('onrender.com') || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
       return `https://${clean}${path}`;
+    }
+    if (clean.includes(':')) {
+      return `http://${clean}${path}`;
     }
     return `http://${clean}:8000${path}`;
   };
@@ -373,14 +499,11 @@ export default function FieldUserDashboard() {
     const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:') ? window.location.hostname : '';
     const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
     return Array.from(new Set([
-      `${PRIMARY_CLOUDFLARE}${path}`,
-      `http://10.242.55.76:8000${path}`,
-      `http://10.245.166.76:8000${path}`,
+      `${PERMANENT_RENDER_GATEWAY}${path}`,
       `http://127.0.0.1:8000${path}`,
-      `http://localhost:8000${path}`,
       `${CURRENT_LAN_IP}${path}`,
+      `http://localhost:8000${path}`,
       ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : []),
-      ...(targetHost ? [resolveHttp(targetHost, path)] : []),
       ...(isFileProtocol ? [] : [path])
     ]));
   };
@@ -452,14 +575,69 @@ export default function FieldUserDashboard() {
     } catch {}
   }, [sentMessages]);
 
-  const [localMeshMessages, setLocalMeshMessages] = useState<any[]>([]);
+  // Indestructible Local Mesh Chat Storage (Survives app uninstallation via native Android Documents bridge)
+  const [localMeshMessages, setLocalMeshMessages] = useState<any[]>(() => {
+    try {
+      if ((window as any).AndroidBleMeshBridge?.getPermanentMeshChat) {
+        const nativeHistory = (window as any).AndroidBleMeshBridge.getPermanentMeshChat();
+        if (nativeHistory && nativeHistory.trim().startsWith('[')) {
+          const parsed = JSON.parse(nativeHistory);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      }
+      const saved = localStorage.getItem('tantra_permanent_mesh_chat_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  // Re-sync from Android Documents bridge on component mount (in case bridge binds slightly asynchronously)
+  useEffect(() => {
+    const restoreFromBridge = () => {
+      try {
+        if ((window as any).AndroidBleMeshBridge?.getPermanentMeshChat) {
+          const nativeHistory = (window as any).AndroidBleMeshBridge.getPermanentMeshChat();
+          if (nativeHistory && nativeHistory.trim().startsWith('[')) {
+            const parsed = JSON.parse(nativeHistory);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setLocalMeshMessages(prev => {
+                if (prev.length === 0) return parsed;
+                const map = new Map<string, any>();
+                parsed.forEach((m: any) => map.set(String(m.id || `${m.timestamp}_${m.text}`), m));
+                prev.forEach((m: any) => map.set(String(m.id || `${m.timestamp}_${m.text}`), m));
+                return Array.from(map.values()).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+              });
+            }
+          }
+        }
+      } catch {}
+    };
+    restoreFromBridge();
+    const t = setTimeout(restoreFromBridge, 800);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Save to indestructible Android storage whenever localMeshMessages updates
+  useEffect(() => {
+    if (localMeshMessages.length > 0) {
+      try {
+        const json = JSON.stringify(localMeshMessages.slice(0, 300));
+        localStorage.setItem('tantra_permanent_mesh_chat_history', json);
+        (window as any).AndroidBleMeshBridge?.savePermanentMeshChat?.(json);
+      } catch {}
+    }
+  }, [localMeshMessages]);
+
   const [offlineMessages, setOfflineMessages] = useState<any[]>([]);
   const playedAudioRef = useRef<Set<string>>(new Set());
 
   // GPS Location & Address - Default to English ('en')
   const [selectedTransLang, setSelectedTransLang] = useState<string>(() => {
     const saved = localStorage.getItem('fixed_user_language');
-    if (saved) return saved;
+    if (saved && INDIC_LANGUAGES_9.some(l => l.code === saved)) return saved;
     try {
       localStorage.setItem('fixed_user_language', 'en');
       localStorage.setItem('local_language', 'en');
@@ -618,8 +796,14 @@ export default function FieldUserDashboard() {
       text = `🚨 SOS: I am in emergency, kindly help me! [GPS: ${lat}°N, ${lng}°E]`;
     }
 
-    // Play Alert Chime & Haptic Vibration on Phone 2 (throttled)
-    playRelayChime();
+    const packetMode = parsed.network_mode || (isEmergencyAlert ? 'mode-4-satellite-beacon' : 'mode-3-ai-mesh');
+    const isMode3Or4 = packetMode === 'mode-3-ai-mesh' || packetMode === 'mode-4-satellite-beacon' || isEmergencyAlert;
+
+    // Play Alert Chime & Haptic Vibration on Phone 2 ONLY in Mode 3 (Disaster Mesh) or Mode 4 (Satellite SOS)!
+    // Mode 1 and Mode 2 peer phones must remain completely silent!
+    if (isMode3Or4) {
+      playRelayChime();
+    }
 
     // Register Peer in Mesh Uniqueness Registry
     if (parsed.sender_username && parsed.node_id) {
@@ -656,24 +840,13 @@ export default function FieldUserDashboard() {
         }, ...prev].slice(0, 30);
       });
 
-      // 2. Add to Tactical Comm / Mesh Messages feed
-      setLocalMeshMessages(prev => {
-        const exists = prev.some(m => m.id === parsed.id || (m.timestamp === parsed.timestamp && m.text === text));
-        if (exists) return prev;
-        return [{
-          ...parsed,
-          text,
-          sender_role: 'command',
-          sender_username: '@command_center',
-          display_time: formatTimeIST()
-        }, ...prev].slice(0, 30);
-      });
-
-      // 3. Prominent Toast Notification & Haptic
+      // 2. Prominent Toast Notification & Haptic (ONLY in Mode 3 / 4)
       setLastDeliveryToast(`📢 GOVT COMMAND ALERT: ${text.slice(0, 40)}`);
-      triggerSafeHaptic(300);
+      if (isMode3Or4) {
+        triggerSafeHaptic(300);
+      }
 
-      // 4. Mesh Multi-Hop Downlink: If this node is an offline phone and received it via BLE,
+      // 3. Mesh Multi-Hop Downlink: If this node is an offline phone and received it via BLE,
       // re-broadcast over BLE/Wi-Fi to neighboring offline phones (up to hop 3)!
       const currentHop = parsed.hop_count || 1;
       if (currentHop < 3) {
@@ -696,9 +869,20 @@ export default function FieldUserDashboard() {
     }
 
     // PHONE 2 PRIVACY: Encrypted Civilian Relay Pipe
-    // Never display Phone 1's private messages or ciphers on Phone 2's screen. Phone 2 vibrates once on relay.
+    // Never display Phone 1's private messages or ciphers on Phone 2's screen. Phone 2 vibrates once on relay in Mode 3/4.
     if (nodeRole === 'rescue_volunteer_2') {
-      triggerSafeHaptic(200);
+      if (isMode3Or4) {
+        triggerSafeHaptic(200);
+      }
+
+      if (isEmergencyAlert) {
+        setSosHistory(prev => {
+          const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+          if (exists) return prev;
+          return [{ ...parsed, text, is_emergency: true, display_time: formatTimeIST() }, ...prev].slice(0, 30);
+        });
+        setLastDeliveryToast(`🚨 EMERGENCY RELAY: ${text.slice(0, 35)}`);
+      }
 
       const bestText = (packetTrackId && latestPacketTextRef.current[packetTrackId] && latestPacketTextRef.current[packetTrackId].length > text.length)
         ? latestPacketTextRef.current[packetTrackId]
@@ -746,11 +930,34 @@ export default function FieldUserDashboard() {
     }
 
     // Otherwise, standard node reception
-    setLocalMeshMessages(prev => {
-      const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
-      if (exists) return prev;
-      return [{ ...parsed, text }, ...prev].slice(0, 30);
-    });
+    const isMode3Alert = parsed.network_mode === 'mode-3-ai-mesh' || networkMode === 'mode-3-ai-mesh';
+    if (isEmergencyAlert || isMode3Alert) {
+      setSosHistory(prev => {
+        const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+        if (exists) return prev;
+        return [{ ...parsed, text, is_emergency: isEmergencyAlert, display_time: formatTimeIST() }, ...prev].slice(0, 30);
+      });
+      setLastDeliveryToast(`${isEmergencyAlert ? '🚨 EMERGENCY SOS' : '📡 MODE 3 ALERT'}: ${text.slice(0, 40)}`);
+      triggerSafeHaptic(300);
+      try { (window as any).AndroidBleMeshBridge?.vibrateDevice?.(300); } catch (e) {}
+    }
+
+    // Only civilian peer-to-peer messages enter Local Mesh feed; never emergency alerts or command center packets!
+    const isP2PPacket = (parsed.channel_type === 'CIVILIAN_P2P' || parsed.is_local_mesh_private || parsed.session_id === 'LOCAL_MESH_PRIVATE') &&
+                        !isEmergencyAlert && parsed.target_username !== '@command_center' && parsed.sender_role !== 'command';
+    if (isP2PPacket) {
+      const isMode3Mesh = localMeshMode === 'mode-3-p2p-nan' || parsed.local_mode === 'mode-3-p2p-nan' || parsed.network_mode === 'mode-3-ai-mesh';
+      setLocalMeshMessages(prev => {
+        const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+        if (exists) return prev;
+        return [{ ...parsed, text }, ...prev].slice(0, 300);
+      });
+      // Vibrate on Mode 3 incoming Local Mesh message
+      if (isMode3Mesh) {
+        triggerSafeHaptic(300);
+        try { (window as any).AndroidBleMeshBridge?.vibrateDevice?.(300); } catch (e) {}
+      }
+    }
   };
 
   // 🚀 JUDGE DEMO: Trigger Phone 1 Air Toss (Simulate or Broadcast)
@@ -902,16 +1109,16 @@ export default function FieldUserDashboard() {
 
       for (const ep of endpoints) {
         try {
-          const res = await fetch(ep, { signal: AbortSignal.timeout(2000) });
+          const res = await fetch(ep, { signal: AbortSignal.timeout(1200) });
           if (res.ok) {
             const data = await res.json();
             if (!isMounted) return;
             if (data) {
-              if (data.network_mode && data.network_mode !== networkMode) {
-                setNetworkMode(data.network_mode);
+              if (data.network_mode) {
+                setNetworkMode((curr) => (curr !== data.network_mode ? data.network_mode : curr));
               }
-              if (data.local_mode && data.local_mode !== localMeshMode) {
-                setLocalMeshMode(data.local_mode);
+              if (data.local_mode) {
+                setLocalMeshMode((curr) => (curr !== data.local_mode ? data.local_mode : curr));
               }
             }
             break;
@@ -921,7 +1128,7 @@ export default function FieldUserDashboard() {
     };
 
     pollDemoActiveMode();
-    const pollInterval = setInterval(pollDemoActiveMode, 4000);
+    const pollInterval = setInterval(pollDemoActiveMode, 1000);
     return () => {
       isMounted = false;
       clearInterval(pollInterval);
@@ -954,11 +1161,11 @@ export default function FieldUserDashboard() {
     }
 
     if (lastMessage.type === 'mode_switch') {
-      if (lastMessage.network_mode && lastMessage.network_mode !== networkMode) {
+      if (lastMessage.network_mode) {
         setNetworkMode(lastMessage.network_mode);
         setLastDeliveryToast(`⚡ Mode switched to: ${lastMessage.network_mode.toUpperCase()}`);
       }
-      if (lastMessage.local_mode && lastMessage.local_mode !== localMeshMode) {
+      if (lastMessage.local_mode) {
         setLocalMeshMode(lastMessage.local_mode);
       }
       return;
@@ -982,6 +1189,12 @@ export default function FieldUserDashboard() {
           if (exists) return prev;
           return [lastMessage, ...prev].slice(0, 30);
         });
+
+        // Vibrate on Mode 3 alert or emergency SOS
+        if (isEmergency || lastMessage.network_mode === 'mode-3-ai-mesh' || networkMode === 'mode-3-ai-mesh') {
+          triggerSafeHaptic(300);
+          try { (window as any).AndroidBleMeshBridge?.vibrateDevice?.(300); } catch (e) {}
+        }
 
         if (isFromCommand) {
           setLastDeliveryToast(`📢 GOVT ALERT: ${lastMessage.text.slice(0, 40)}...`);
@@ -1010,8 +1223,13 @@ export default function FieldUserDashboard() {
         }
       }
 
-      // 2. Add to Local Mesh Feed if applicable (Only private messages meant for me or sent by me!)
-      if (lastMessage.is_local_mesh_private || lastMessage.session_id === 'LOCAL_MESH_PRIVATE' || lastMessage.local_mode) {
+      // 2. Add to Local Mesh Feed if applicable (Strictly private P2P messages between friends only!)
+      const isP2P = (lastMessage.channel_type === 'CIVILIAN_P2P' || lastMessage.is_local_mesh_private || lastMessage.session_id === 'LOCAL_MESH_PRIVATE') &&
+                    lastMessage.channel_type !== 'EMERGENCY_ALERT' &&
+                    lastMessage.target_username !== '@command_center' &&
+                    !lastMessage.is_emergency &&
+                    lastMessage.sender_role !== 'command';
+      if (isP2P) {
         const myClean = normalizeName(myUsername);
         const targetClean = normalizeName(lastMessage.target_username);
         const senderClean = normalizeName(lastMessage.sender_username);
@@ -1047,8 +1265,14 @@ export default function FieldUserDashboard() {
     const syncMeshAndMode = async () => {
       try {
         const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') ? window.location.hostname : '';
-        const syncUrls = [
-          PRIMARY_CLOUDFLARE,
+        const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const syncUrls = isLocal ? [
+          'http://127.0.0.1:8000',
+          'http://localhost:8000',
+          CURRENT_LAN_IP,
+          PERMANENT_RENDER_GATEWAY
+        ] : [
+          PERMANENT_RENDER_GATEWAY,
           CURRENT_LAN_IP,
           'http://127.0.0.1:8000',
           'http://localhost:8000',
@@ -1058,8 +1282,9 @@ export default function FieldUserDashboard() {
         for (const base of syncUrls) {
           try {
             const [meshRes, allRes] = await Promise.allSettled([
-              fetch(`${base}/api/messages/mesh`),
-              fetch(`${base}/api/messages/all`)
+              fetch(`${base}/api/mesh/p2p/all`, { signal: AbortSignal.timeout(1500) })
+                .catch(() => fetch(`${base}/api/messages/mesh`, { signal: AbortSignal.timeout(1500) })),
+              fetch(`${base}/api/messages/all`, { signal: AbortSignal.timeout(1500) })
             ]);
 
             let success = false;
@@ -1073,6 +1298,13 @@ export default function FieldUserDashboard() {
                   let updated = [...prev];
                   let hasNew = false;
                   for (const incoming of data) {
+                    const isP2P = (incoming.channel_type === 'CIVILIAN_P2P' || incoming.is_local_mesh_private || incoming.session_id === 'LOCAL_MESH_PRIVATE') &&
+                                  incoming.channel_type !== 'EMERGENCY_ALERT' &&
+                                  incoming.target_username !== '@command_center' &&
+                                  !incoming.is_emergency &&
+                                  incoming.sender_role !== 'command';
+                    if (!isP2P) continue;
+
                     const targetClean = normalizeName(incoming.target_username);
                     const senderClean = normalizeName(incoming.sender_username);
                     if (targetClean === myClean || senderClean === myClean) {
@@ -1169,22 +1401,28 @@ export default function FieldUserDashboard() {
     { label: '🏠 Trapped on Roof', text: 'Trapped on roof, need urgent evacuation' }
   ];
 
-  // 🎤 NATIVE ANDROID SPEECH-TO-TEXT AUTO-BROADCASTER (Mode 3 Whisper)
+  // 🎤 NATIVE ANDROID SPEECH-TO-TEXT AUTO-BROADCASTER (Context-Aware by Tab)
   useEffect(() => {
     (window as any).onNativeSpeechResult = (text: string, isFinal: boolean) => {
       if (text && text.trim()) {
         const clean = text.trim();
-        setSpokenSpeechText(clean);
-        setPersistentSpokenText(clean);
-        // If final speech result is ready in Mode 3, auto-broadcast immediately into the air!
-        if (isFinal && !isSilenceHallucination(clean) && networkMode === 'mode-3-ai-mesh') {
-          setTimeout(() => {
-            sendVoiceOrText(clean, 24, undefined, false, (selectedTransLang || 'ta') as any);
-          }, 80);
+        if (activeTab === 'mesh') {
+          // Strictly Local Mesh Tab: place spoken text into friend's message input
+          setLocalMeshTextInput(clean);
+        } else {
+          // Alert Tab: update Alert voice-to-text box
+          setSpokenSpeechText(clean);
+          setPersistentSpokenText(clean);
+          // Auto-broadcast alert strictly when in Mode 3 and user is on the Alert tab
+          if (isFinal && !isSilenceHallucination(clean) && networkMode === 'mode-3-ai-mesh' && activeTab === 'talk') {
+            setTimeout(() => {
+              sendVoiceOrText(clean, 24, undefined, false, (selectedTransLang || 'ta') as any);
+            }, 80);
+          }
         }
       }
     };
-  }, [selectedTransLang, networkMode, myUsername, coords, addressName]);
+  }, [selectedTransLang, networkMode, myUsername, coords, addressName, activeTab]);
 
   // NATIVE ANDROID WI-FI AWARE (NAN) & BLE RADIO MESH LISTENER
   useEffect(() => {
@@ -1193,7 +1431,12 @@ export default function FieldUserDashboard() {
         const parsed = JSON.parse(rawPayload);
         if (parsed) {
           // If it's a private Local Mesh message, store locally in Local Mesh feed
-          if (parsed.is_local_mesh_private || parsed.session_id === 'LOCAL_MESH_PRIVATE') {
+          const isP2P = (parsed.channel_type === 'CIVILIAN_P2P' || parsed.is_local_mesh_private || parsed.session_id === 'LOCAL_MESH_PRIVATE') &&
+                        parsed.channel_type !== 'EMERGENCY_ALERT' &&
+                        parsed.target_username !== '@command_center' &&
+                        !parsed.is_emergency;
+
+          if (isP2P) {
             const myClean = normalizeName(myUsername);
             const targetClean = normalizeName(parsed.target_username);
             const senderClean = normalizeName(parsed.sender_username);
@@ -1236,7 +1479,7 @@ export default function FieldUserDashboard() {
               // 2. Strict Privacy: Phone 2 CANNOT read the message. Do NOT display or toast!
 
               // 3. Store-and-Forward: Forward locked payload over Internet to Phone 3!
-              const gatewayTargets = getReliableEndpoints('/api/messages/send');
+              const gatewayTargets = getReliableEndpoints('/api/mesh/p2p/send');
               const relayPayload = {
                 ...parsed,
                 session_id: 'LOCAL_MESH_PRIVATE',
@@ -1335,8 +1578,14 @@ export default function FieldUserDashboard() {
     return `534F015F01${hex1}${hex2}02448A`;
   };
 
-  // 1-Tap SOS Emergency Trigger (All SOS buttons and Mode 4)
+  // 1-Tap SOS Emergency Trigger (All SOS buttons and Mode 4) with 3s Debounce Cooldown
   const triggerOneTapSOS = () => {
+    if (isSosTriggeringRef.current) return;
+    isSosTriggeringRef.current = true;
+    setTimeout(() => {
+      isSosTriggeringRef.current = false;
+    }, 3000);
+
     const satFrameHex = generate16ByteSatFrame();
     setActiveCipherCode(`SAT-16B#${satFrameHex.slice(0, 8)}`);
     const place = (addressName && addressName !== "Locating GPS...") ? addressName : (coords.lat ? `GPS: ${coords.lat.toFixed(4)}°N, ${coords.lng.toFixed(4)}°E` : "Chennai Sector");
@@ -1398,14 +1647,21 @@ export default function FieldUserDashboard() {
       } catch (e) {}
     }
 
-    // 2. Dispatch SINGLE HTTP message to Reliable Gateway Endpoints
-    const endpoints = getReliableEndpoints('/api/messages/send');
-    sendPayloadSingle(endpoints, payload);
+    // 2. WebSocket send if connected, else fallback to reliable HTTP endpoint (Single dispatch, no duplicate)
+    let wsDispatched = false;
+    if (connected) {
+      try {
+        send(sosObj);
+        wsDispatched = true;
+      } catch (e) {
+        wsDispatched = false;
+      }
+    }
 
-    // 3. WebSocket send
-    try {
-      send(sosObj);
-    } catch (e) {}
+    if (!wsDispatched) {
+      const endpoints = getReliableEndpoints('/api/messages/send');
+      sendPayloadSingle(endpoints, payload);
+    }
 
     setSosCustomInput('');
     setTextInput('');
@@ -1434,25 +1690,22 @@ export default function FieldUserDashboard() {
       }
     }
 
-    // 2. Parallel Race across all endpoints via Promise.any - fastest responds in ~15-40ms!
-    const requests = urlList.map(async (url) => {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payloadStr,
-        signal: AbortSignal.timeout(1800)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      cachedWorkingEndpoint = url;
-      return true;
-    });
-
-    try {
-      await Promise.race(requests);
-      return true;
-    } catch {
-      return false;
+    // 2. Sequential fallback: send to one endpoint at a time to prevent duplicate HTTP bursts
+    for (const url of urlList) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payloadStr,
+          signal: AbortSignal.timeout(1500)
+        });
+        if (res.ok) {
+          cachedWorkingEndpoint = url;
+          return true;
+        }
+      } catch {}
     }
+    return false;
   };
 
 
@@ -1477,11 +1730,11 @@ export default function FieldUserDashboard() {
       : '';
 
     if (networkMode === 'mode-1-hd-call') {
-      if (!finalText && (audioBase64 || audioBlob)) {
+      if (!finalText) {
         finalText = '🎙️ 4G/5G HD Direct Voice Note';
       }
     } else if (networkMode === 'mode-2-compressed-voice') {
-      if (!finalText && (audioBase64 || audioBlob)) {
+      if (!finalText) {
         finalText = '🎙️ 2G CELT Compressed Voice Note (1.2 KB)';
       }
     } else if (networkMode === 'mode-3-ai-mesh') {
@@ -1546,10 +1799,16 @@ export default function FieldUserDashboard() {
     // Audio payload handling
     if (networkMode === 'mode-4-satellite-beacon') {
       localAudioUrl = undefined;
-    } else if (networkMode === 'mode-2-compressed-voice' || networkMode === 'mode-1-hd-call' || networkMode === 'mode-3-ai-mesh') {
+    } else if (networkMode === 'mode-2-compressed-voice' || networkMode === 'mode-1-hd-call') {
       if (!localAudioUrl && audioBase64) {
         localAudioUrl = audioBase64;
       }
+      // Guaranteed voice audio note for Mode 1 & Mode 2
+      if (!localAudioUrl || !localAudioUrl.trim()) {
+        localAudioUrl = generatePcmSpeechWav(finalText, durationSec || 2.5);
+      }
+    } else if (networkMode === 'mode-3-ai-mesh') {
+      localAudioUrl = undefined;
     }
 
     const rawAudioBytes = audioSize || 45000;
@@ -1603,10 +1862,12 @@ export default function FieldUserDashboard() {
 
       const airPayloadObj = {
         id: msgId,
+        channel_type: 'EMERGENCY_ALERT',
         session_id: 'DEMO_GLOBAL_SESSION_01',
         sender_role: 'field',
         sender_username: myUsername || '@victim_phone_1',
         target_username: '@command_center',
+        is_local_mesh_private: false,
         type: emergencyFlag ? 'emergency_alert' : 'voice_message',
         text: airBroadcastText,
         network_mode: emergencyFlag ? 'mode-4-satellite-beacon' : 'mode-3-ai-mesh',
@@ -1662,10 +1923,12 @@ export default function FieldUserDashboard() {
 
     const payloadObj = {
       id: msgId,
+      channel_type: 'EMERGENCY_ALERT',
       session_id: 'DEMO_GLOBAL_SESSION_01',
       sender_role: 'field',
       sender_username: myUsername || '@citizen_field',
       target_username: '@command_center',
+      is_local_mesh_private: false,
       type: emergencyFlag ? 'emergency_alert' : 'voice_message',
       text: finalText, // NEVER BLANK OUT USER TEXT!
       network_mode: emergencyFlag ? 'mode-4-satellite-beacon' : networkMode,
@@ -1684,8 +1947,10 @@ export default function FieldUserDashboard() {
     };
     const payload = JSON.stringify(payloadObj);
 
-    // Broadcast over native mesh if available
-    if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
+    // ONLY broadcast over local radio mesh in Mode 3 (handled above) or Mode 4 (Satellite SOS) or if emergency!
+    // Mode 1 (HD 5G) and Mode 2 (2G Voice) are direct cellular/internet uplinks to Command Center and MUST NOT emit local radio mesh packets!
+    const isMeshRadioMode = (networkMode as string) === 'mode-4-satellite-beacon' || emergencyFlag;
+    if (isMeshRadioMode && (window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
       try {
         (window as any).AndroidBleMeshBridge.broadcastMeshPacket(payload);
       } catch (e) {}
@@ -1732,13 +1997,10 @@ export default function FieldUserDashboard() {
       if (!audioBase64 && !audioBlob) return;
     }
 
-    const effectiveTarget = normalizeName(targetFriend);
+    const effectiveTarget = (!targetFriend || targetFriend === '@' || targetFriend === '@not_set')
+      ? '@all_friends'
+      : normalizeName(targetFriend);
     const effectiveSender = normalizeName(myUsername);
-
-    if (!effectiveTarget || effectiveTarget === '@not_set' || effectiveTarget === '@all_friends') {
-      setLastDeliveryToast('⚠️ Please select a recipient friend (e.g. @raj or @kk)');
-      return;
-    }
 
     if (!text || !text.trim()) {
       if (!audioBase64 && !audioBlob) return;
@@ -1753,7 +2015,7 @@ export default function FieldUserDashboard() {
         const endpoints = [
           'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
           'http://localhost:8000/api/stt/transcribe-for-translate',
-          'http://10.245.166.76:8000/api/stt/transcribe-for-translate',
+          'http://10.64.235.76:8000/api/stt/transcribe-for-translate',
           '/api/stt/transcribe-for-translate'
         ];
         for (const ep of endpoints) {
@@ -1775,12 +2037,16 @@ export default function FieldUserDashboard() {
     }
 
     if (!finalText) {
-      if (localMeshMode === 'mode-1-p2p-hd') {
+      if (localMeshTextInput.trim()) {
+        finalText = localMeshTextInput.trim();
+      } else if (localMeshPersistentText.trim() && !localMeshPersistentText.includes('Listening...') && !localMeshPersistentText.includes('Transcribing')) {
+        finalText = localMeshPersistentText.trim();
+      } else if (localMeshSpokenText.trim() && !localMeshSpokenText.includes('Listening...') && !localMeshSpokenText.includes('Transcribing')) {
+        finalText = localMeshSpokenText.trim();
+      } else if (localMeshMode === 'mode-1-p2p-hd') {
         finalText = `🎙️ HD Voice Note (${actualDuration}s)`;
       } else if (localMeshMode === 'mode-2-p2p-2g') {
         finalText = `🎙️ 2G Voice Note (${actualDuration}s)`;
-      } else {
-        finalText = textInput.trim();
       }
     }
     if (localMeshMode === 'mode-3-p2p-nan' && !finalText) {
@@ -1828,6 +2094,7 @@ export default function FieldUserDashboard() {
 
     const payloadObj = {
       id: msgId,
+      channel_type: 'CIVILIAN_P2P',
       session_id: 'LOCAL_MESH_PRIVATE',
       sender_role: 'field',
       sender_username: effectiveSender,
@@ -1859,17 +2126,7 @@ export default function FieldUserDashboard() {
 
     const payload = JSON.stringify(payloadObj);
 
-    // 1. Direct WebSocket send for instant real-time internet delivery
-    try {
-      send(payloadObj);
-    } catch (e) {}
-
-    // 2. Dispatch via Reliable HTTP Endpoints (Internet / LAN / Cloudflare)
-    const meshTargets = getReliableEndpoints('/api/messages/send');
-    await sendPayloadSingle(meshTargets, payload);
-
-    // 3. ONLY Mode 3 (offline Radio Mesh) broadcasts over Native Wi-Fi Aware & BLE!
-    // Mode 1 and Mode 2 use internet directly (WebSocket + HTTP) like WhatsApp!
+    // 1. In Mode 3 (Offline Radio Mesh), broadcast IMMEDIATELY via Native BLE & Wi-Fi Aware!
     if (isMode3) {
       if ((window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
         try {
@@ -1878,15 +2135,26 @@ export default function FieldUserDashboard() {
       }
     }
 
-    // 🔔 PHONE 1 MUST VIBRATE!
-    triggerSafeHaptic(350);
+    // Light sender feedback on message dispatch
+    triggerSafeHaptic(80);
     if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
       try {
-        (window as any).AndroidBleMeshBridge.vibrateDevice(350);
+        (window as any).AndroidBleMeshBridge.vibrateDevice(80);
       } catch (e) {}
     }
 
-    setLastDeliveryToast(isMode3 ? `🔒 Locked & Sent to ${effectiveTarget} (Phone 1 Vibrated)` : `✅ Sent to ${effectiveTarget}`);
+    setLastDeliveryToast(isMode3 ? `🔒 Locked & Dispatched to ${effectiveTarget}` : `✅ Sent to ${effectiveTarget}`);
+
+    // 2. Direct WebSocket send for online internet delivery (non-blocking)
+    try {
+      send(payloadObj);
+    } catch (e) {}
+
+    // 3. Dispatch via HTTP Endpoints (Internet / LAN / Cloudflare) in background
+    if (!isMode3) {
+      const meshTargets = getReliableEndpoints('/api/mesh/p2p/send');
+      sendPayloadSingle(meshTargets, payload);
+    }
   };
 
   return (
@@ -1895,26 +2163,26 @@ export default function FieldUserDashboard() {
       {/* 1. TOP HEADER */}
       <header className="px-3.5 py-2 bg-black/95 border-b border-neutral-900 flex items-center justify-between shadow-xl shrink-0">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="w-8 h-8 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-slate-300 active:scale-95"
-            title="Settings"
-          >
-            ⚙️
-          </button>
 
-          {/* 👤 Tactical User CallSign / Profile Button */}
+          {/* 👤 Tactical User CallSign / Profile Button (Write-Once Hardware Locked) */}
           <button
             type="button"
             onClick={() => {
-              setEditUsernameInput(myUsername.replace(/^@/, ''));
-              setIsUsernameLocked(false);
-              setShowUserModal(true);
+              if (isUsernameLocked) {
+                setShowLockedInfoModal(true);
+              } else {
+                setEditUsernameInput(myUsername.replace(/^@/, ''));
+                setShowUserModal(true);
+              }
             }}
-            className="px-2.5 py-1 rounded-xl font-mono text-[9.5px] font-black border transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer bg-neutral-900 border-cyan-500/70 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)]"
-            title="Tap to view or change your username"
+            className={`px-2.5 py-1 rounded-xl font-mono text-[9.5px] font-black border transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer ${
+              isUsernameLocked
+                ? 'bg-neutral-900/90 border-emerald-500/70 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                : 'bg-neutral-900 border-cyan-500/70 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+            }`}
+            title={isUsernameLocked ? "🔒 Permanent Hardware-Locked Node CallSign" : "Tap to set CallSign"}
           >
-            <span className="text-[10px]">👤</span>
+            <span className="text-[10px]">{isUsernameLocked ? '🔒' : '👤'}</span>
             <span className="tracking-wide">{myUsername || '@citizen'}</span>
           </button>
 
@@ -1931,24 +2199,41 @@ export default function FieldUserDashboard() {
           </button>
         </div>
 
-        {/* Tactical Mode & Battery Badge - Synced with Demo Control */}
+        {/* Tactical Mode & Battery Badge */}
         <div className="flex items-center gap-1.5">
-          {/* Tactical Mode Indicator (Driven by Demo Controller / Network Condition) */}
-          <div
-            className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 flex items-center gap-1.5 shadow-md select-none"
-            title="Active Network Mode (Controlled via Demo Control)"
-          >
-            <span className={`w-2 h-2 rounded-full ${
-              networkMode === 'mode-4-satellite-beacon' ? 'bg-red-500 animate-ping' :
-              networkMode === 'mode-3-ai-mesh' ? 'bg-emerald-400 animate-pulse' :
-              networkMode === 'mode-2-compressed-voice' ? 'bg-blue-400' : 'bg-cyan-400'
-            }`}></span>
-            <span className="text-[10px] font-mono font-bold text-slate-200">
-              {networkMode === 'mode-1-hd-call' ? 'Mode 1' :
-               networkMode === 'mode-2-compressed-voice' ? 'Mode 2' :
-               networkMode === 'mode-3-ai-mesh' ? 'Mode 3' : 'Mode 4'}
-            </span>
-          </div>
+          {activeTab === 'mesh' ? (
+            /* Local Mesh Mode (Display Only - Synced strictly from Demo Controller) */
+            <div
+              className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 flex items-center gap-1.5 shadow-md select-none"
+              title="Active Local Mesh Mode (Controlled via Demo Control)"
+            >
+              <span className={`w-2 h-2 rounded-full ${
+                localMeshMode === 'mode-1-p2p-hd' ? 'bg-emerald-400' :
+                localMeshMode === 'mode-2-p2p-2g' ? 'bg-blue-400' : 'bg-amber-400 animate-pulse'
+              }`}></span>
+              <span className="text-[10px] font-mono font-bold text-slate-200">
+                {localMeshMode === 'mode-1-p2p-hd' ? 'Mesh M1 (HD)' :
+                 localMeshMode === 'mode-2-p2p-2g' ? 'Mesh M2 (2G)' : 'Mesh M3 (NAN)'}
+              </span>
+            </div>
+          ) : (
+            /* Alert / SOS Network Mode (Display Only - Synced strictly from Demo Controller) */
+            <div
+              className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 flex items-center gap-1.5 shadow-md select-none"
+              title="Active Network Mode (Controlled via Demo Control)"
+            >
+              <span className={`w-2 h-2 rounded-full ${
+                networkMode === 'mode-4-satellite-beacon' ? 'bg-red-500 animate-ping' :
+                networkMode === 'mode-3-ai-mesh' ? 'bg-emerald-400 animate-pulse' :
+                networkMode === 'mode-2-compressed-voice' ? 'bg-blue-400' : 'bg-cyan-400'
+              }`}></span>
+              <span className="text-[10px] font-mono font-bold text-slate-200">
+                {networkMode === 'mode-1-hd-call' ? 'Mode 1' :
+                 networkMode === 'mode-2-compressed-voice' ? 'Mode 2' :
+                 networkMode === 'mode-3-ai-mesh' ? 'Mode 3' : 'Mode 4'}
+              </span>
+            </div>
+          )}
 
           {/* Battery Status Pill */}
           <span className="text-[9.5px] font-mono font-bold text-emerald-400 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-800">
@@ -1957,7 +2242,7 @@ export default function FieldUserDashboard() {
         </div>
       </header>
 
-            {/* 🌐 QUICK TOP-BAR LANGUAGE SELECTOR MODAL */}
+{/* 🌐 QUICK TOP-BAR LANGUAGE SELECTOR MODAL */}
       {showLangModal && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex items-start justify-center pt-4 pb-4 px-3 select-none overflow-y-auto">
           <div className="bg-neutral-950 border-2 border-emerald-500 rounded-3xl w-full max-w-sm font-mono shadow-[0_0_60px_rgba(16,185,129,0.4)] flex flex-col">
@@ -1982,7 +2267,7 @@ export default function FieldUserDashboard() {
               <div className="mt-3 bg-slate-900/80 border border-slate-700 rounded-2xl px-3 py-2 text-[9px] text-slate-300 leading-relaxed">
                 📥 <span className="text-emerald-300 font-bold">Touch any language to download & activate its offline pack</span>.
                 The app is lightweight — you only install what you need!
-                <br/><span className="text-yellow-400 font-bold">Tanglish</span> = Tamil spoken in English script (e.g. "Vanakkam").
+
               </div>
             </div>
 
@@ -2117,24 +2402,29 @@ export default function FieldUserDashboard() {
       )}
 
 
-      {/* ONE-TIME PERMANENT USERNAME REGISTRATION MODAL (NO PRESET SUGGESTIONS) */}
+      {/* ONE-TIME PERMANENT USERNAME REGISTRATION MODAL (WRITE-ONCE HARDWARE BINDING) */}
       {showUserModal && !isUsernameLocked && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 select-none">
           <div className="bg-neutral-950 border-2 border-cyan-400 rounded-3xl p-6 w-full max-w-sm space-y-4 font-mono shadow-[0_0_40px_rgba(6,182,212,0.5)] animate-fadeIn">
             <div className="flex items-center justify-between border-b border-cyan-900/80 pb-3">
               <div className="flex items-center gap-2.5">
-                <span className="text-xl">👤</span>
-                <h3 className="text-sm font-black text-cyan-300 uppercase tracking-wide">Enter Your Username</h3>
+                <span className="text-xl">🔒</span>
+                <h3 className="text-sm font-black text-cyan-300 uppercase tracking-wide">Permanent Node CallSign</h3>
               </div>
             </div>
 
-            <p className="text-[10px] text-slate-300 leading-relaxed">
-              Enter your personal unique username. Friends will connect with you using this name.
-            </p>
+            <div className="bg-amber-950/40 border border-amber-500/40 rounded-2xl p-2.5">
+              <span className="text-[10px] text-amber-300 font-bold block mb-1">
+                ⚠️ WRITE-ONCE PERMANENT HARDWARE LOCK:
+              </span>
+              <p className="text-[9.5px] text-amber-200/80 leading-relaxed">
+                This username will be permanently bound to this physical device for offline mesh triage. It survives app reinstalls and cannot be changed once locked.
+              </p>
+            </div>
 
             <div>
               <label className="text-[10.5px] font-bold text-cyan-300 uppercase tracking-wide block mb-1.5">
-                👤 Your Username / Callsign:
+                👤 Enter Your CallSign / Name:
               </label>
               <input
                 type="text"
@@ -2144,7 +2434,7 @@ export default function FieldUserDashboard() {
                   setEditUsernameInput(e.target.value);
                   setRegistrationError('');
                 }}
-                placeholder="Type your username (e.g. shak)..."
+                placeholder="Type your username (e.g. raj or kk)..."
                 className={`w-full bg-slate-950 border-2 rounded-2xl px-4 py-2.5 text-sm text-cyan-200 focus:outline-none font-bold tracking-wide placeholder-slate-600 ${
                   registrationError ? 'border-red-500 ring-2 ring-red-500/20' : 'border-cyan-600 focus:border-cyan-300'
                 }`}
@@ -2165,11 +2455,24 @@ export default function FieldUserDashboard() {
                   return;
                 }
 
-                // REGISTER USERNAME FRESHLY
+                // 1. Lock in Native Android Layer (survives app uninstall & data wipes)
+                if ((window as any).AndroidBleMeshBridge?.lockPermanentDeviceIdentity) {
+                  try {
+                    (window as any).AndroidBleMeshBridge.lockPermanentDeviceIdentity(formatted);
+                  } catch (e) {
+                    console.warn('Native lock error:', e);
+                  }
+                }
+
+                // 2. Lock in Frontend State & LocalStorage
                 setMyUsername(formatted);
                 setIsUsernameLocked(true);
                 localStorage.setItem('local_username', formatted);
                 localStorage.setItem('local_username_locked', 'true');
+                if (!localStorage.getItem('target_friend')) {
+                  setTargetFriend('@all_friends');
+                  localStorage.setItem('target_friend', '@all_friends');
+                }
                 setShowUserModal(false);
                 // Prompt user to select & download their desired language pack
                 setShowLangModal(true);
@@ -2194,74 +2497,56 @@ export default function FieldUserDashboard() {
                   } catch (e) {}
                 }
 
-                setLastDeliveryToast(`🔒 Username Registered: ${formatted}`);
+                setLastDeliveryToast(`🔒 Permanent CallSign Locked: ${formatted}`);
               }}
-              className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl text-white font-black text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 tracking-wider uppercase border border-emerald-400"
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 rounded-2xl text-white font-black text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 tracking-wider uppercase border border-emerald-400 cursor-pointer"
             >
               <span>🔒</span>
-              <span>Save & Lock Username</span>
+              <span>Confirm & Lock Permanently</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* WIRELESS SETTINGS DRAWER */}
-      {showSettings && (
-        <div className="bg-neutral-950 border-b border-neutral-800 p-3 flex flex-col gap-2 shrink-0 animate-fadeIn text-xs font-mono">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-mono font-bold text-slate-300">Select This Phone's Identity:</span>
-            <button onClick={() => setShowSettings(false)} className="text-slate-400 font-bold text-xs">✕</button>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setNodeRole('victim_citizen_1');
-                setDeviceRole('victim');
-                localStorage.setItem('node_role', 'victim_citizen_1');
-              }}
-              className={`flex-1 py-1.5 rounded-xl font-mono text-[10px] font-bold border transition-all ${
-                nodeRole === 'victim_citizen_1'
-                  ? 'bg-amber-600 text-white border-amber-400'
-                  : 'bg-slate-900 text-slate-400 border-slate-800'
-              }`}
-            >
-              📱 Phone #1: Victim (Pure Mesh)
-            </button>
-            <button
-              onClick={() => {
-                setNodeRole('rescue_volunteer_2');
-                setDeviceRole('relay');
-                localStorage.setItem('node_role', 'rescue_volunteer_2');
-              }}
-              className={`flex-1 py-1.5 rounded-xl font-mono text-[10px] font-bold border transition-all ${
-                nodeRole === 'rescue_volunteer_2'
-                  ? 'bg-emerald-600 text-white border-emerald-400'
-                  : 'bg-slate-900 text-slate-400 border-slate-800'
-              }`}
-            >
-              🔄 Phone #2: Relay Gateway
-            </button>
-          </div>
+      {/* 🔒 PERMANENT HARDWARE-LOCKED CALLSIGN INFO MODAL */}
+      {showLockedInfoModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none">
+          <div className="bg-neutral-950 border-2 border-emerald-500/60 rounded-3xl p-5 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] flex flex-col items-center text-center animate-fadeIn font-mono">
+            <div className="w-14 h-14 rounded-full bg-emerald-950/80 border-2 border-emerald-500/60 flex items-center justify-center text-2xl mb-3 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+              🔒
+            </div>
+            <h3 className="text-sm font-black text-emerald-300 tracking-wide uppercase">
+              Tactical CallSign Locked
+            </h3>
+            <span className="text-[9.5px] text-emerald-400/80 mt-0.5">
+              Write-Once Hardware Bound Node
+            </span>
 
-          <div className="pt-1 flex gap-2">
-            <input
-              type="text"
-              value={targetHost}
-              onChange={(e) => {
-                setTargetHost(e.target.value);
-                localStorage.setItem('tactical_host', e.target.value);
-              }}
-              placeholder="Enter Relay Gateway Tunnel Host (Phone 2 only)..."
-              className="flex-1 bg-slate-950 border border-neutral-700 rounded-xl px-3 py-1 font-mono text-[10px] text-blue-200"
-            />
+            <div className="w-full bg-neutral-900/90 border border-neutral-800 rounded-2xl p-3 my-4 flex flex-col gap-2.5 text-left">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400 text-[11px]">Your CallSign:</span>
+                <span className="font-bold text-emerald-300 text-sm">{myUsername}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs border-t border-neutral-800/80 pt-2">
+                <span className="text-slate-400 text-[10px]">Node ID:</span>
+                <span className="text-[10px] text-cyan-300">{myNodeId}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs border-t border-neutral-800/80 pt-2">
+                <span className="text-slate-400 text-[10px]">Persistence:</span>
+                <span className="text-[10px] text-emerald-400 font-bold">🛡️ Survives Reinstall & Offline</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed mb-4 text-left">
+              This node identity is permanently locked to this physical device hardware for disaster mesh routing. It cannot be altered to prevent identity spoofing during rescue operations.
+            </p>
+
             <button
-              onClick={() => {
-                setShowSettings(false);
-                alert(`Gateway Host Saved: ${targetHost}`);
-              }}
-              className="bg-blue-600 px-3 py-1 rounded-xl font-bold text-white text-[10px]"
+              type="button"
+              onClick={() => setShowLockedInfoModal(false)}
+              className="w-full py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer"
             >
-              Save
+              Dismiss
             </button>
           </div>
         </div>
@@ -2350,21 +2635,25 @@ export default function FieldUserDashboard() {
 
                     // Network STT fallback if connected
                     if (!candidateText && audioBase64) {
-                      try {
-                        const sttRes = await fetch('/api/stt/transcribe', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ audio_base64: audioBase64, language: selectedTransLang || 'ta' }),
-                          signal: AbortSignal.timeout(2500)
-                        });
-                        if (sttRes.ok) {
-                          const sttData = await sttRes.json();
-                          if (sttData.text && sttData.text.trim()) {
-                            candidateText = sttData.text.trim();
-                            setPersistentSpokenText(candidateText);
+                      const sttEndpoints = getReliableEndpoints('/api/stt/transcribe');
+                      for (const ep of sttEndpoints) {
+                        try {
+                          const sttRes = await fetch(ep, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ audio_base64: audioBase64, language: selectedTransLang || 'ta' }),
+                            signal: AbortSignal.timeout(2000)
+                          });
+                          if (sttRes.ok) {
+                            const sttData = await sttRes.json();
+                            if (sttData.text && sttData.text.trim()) {
+                              candidateText = sttData.text.trim();
+                              setPersistentSpokenText(candidateText);
+                              break;
+                            }
                           }
-                        }
-                      } catch {}
+                        } catch {}
+                      }
                     }
 
                     setSpokenSpeechText('');
@@ -2427,8 +2716,8 @@ export default function FieldUserDashboard() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (textInput.trim()) {
-                  const val = textInput.trim();
+                const val = textInput.trim() || persistentSpokenText.trim() || spokenSpeechText.trim() || (networkMode === 'mode-1-hd-call' ? '🎙️ 4G/5G HD Direct Voice Note' : networkMode === 'mode-2-compressed-voice' ? '🎙️ 2G CELT Compressed Voice Note (1.2 KB)' : 'Alert Message');
+                if (val) {
                   setTextInput('');
                   setSpokenSpeechText('');
                   sendVoiceOrText(val, 24, undefined, false, selectedTransLang as any);
@@ -2726,7 +3015,7 @@ export default function FieldUserDashboard() {
                 </div>
                 <span className="text-xs font-black text-emerald-300 bg-emerald-950 px-3 py-1 rounded-xl border border-emerald-600 shadow-inner flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  {targetFriend || '@not_set'}
+                  {(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}
                 </span>
               </div>
 
@@ -2735,16 +3024,20 @@ export default function FieldUserDashboard() {
                 <input
                   type="text"
                   value={customFriendInput}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCustomFriendInput(val);
-                    if (val.trim().length > 0) {
-                      const norm = normalizeName(val);
-                      setTargetFriend(norm);
-                      localStorage.setItem('target_friend', norm);
+                  onChange={(e) => setCustomFriendInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && customFriendInput.trim()) {
+                      e.preventDefault();
+                      const norm = normalizeName(customFriendInput);
+                      if (norm && norm !== '@' && norm.length > 2) {
+                        setTargetFriend(norm);
+                        localStorage.setItem('target_friend', norm);
+                        setCustomFriendInput('');
+                        setLastDeliveryToast(`🎯 Recipient set to ${norm}!`);
+                      }
                     }
                   }}
-                  placeholder="Enter recipient username (e.g. @raj, @kk)..."
+                  placeholder="Enter recipient callsign / username..."
                   className="flex-1 bg-slate-950 border-2 border-cyan-600/80 rounded-xl px-3.5 py-2 text-xs text-cyan-200 font-bold focus:outline-none focus:border-cyan-300 placeholder-slate-600"
                 />
                 <button
@@ -2752,9 +3045,12 @@ export default function FieldUserDashboard() {
                   onClick={() => {
                     if (customFriendInput.trim()) {
                       const norm = normalizeName(customFriendInput);
-                      setTargetFriend(norm);
-                      localStorage.setItem('target_friend', norm);
-                      setLastDeliveryToast(`🎯 Recipient set to ${norm}!`);
+                      if (norm && norm !== '@' && norm.length > 2) {
+                        setTargetFriend(norm);
+                        localStorage.setItem('target_friend', norm);
+                        setCustomFriendInput('');
+                        setLastDeliveryToast(`🎯 Recipient set to ${norm}!`);
+                      }
                     }
                   }}
                   className="bg-gradient-to-r from-emerald-600 to-cyan-600 px-4 py-2 rounded-xl text-xs font-black text-white shadow-md active:scale-95 border border-emerald-400"
@@ -2763,112 +3059,131 @@ export default function FieldUserDashboard() {
                 </button>
               </div>
 
-              {/* Quick 1-Tap Friend Selector */}
-              <div className="flex items-center gap-1.5 pt-0.5">
-                <span className="text-[9.5px] text-slate-400 font-bold">Quick Select:</span>
-                {['@raj', '@kk'].filter(u => normalizeName(u) !== normalizeName(myUsername)).map(u => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => {
-                      setTargetFriend(u);
-                      setCustomFriendInput(u);
-                      localStorage.setItem('target_friend', u);
-                      setLastDeliveryToast(`🎯 Chatting with ${u}`);
-                    }}
-                    className={`px-3 py-1 rounded-xl text-[10.5px] font-mono font-bold transition-all border ${
-                      normalizeName(targetFriend) === normalizeName(u)
-                        ? 'bg-cyan-600 text-white border-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.6)] scale-105'
-                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-cyan-500'
-                    }`}
-                  >
-                    👤 {u}
-                  </button>
-                ))}
-              </div>
+
             </div>
 
-            {/* 3 MODES FOR LOCAL MESH FRIENDS (NO MODE 4 SOS) */}
-            <div className="p-1.5 rounded-2xl bg-neutral-950 border border-neutral-800 grid grid-cols-3 gap-1">
-              <button
-                type="button"
-                onClick={() => setLocalMeshMode('mode-1-p2p-hd')}
-                className={`py-1.5 rounded-xl text-[10px] font-bold transition-all border ${
-                  localMeshMode === 'mode-1-p2p-hd'
-                    ? 'bg-emerald-600 text-white border-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.7)]'
-                    : 'bg-slate-900 text-slate-400 border-slate-800'
-                }`}
-              >
-                🎙️ Mode 1 (HD)
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocalMeshMode('mode-2-p2p-2g')}
-                className={`py-1.5 rounded-xl text-[10px] font-bold transition-all border ${
-                  localMeshMode === 'mode-2-p2p-2g'
-                    ? 'bg-blue-600 text-white border-blue-300 shadow-[0_0_10px_rgba(37,99,235,0.7)]'
-                    : 'bg-slate-900 text-slate-400 border-slate-800'
-                }`}
-              >
-                📻 Mode 2 (2G)
-              </button>
-              <button
-                type="button"
-                onClick={() => setLocalMeshMode('mode-3-p2p-nan')}
-                className={`py-1.5 rounded-xl text-[10px] font-bold transition-all border ${
-                  localMeshMode === 'mode-3-p2p-nan'
-                    ? 'bg-amber-600 text-white border-amber-300 shadow-[0_0_10px_rgba(217,119,6,0.7)]'
-                    : 'bg-slate-900 text-slate-400 border-slate-800'
-                }`}
-              >
-                📡 Mode 3 (NAN)
-              </button>
+            {/* Quick Reaction Chips */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar w-full max-w-sm">
+              {['I am safe 👍', 'Need help 🆘', 'On my way 🏃', 'All clear ✅'].map(chip => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => {
+                    sendLocalMeshPrivateMessage(chip, 24, undefined, undefined, 0);
+                  }}
+                  className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-neutral-900 border border-neutral-700 text-slate-200 hover:border-emerald-500 hover:text-white shrink-0 active:scale-95 transition-all"
+                >
+                  {chip}
+                </button>
+              ))}
             </div>
 
-            {/* 🌐 9-Language Selector Bar for Local Mesh Mode 3 */}
-            {localMeshMode === 'mode-3-p2p-nan' && (
-              <div className="w-full max-w-sm px-2 mb-1">
-                <div className="flex items-center justify-between mb-1 px-1">
-                  <span className="text-[8.5px] font-mono text-emerald-400 font-bold">🌐 TRANSLATE TO (9 LANGUAGES):</span>
-                  <span className="text-[8px] font-mono text-cyan-300 font-bold">Active: {selectedTransLang.toUpperCase()}</span>
-                </div>
-                <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
-                  {INDIC_LANGUAGES_9.map((l) => (
-                    <button
-                      key={l.code}
-                      type="button"
-                      onClick={() => setSelectedTransLang(l.code)}
-                      className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold shrink-0 transition-all border ${
-                        selectedTransLang === l.code
-                          ? 'bg-emerald-600 text-white border-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.8)] scale-105'
-                          : 'bg-neutral-950 text-emerald-300 border-neutral-800 hover:border-emerald-700'
-                      }`}
-                    >
-                      {l.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* PTT Button for Local Mesh Friends (Always Standard Green) */}
-            <div className="flex flex-col items-center justify-center py-2">
+            {/* PTT Button for Local Mesh Friends (Inherits Top Language & Network Mode) */}
+            <div className="flex flex-col items-center justify-center py-2 w-full">
               <PushToTalkButton
-                onTranscript={(text, audioSize, blob, detectedLang, audioBase64, durationSec) => {
-                  sendLocalMeshPrivateMessage(text, audioSize, blob, audioBase64, durationSec);
+                language={selectedTransLang}
+                onStartRecord={() => {
+                  setLocalMeshSpokenText('🎙️ Listening... (பேசுங்கள்)');
+                  setLocalMeshPersistentText('');
+                }}
+                onLiveInterimText={(interim) => {
+                  if (interim && interim.trim()) {
+                    setLocalMeshSpokenText(interim.trim());
+                    if (!interim.includes('Listening...')) {
+                      setLocalMeshPersistentText(interim.trim());
+                      setLocalMeshTextInput(interim.trim());
+                    }
+                  }
+                }}
+                onTranscript={async (text, audioSize, blob, detectedLang, audioBase64, durationSec) => {
+                  setLocalMeshSpokenText('⏳ Transcribing audio (Sherpa AI)...');
+                  let candidateText = (text && text.trim() && !text.includes('Listening...')) ? text.trim() : '';
+
+                  if (candidateText) {
+                    setLocalMeshPersistentText(candidateText);
+                    setLocalMeshTextInput(candidateText);
+                  } else if (localMeshSpokenText && localMeshSpokenText.trim() && !localMeshSpokenText.includes('Listening...') && !localMeshSpokenText.includes('Transcribing')) {
+                    candidateText = localMeshSpokenText.trim();
+                    setLocalMeshPersistentText(candidateText);
+                    setLocalMeshTextInput(candidateText);
+                  }
+
+                  // On-device Sherpa ONNX ASR fallback
+                  if (!candidateText && audioBase64 && (window as any).AndroidBleMeshBridge?.transcribeAudioBase64) {
+                    try {
+                      const localText = (window as any).AndroidBleMeshBridge.transcribeAudioBase64(audioBase64, selectedTransLang || 'ta');
+                      if (localText && localText.trim()) {
+                        candidateText = localText.trim();
+                        setLocalMeshPersistentText(candidateText);
+                        setLocalMeshTextInput(candidateText);
+                      }
+                    } catch (e) {}
+                  }
+
+                  // Fast network STT fallback
+                  if (!candidateText && audioBase64) {
+                    const endpoints = getReliableEndpoints('/api/stt/transcribe-for-translate');
+                    for (const ep of endpoints) {
+                      try {
+                        const res = await fetch(ep, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ audio_base64: audioBase64, language: selectedTransLang || 'ta' }),
+                          signal: AbortSignal.timeout(1800)
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          if (data?.text?.trim()) {
+                            candidateText = data.text.trim();
+                            setLocalMeshPersistentText(candidateText);
+                            setLocalMeshTextInput(candidateText);
+                            break;
+                          }
+                        }
+                      } catch {}
+                    }
+                  }
+
+                  setLocalMeshSpokenText('');
+                  if (candidateText && candidateText.trim()) {
+                    setLocalMeshPersistentText(candidateText.trim());
+                    setLocalMeshTextInput(candidateText.trim());
+                  }
+
+                  sendLocalMeshPrivateMessage(candidateText, audioSize, blob, audioBase64, durationSec);
                 }}
                 disabled={false}
                 networkMode={localMeshMode === 'mode-1-p2p-hd' ? 'mode-1-hd-call' : localMeshMode === 'mode-2-p2p-2g' ? 'mode-2-compressed-voice' : 'mode-3-ai-mesh'}
               />
+
+              {/* 🎤 COMPACT REAL-TIME VOICE-TO-TEXT BOX FOR LOCAL MESH */}
+              <div className="w-full max-w-xs mt-3 px-3.5 py-2.5 rounded-2xl bg-neutral-950 border border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)] text-center animate-fadeIn">
+                <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 font-bold border-b border-emerald-800/50 pb-1 mb-1.5">
+                  <span className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${localMeshSpokenText || localMeshPersistentText ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
+                    <span>Voice to Text</span>
+                  </span>
+                  <span className={`text-[8.5px] font-mono ${localMeshSpokenText ? 'text-emerald-300 font-bold' : localMeshPersistentText ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
+                    {localMeshSpokenText ? 'Listening...' : localMeshPersistentText ? 'Transcribed ✓' : 'Ready'}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 px-1">
+                  <div className="text-emerald-100 text-xs font-sans font-bold min-h-[24px] flex items-center justify-center">
+                    <span className="break-words w-full text-center">
+                      {localMeshSpokenText || localMeshPersistentText || <span className="text-slate-500 text-[11px] font-normal">Hold button and speak...</span>}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
             
             {/* Text Input for Local Mesh */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (textInput.trim()) {
-                  const val = textInput.trim();
-                  setTextInput('');
+                if (localMeshTextInput.trim()) {
+                  const val = localMeshTextInput.trim();
+                  setLocalMeshTextInput('');
                   sendLocalMeshPrivateMessage(val, 24, undefined, undefined, 0);
                 }
               }}
@@ -2876,9 +3191,9 @@ export default function FieldUserDashboard() {
             >
               <input
                 type="text"
-                value={textInput}
-                onChange={(e) => { setTextInput(e.target.value); }}
-                placeholder={`Message ${targetFriend}...`}
+                value={localMeshTextInput}
+                onChange={(e) => { setLocalMeshTextInput(e.target.value); }}
+                placeholder={`Message ${(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}...`}
                 className="flex-1 bg-neutral-950 border border-neutral-800 rounded-2xl px-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
               <button
@@ -2889,11 +3204,11 @@ export default function FieldUserDashboard() {
               </button>
             </form>
 
-            {/* WhatsApp-Style P2P Voice & Text Chat Stream */}
+            {/* P2P Voice & Text Chat Stream */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between border-b border-neutral-900 pb-1.5 px-1">
                 <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
-                  <span>💬</span> WHATSAPP-STYLE MESH CHAT
+                  <span>💬</span> MESH CHAT
                 </span>
                 <span className="text-[9px] text-cyan-400 font-mono font-bold bg-neutral-900 px-2 py-0.5 rounded-lg border border-neutral-700">
                   You: {myUsername}
@@ -2902,7 +3217,7 @@ export default function FieldUserDashboard() {
 
               {localMeshMessages.length === 0 ? (
                 <div className="p-6 text-center text-slate-500 text-xs font-mono rounded-2xl bg-slate-950/60 border border-slate-900">
-                  <span>🎙️ Hold microphone to send a voice note to {targetFriend}</span>
+                  <span>🎙️ Hold microphone to send a voice note to {(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}</span>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -2910,20 +3225,28 @@ export default function FieldUserDashboard() {
                     const targetClean = normalizeName(msg.target_username);
                     const senderClean = normalizeName(msg.sender_username);
                     const myClean = normalizeName(myUsername);
-                    const activeFriend = normalizeName(targetFriend);
-
-                    // Strictly 1-on-1 WhatsApp private chat:
-                    // 1. Sent by ME to THIS FRIEND, OR
-                    // 2. Sent by THIS FRIEND to ME
-                    const isDirectChat = (
-                      (senderClean === myClean && targetClean === activeFriend) ||
-                      (senderClean === activeFriend && targetClean === myClean)
-                    );
 
                     // Must NOT be an emergency alert or command broadcast
-                    const isNotCommandOrSos = !msg.is_emergency && targetClean !== '@command_center' && senderClean !== '@command_center';
+                    const isNotCommandOrSos = !msg.is_emergency && 
+                                              msg.channel_type !== 'EMERGENCY_ALERT' && 
+                                              targetClean !== '@command_center' && 
+                                              senderClean !== '@command_center';
 
-                    return isDirectChat && isNotCommandOrSos;
+                    if (!isNotCommandOrSos) return false;
+
+                    // Unified WhatsApp Stream:
+                    // 1. Sent by ME to anyone (my outgoing)
+                    // 2. Sent to ME by anyone (my incoming from any friend)
+                    // 3. Broadcast to @all_friends
+                    // STRICTLY HIDE on relay devices: Do NOT show packets intended for other third parties
+                    const isForMeOrMine = (
+                      senderClean === myClean ||
+                      targetClean === myClean ||
+                      targetClean === '@all_friends' ||
+                      !targetClean
+                    );
+
+                    return isForMeOrMine;
                   }).map((msg, i) => {
                     const targetClean = normalizeName(msg.target_username);
                     const senderClean = normalizeName(msg.sender_username);

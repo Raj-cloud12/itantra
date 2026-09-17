@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { instantTranslate9 } from '../utils/ultraFastTranslator';
 
 interface FeedMsg {
   id: string | number;
@@ -225,7 +226,16 @@ export default function CommandCenterDashboard() {
   };
 
   const { sessionId } = useParams();
-  const [feed, setFeed] = useState<FeedMsg[]>([]);
+  const [feed, setFeed] = useState<FeedMsg[]>(() => {
+    try {
+      const saved = localStorage.getItem('tantra_command_center_feed_v2');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [replyText, setReplyText] = useState('');
   const [sosBroadcastText, setSosBroadcastText] = useState('');
   const [showSosModal, setShowSosModal] = useState(false);
@@ -259,7 +269,7 @@ export default function CommandCenterDashboard() {
   const playedTtsRef = useRef<Set<string>>(new Set());
   const hasInitialLoadedRef = useRef(false);
 
-  // 🌐 Groq Translation
+  // 🌐 Groq Translation with Offline AI Dictionary Fallback
   const translateWithGroq = async (msgId: string, text: string, lang = 'ta') => {
     if (!text || translatedTexts[msgId as string]) return;
     setTranslatingId(msgId);
@@ -275,7 +285,7 @@ export default function CommandCenterDashboard() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text, source_lang: lang || 'ta', target_lang: 'en' }),
-          signal: AbortSignal.timeout(12000)
+          signal: AbortSignal.timeout(6000)
         });
         if (res.ok) {
           const data = await res.json();
@@ -287,6 +297,13 @@ export default function CommandCenterDashboard() {
         }
       } catch {}
     }
+    // Instant offline fallback
+    try {
+      const fallback = instantTranslate9(text)?.translations?.en;
+      if (fallback) {
+        setTranslatedTexts(prev => ({ ...prev, [msgId]: fallback }));
+      }
+    } catch {}
     setTranslatingId(null);
   };
 
@@ -440,7 +457,12 @@ export default function CommandCenterDashboard() {
         if (isPrivateLocalMesh) return;
 
         setFeed(prev => {
-          const exists = prev.some(m => m.id === latest.id || (m.timestamp === latest.timestamp && m.text === latest.text));
+          const cleanLatestText = (latest.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
+          const exists = prev.some(m => {
+            if (m.id === latest.id) return true;
+            const cleanMText = (m.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
+            return cleanMText === cleanLatestText && m.sender_username === latest.sender_username;
+          });
           if (exists) return prev;
 
           const isEmergency = !!latest.is_emergency;
@@ -620,13 +642,31 @@ export default function CommandCenterDashboard() {
           const cleanText = (item.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
           const timeBucket = Math.floor(new Date(item.timestamp).getTime() / 15000);
           const sig = `${cleanText}_${timeBucket}`;
-          if (cleanText && seenSignatures.has(sig)) {
-            continue; // Suppress duplicate!
-          }
           if (cleanText) seenSignatures.add(sig);
           uniqueFeed.push(item);
         }
-        setFeed(uniqueFeed);
+
+        // Incremental State Merge: Never wipe historical messages from state!
+        setFeed(prevFeed => {
+          const map = new Map<string, FeedMsg>();
+          prevFeed.forEach(m => {
+            const key = String(m.id || `${m.timestamp}_${m.text}`);
+            map.set(key, m);
+          });
+          uniqueFeed.forEach(m => {
+            const key = String(m.id || `${m.timestamp}_${m.text}`);
+            map.set(key, m);
+          });
+          const merged = Array.from(map.values()).sort((a, b) => {
+            const tA = new Date(a.timestamp).getTime() || 0;
+            const tB = new Date(b.timestamp).getTime() || 0;
+            return tB - tA;
+          });
+          try {
+            localStorage.setItem('tantra_command_center_feed_v2', JSON.stringify(merged.slice(0, 500)));
+          } catch {}
+          return merged;
+        });
       } catch {}
     };
 
@@ -634,6 +674,15 @@ export default function CommandCenterDashboard() {
     const interval = setInterval(poll, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // 🧠 Auto-ANS: Automatically trigger ANS analysis when 10+ messages accumulate
+  const autoAnsTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (feed.length >= 10 && !autoAnsTriggeredRef.current && !isAnalyzing) {
+      autoAnsTriggeredRef.current = true;
+      analyzeIntegrity(false);
+    }
+  }, [feed.length, isAnalyzing]);
 
   const switchMode = async (mode: 'mode-1-hd-call' | 'mode-2-compressed-voice' | 'mode-3-ai-mesh' | 'mode-4-satellite-beacon') => {
     setActiveNetworkMode(mode);
@@ -1080,55 +1129,30 @@ export default function CommandCenterDashboard() {
             </div>
 
             <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-              {/* 🔄 Sort Switcher: Latest (Default) vs AI Integrity Ranking */}
-              <div className="flex items-center bg-black/80 p-0.5 rounded-xl border border-neutral-800">
-                <button
-                  type="button"
-                  onClick={() => setFeedSortMode('latest')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    feedSortMode === 'latest'
-                      ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Show newest incoming messages at the top"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>⏱️ Latest (New on Top)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFeedSortMode('integrity');
-                    if (Object.keys(integrityScores).length === 0) {
-                      analyzeIntegrity(true);
-                    }
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    feedSortMode === 'integrity'
-                      ? 'bg-purple-700 text-white shadow-[0_0_10px_rgba(168,85,247,0.5)]'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Rank messages step-by-step by AI Integrity Level (1, 2, 3...)"
-                >
-                  <span>🧠</span>
-                  <span>AI Rank (1, 2, 3...)</span>
-                </button>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="font-bold text-slate-200">Unified Live Feed</span>
+                {feed.length >= 10 && (
+                  <span className="ml-1 text-[9.5px] px-2 py-0.5 rounded-md bg-purple-900/70 text-purple-300 border border-purple-500/40 font-bold">
+                    🧠 Auto-ANS (10+ Msgs)
+                  </span>
+                )}
               </div>
 
-              {/* 🧠 Groq Integrity Analysis Button */}
+              {/* Instant ANS Trigger */}
               <button
                 type="button"
-                onClick={() => analyzeIntegrity(true)}
+                onClick={() => analyzeIntegrity(false)}
                 disabled={isAnalyzing || feed.length === 0}
                 className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
                   isAnalyzing
                     ? 'bg-purple-900/60 text-purple-300 border border-purple-600/40 animate-pulse'
                     : 'bg-purple-950 hover:bg-purple-900 text-purple-200 border border-purple-700/60'
                 }`}
-                title="Trigger Cluster Integrity Analysis"
+                title="Run Automated Notification Stream Analysis"
               >
-                <span>{isAnalyzing ? '⏳' : '🔍'}</span>
-                <span>{isAnalyzing ? 'Analyzing...' : 'Analyze Burst'}</span>
+                <span>{isAnalyzing ? '⏳' : '🧠'}</span>
+                <span>{isAnalyzing ? 'Analyzing...' : 'Run ANS'}</span>
               </button>
             </div>
           </div>
@@ -1219,23 +1243,8 @@ export default function CommandCenterDashboard() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* 🏆 Rank Badge when sorted by Integrity */}
-                        {feedSortMode === 'integrity' && (
-                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-md font-mono border ${
-                            idx === 0 
-                              ? 'bg-red-600 text-white border-red-400 shadow-[0_0_10px_rgba(239,68,68,0.5)]'
-                              : idx === 1
-                              ? 'bg-orange-600 text-white border-orange-400'
-                              : idx === 2
-                              ? 'bg-amber-600 text-black border-amber-400'
-                              : 'bg-neutral-800 text-slate-300 border-neutral-700'
-                          }`}>
-                            {idx === 0 ? '🏆 RANK #1' : idx === 1 ? '🥈 RANK #2' : idx === 2 ? '🥉 RANK #3' : `RANK #${idx + 1}`}
-                          </span>
-                        )}
-
-                        {/* ⚡ Newest Arrival badge when sorted by Latest */}
-                        {feedSortMode === 'latest' && idx === 0 && (
+                        {/* ⚡ Newest Arrival badge */}
+                        {idx === 0 && (
                           <span className="text-[10px] font-black px-2 py-0.5 rounded-md font-mono bg-emerald-950 text-emerald-300 border border-emerald-500 animate-pulse">
                             ● NEWEST
                           </span>
@@ -1321,18 +1330,14 @@ export default function CommandCenterDashboard() {
                         <span>{playingAiMsgId === String(msg.id) ? 'Playing AI Voice (Stop)' : '🔊 Play AI Voice'}</span>
                       </button>
 
-                      {/* 🌐 Fast AI Translation Button */}
+                      {/* 🌐 Fast AI Text Translation Button (Translates the text above to English) */}
                       <button
                         type="button"
                         onClick={() => {
-                          if (hasAudio && (msg.audio_url || msg.audioUrl)) {
-                            transcribeAndTranslateAudio(String(msg.id), msg.audio_url || msg.audioUrl || '', msg.language || 'ta');
-                          } else {
-                            translateWithGroq(String(msg.id), msg.text, msg.language || 'ta');
-                          }
+                          translateWithGroq(String(msg.id), msg.text, msg.language || 'ta');
                         }}
                         disabled={translatingId === (String(msg.id))}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold font-mono flex items-center gap-2 active:scale-95 transition-all ${
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold font-mono flex items-center gap-2 active:scale-95 transition-all cursor-pointer ${
                           translatedTexts[String(msg.id)]
                             ? 'bg-amber-950/60 text-amber-300 border border-amber-500/50 shadow-inner'
                             : translatingId === (String(msg.id))
@@ -1343,12 +1348,10 @@ export default function CommandCenterDashboard() {
                         <span className="text-sm">{translatingId === (String(msg.id)) ? '⏳' : '⚡'}</span>
                         <span>
                           {translatingId === (String(msg.id))
-                            ? (hasAudio ? 'Transcribing & Translating...' : 'Translating...')
+                            ? 'Translating Text...'
                             : translatedTexts[String(msg.id)]
                             ? '✅ English Translation'
-                            : hasAudio
-                            ? '🌐 Transcribe Voice → English'
-                            : '🌐 Translate to English'}
+                            : '🌐 Translate Text → English'}
                         </span>
                       </button>
                     </div>
