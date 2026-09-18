@@ -14,6 +14,19 @@ interface PushToTalkButtonProps {
   helperPrompt?: string;
 }
 
+const PTT_UI_STRINGS: Record<string, { hold: string; release: string; tapSend: string; recording: string; helper: string }> = {
+  ta: { hold: 'பேச அழுத்தவும்', release: 'அனுப்ப விடுவிக்கவும்', tapSend: 'அனுப்ப தட்டவும்', recording: 'பதிவாகிறது...', helper: 'வாய்ஸ் நோட் பேச பட்டனை அழுத்தவும்' },
+  en: { hold: 'HOLD / TAP TO TALK', release: 'Release to send', tapSend: 'TAP TO SEND', recording: 'RECORDING...', helper: 'Hold or Tap button to speak voice note' },
+  hi: { hold: 'बोलने के लिए दबाएं', release: 'भेजने के लिए छोड़ें', tapSend: 'भेजने के लिए टैप करें', recording: 'रिकॉर्डिंग...', helper: 'वॉयस नोट बोलने के लिए बटन दबाएं' },
+  ml: { hold: 'സംസാരിക്കാൻ അമർത്തുക', release: 'അയക്കാൻ വിടുക', tapSend: 'അയക്കാൻ ടാപ്പ് ചെയ്യുക', recording: 'റെക്കോർഡിംഗ്...', helper: 'വോയ്സ് നോട്ടിനായി ബട്ടൺ അമർത്തുക' },
+  te: { hold: 'మాట్లాడటానికి నొక్కండి', release: 'పంపడానికి విడుదల చేయండి', tapSend: 'పంపడానికి నొక్కండి', recording: 'రికార్డింగ్...', helper: 'వాయిస్ నోట్ మాట్లాడటానికి బటన్ నొక్కండి' },
+  kn: { hold: 'ಮಾತನಾಡಲು ಒತ್ತಿ', release: 'ಕಳುಹಿಸಲು ಬಿಡಿ', tapSend: 'ಕಳುಹಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ', recording: 'ರೆಕಾರ್ಡಿಂಗ್...', helper: 'ಧ್ವನಿ ಟಿಪ್ಪಣಿಗಾಗಿ ಬಟನ್ ಒತ್ತಿ' },
+  ur: { hold: 'بولنے کے لیے دبائیں', release: 'بھیجنے کے لیے چھوڑیں', tapSend: 'بھیجنے کے لیے ٹیپ کریں', recording: 'ریکارڈنگ...', helper: 'وائس نوٹ کے لیے بٹن دبائیں' },
+  bn: { hold: 'কথা বলতে চাপুন', release: 'পাঠাতে ছেড়ে দিন', tapSend: 'পাঠাতে ট্যাপ করুন', recording: 'রেকর্ডিং...', helper: 'ভয়েস নোটের জন্য বোতাম চেপে রাখুন' },
+  mr: { hold: 'बोलण्यासाठी दाबा', release: 'पाठवण्यासाठी सोडा', tapSend: 'पाठवण्यासाठी टॅप करा', recording: 'रेकॉर्डिंग...', helper: 'व्हॉइस नोटसाठी बटण दाबा' },
+  gu: { hold: 'બોલવા માટે દબાવો', release: 'મોકલવા માટે છોડો', tapSend: 'મોકલવા માટે ટૅપ કરો', recording: 'રેકોર્ડિંગ...', helper: 'વૉઇસ નોટ માટે બટન દબાવો' },
+};
+
 export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
   onTranscript,
   disabled = false,
@@ -28,6 +41,10 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
+
+  // Auto-detect UI language from localStorage
+  const curLang = (typeof window !== 'undefined' && localStorage.getItem('tantra_app_ui_language')) || 'ta';
+  const ptt = PTT_UI_STRINGS[curLang] || PTT_UI_STRINGS['ta'] || PTT_UI_STRINGS['en'];
 
   const isPressingRef = useRef(false);
   const startTimeRef = useRef(0);
@@ -191,7 +208,7 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       >
         <span className="text-4xl mb-1">{isRecording ? '🎙️' : '🎤'}</span>
         <span className="font-black text-xs tracking-wider uppercase text-white">
-          {isRecording ? (isToggleModeRef.current ? (tapToSendLabel || 'TAP TO SEND') : (recordingLabel || 'RECORDING...')) : (holdToTalkLabel || 'HOLD / TAP TO TALK')}
+          {isRecording ? (isToggleModeRef.current ? (tapToSendLabel || ptt.tapSend) : (recordingLabel || ptt.recording)) : (holdToTalkLabel || ptt.hold)}
         </span>
         <span className="text-[11px] font-bold text-amber-300 font-mono mt-0.5">
           {isRecording ? `${recordDuration}s` : ''}
@@ -204,11 +221,11 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
           <>
             <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
             <span className="text-rose-300 font-bold">
-              {isToggleModeRef.current ? `🎙️ Recording (${recordDuration}s)... Tap again to send` : `🎙️ Recording (${recordDuration}s)... Release to send`}
+              {isToggleModeRef.current ? `🎙️ ${ptt.recording} (${recordDuration}s)... ${ptt.tapSend}` : `🎙️ ${ptt.recording} (${recordDuration}s)... ${ptt.release}`}
             </span>
           </>
         ) : (
-          <span className="text-slate-400">{helperPrompt || "Hold or Tap button to speak voice note"}</span>
+          <span className="text-slate-400">{helperPrompt || ptt.helper}</span>
         )}
       </div>
     </div>

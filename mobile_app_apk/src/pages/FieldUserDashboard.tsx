@@ -3477,10 +3477,10 @@ export default function FieldUserDashboard() {
                   return (
                     <div className="p-6 rounded-2xl bg-neutral-950 border border-red-900/60 text-center space-y-2 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
                       <span className="text-3xl animate-pulse">🚨</span>
-                      <p className="text-xs font-black text-rose-200 uppercase tracking-wide">Emergency SOS Gateway Ready</p>
-                      <p className="text-[9.5px] text-slate-400 font-bold">1-Tap Satellite Distress Beacon (LoRa Direct Gateway) connected to Disaster Command Center.</p>
+                      <p className="text-xs font-black text-rose-200 uppercase tracking-wide">{t.sosGatewayReady || "Emergency SOS Gateway Ready"}</p>
+                      <p className="text-[9.5px] text-slate-400 font-bold">{t.satelliteDistressConnected || "1-Tap Satellite Distress Beacon (LoRa Direct Gateway) connected to Disaster Command Center."}</p>
                       <span className="inline-block text-[8px] font-mono bg-red-950/80 text-rose-300 border border-red-800 px-3 py-1 rounded-full font-bold">
-                        Standby for Govt Broadcasts
+                        {t.standbyGovt || "Standby for Govt Broadcasts"}
                       </span>
                     </div>
                   );
@@ -3789,16 +3789,16 @@ export default function FieldUserDashboard() {
                 <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 font-bold border-b border-emerald-800/50 pb-1 mb-1.5">
                   <span className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${localMeshSpokenText || localMeshPersistentText ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
-                    <span>Voice to Text</span>
+                    <span>{t.voiceToText || "Voice to Text"}</span>
                   </span>
                   <span className={`text-[8.5px] font-mono ${localMeshSpokenText ? 'text-emerald-300 font-bold' : localMeshPersistentText ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
-                    {localMeshSpokenText ? 'Listening...' : localMeshPersistentText ? 'Transcribed ✓' : 'Ready'}
+                    {localMeshSpokenText ? (t.listening || 'Listening...') : localMeshPersistentText ? (t.transcribed || 'Transcribed ✓') : (t.ready || 'Ready')}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1 px-1">
                   <div className="text-emerald-100 text-xs font-sans font-bold min-h-[24px] flex items-center justify-center">
                     <span className="break-words w-full text-center">
-                      {localMeshSpokenText || localMeshPersistentText || <span className="text-slate-500 text-[11px] font-normal">Hold button and speak...</span>}
+                      {localMeshSpokenText || localMeshPersistentText || <span className="text-slate-500 text-[11px] font-normal">{t.holdButtonAndSpeak || "Hold button and speak..."}</span>}
                     </span>
                   </div>
                 </div>
