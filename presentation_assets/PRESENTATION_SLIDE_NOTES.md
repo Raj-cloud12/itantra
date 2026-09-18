@@ -6,25 +6,25 @@
 ### 🎨 Visual Presentation Graphics (Slide Headers & Stickers)
 
 #### ⭐ 1. Smart India Hackathon (SIH) Technical Approach Slide (Exact Official Template)
-![iTiTantra SIH Technical Approach Slide](C:\Users\rajku\.gemini\antigravity\brain\aee562ce-2420-4799-972c-aa832b34a99d\sih_technical_approach_1788696663664.jpg)
+![iTiTantra SIH Technical Approach Slide](./sih_technical_approach_1788696663664.jpg)
 
 #### 2. Core Tech Stack 3D Badges (Slide Sticker)
-![iTiTantra Core Tech Stack](C:\Users\rajku\.gemini\antigravity\brain\aee562ce-2420-4799-972c-aa832b34a99d\ititantra_tech_badges_1788696041615.jpg)
+![iTiTantra Core Tech Stack](./ititantra_tech_badges_1788696041615.jpg)
 
 #### 3. System Architecture & Multi-Hop Relay (Hero Slide)
-![iTiTantra Architecture Hero](C:\Users\rajku\.gemini\antigravity\brain\aee562ce-2420-4799-972c-aa832b34a99d\app_architecture_hero_1788696081028.jpg)
+![iTiTantra Architecture Hero](./app_architecture_hero_1788696081028.jpg)
 
 #### 4. Core Technical Architecture Workflow (4-Stage Pipeline)
-![iTiTantra Core Technical Workflow](C:\Users\rajku\.gemini\antigravity\brain\aee562ce-2420-4799-972c-aa832b34a99d\technical_workflow_flow_1788696455342.jpg)
+![iTiTantra Core Technical Workflow](./technical_workflow_flow_1788696455342.jpg)
 
 #### 5. Clean Text Block Diagram (Pure Architecture Boxes)
-![iTiTantra Clean Text Block Diagram](C:\Users\rajku\.gemini\antigravity\brain\aee562ce-2420-4799-972c-aa832b34a99d\clean_block_diagram_1788696408018.jpg)
+![iTiTantra Clean Text Block Diagram](./clean_block_diagram_1788696408018.jpg)
 
 #### 6. Hand-Drawn Pencil Sketch Workflow Diagram
-![iTiTantra Pencil Sketch Workflow](C:\Users\rajku\.gemini\antigravity\brain\aee562ce-2420-4799-972c-aa832b34a99d\sketch_workflow_chart_1788696230371.jpg)
+![iTiTantra Pencil Sketch Workflow](./sketch_workflow_chart_1788696230371.jpg)
 
 #### 7. End-to-End System Workflow (Line-Art Pipeline)
-![iTiTantra Technical Workflow Infographic](C:\Users\rajku\.gemini\antigravity\brain\aee562ce-2420-4799-972c-aa832b34a99d\ititantra_workflow_diagram_1788696151393.jpg)
+![iTiTantra Technical Workflow Infographic](./ititantra_workflow_diagram_1788696151393.jpg)
 
 ---
 

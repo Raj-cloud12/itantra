@@ -1,4 +1,4 @@
-﻿import os
+import os
 import shutil
 import subprocess
 
@@ -18,6 +18,6 @@ print("Copying new UI...")
 shutil.copytree("d:/itantra/frontend/dist", android_assets)
 
 print("Building APK...")
-run("python C:/Users/rajku/.gemini/antigravity/brain/aee562ce-2420-4799-972c-aa832b34a99d/scratch/build_apk_512m.py", "d:/itantra")
+run("gradlew.bat assembleDebug", "d:/itantra/mobile_app_apk/android")
 
 print("DONE!")
