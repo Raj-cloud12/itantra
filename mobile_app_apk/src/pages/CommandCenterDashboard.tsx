@@ -924,46 +924,11 @@ export default function CommandCenterDashboard() {
           {/* BIG RED SOS BROADCAST BUTTON */}
           <button
             onClick={() => setShowSosModal(true)}
-            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs px-4 py-2 rounded-xl border border-red-400 shadow-[0_0_15px_rgba(225,29,72,0.6)] animate-pulse flex items-center gap-2 active:scale-95 transition-all"
+            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-xs px-4 py-2 rounded-xl border border-red-400 shadow-[0_0_15px_rgba(225,29,72,0.6)] animate-pulse flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
             <span>🚨</span>
             <span>GOVT SOS BROADCAST</span>
           </button>
-
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
-            <button
-              onClick={() => switchMode('mode-1-hd-call')}
-              className={`px-2.5 py-1 rounded-lg text-[9.5px] font-mono font-bold transition-all ${
-                activeNetworkMode === 'mode-1-hd-call' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mode 1 (4G)
-            </button>
-            <button
-              onClick={() => switchMode('mode-2-compressed-voice')}
-              className={`px-2.5 py-1 rounded-lg text-[9.5px] font-mono font-bold transition-all ${
-                activeNetworkMode === 'mode-2-compressed-voice' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mode 2 (2G Audio)
-            </button>
-            <button
-              onClick={() => switchMode('mode-3-ai-mesh')}
-              className={`px-2.5 py-1 rounded-lg text-[9.5px] font-mono font-bold transition-all ${
-                activeNetworkMode === 'mode-3-ai-mesh' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mode 3 (AI Mesh)
-            </button>
-            <button
-              onClick={() => switchMode('mode-4-satellite-beacon')}
-              className={`px-2.5 py-1 rounded-lg text-[9.5px] font-mono font-bold transition-all ${
-                activeNetworkMode === 'mode-4-satellite-beacon' ? 'bg-rose-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mode 4 (Satellite 16B)
-            </button>
-          </div>
         </div>
       </header>
 
@@ -1155,7 +1120,7 @@ export default function CommandCenterDashboard() {
             <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-slate-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="font-bold text-slate-200">Unified Live Feed</span>
+                <span className="font-bold text-slate-200">Live Feed</span>
                 {feed.length >= 10 && (
                   <span className="ml-1 text-[9.5px] px-2 py-0.5 rounded-md bg-purple-900/70 text-purple-300 border border-purple-500/40 font-bold">
                     🧠 Auto-ANS (10+ Msgs)

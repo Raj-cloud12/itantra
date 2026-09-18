@@ -12,7 +12,449 @@ const INDIC_LANGUAGES_9 = [
   { code: 'gu',   name: 'ગુજરાતી',   label: 'Gujarati',    flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'gu-IN' },
 ];
 
-
+// 🌐 10-LANGUAGE FULL APP UI TRANSLATIONS DICTIONARY
+const UI_STRINGS: Record<string, Record<string, string>> = {
+  ta: {
+    settings: 'அமைப்புகள்',
+    appLanguage: 'செயலி மொழி',
+    voiceLanguage: 'குரல் மொழி',
+    alertTab: 'எச்சரிக்கை',
+    sosTab: 'அவசரம் (SOS)',
+    meshTab: 'மெஷ் சாட்',
+    oneTapSos: '1-டேப் அவசர SOS டிஸ்ட்ரஸ் பீக்கன்',
+    sendOneTapSos: '1-டேப் SOS அனுப்பு',
+    holdToTalk: 'பேச அழுத்தவும்',
+    holdToSpeakPrompt: 'வாய்ஸ் நோட் பேச பட்டனை அழுத்தவும்',
+    voiceToText: 'குரல் வழி உரை',
+    ready: 'தயார்',
+    listening: 'கேட்கிறது...',
+    transcribed: 'மாற்றப்பட்டது ✓',
+    holdButtonAndSpeak: 'பட்டனை அழுத்திப் பேசவும்...',
+    typeAlertMsg: 'எச்சரிக்கை செய்தியை தட்டச்சு செய்க...',
+    sendAlert: 'அனுப்பு',
+    govtSosGateway: 'அரசு SOS நுழைவாயில்',
+    directToCommand: 'பேரிடர் கட்டுப்பாட்டு அறைக்கு நேரடி இணைப்பு',
+    loraDirect: 'LoRa நேரடி நுழைவாயில்',
+    medicalEmergency: 'மருத்துவ அவசரம்',
+    foodWater: 'உணவு & குடிநீர் தேவை',
+    evacuationBoat: 'வெள்ள மீட்பு படகு தேவை',
+    trappedRoof: 'கூரை மீது சிக்கியுள்ளோம்',
+    typeCustomSos: 'அவசர உதவி விவரங்களை தட்டச்சு செய்க...',
+    send: 'அனுப்பு',
+    liveGovtSosLog: 'நேரலை அரசு SOS பதிவு',
+    onlySosCommand: 'SOS & கட்டுப்பாட்டு மையம் மட்டும்',
+    sosGatewayReady: 'அவசர SOS நுழைவாயில் தயார்',
+    standbyGovt: 'அரசு அறிவிப்புகளுக்கு காத்திருக்கவும்',
+    directChatRecipient: 'நேரடி சாட் பெறுநர்:',
+    enterCallsign: 'பெறுநர் பெயர் / கால்சைன்...',
+    set: 'அமை',
+    iamSafe: 'நான் நலமாக உள்ளேன் 👍',
+    needHelp: 'உதவி தேவை 🆘',
+    onMyWay: 'வந்து கொண்டிருக்கிறேன் 🏃',
+    allClear: 'அனைத்தும் சீராக உள்ளது ✅',
+    messageRecipient: 'செய்தி',
+    meshChat: 'மெஷ் சாட்',
+    you: 'நீங்கள்',
+    decrypted: 'மறைகுறியீடு நீக்கப்பட்டது',
+    lockedFor: 'பூட்டப்பட்டது',
+  },
+  en: {
+    settings: 'Settings',
+    appLanguage: 'App Language',
+    voiceLanguage: 'Voice Language',
+    alertTab: 'Alert',
+    sosTab: 'SOS',
+    meshTab: 'Local Mesh',
+    oneTapSos: '1-Tap Emergency SOS Distress Beacon',
+    sendOneTapSos: 'Send 1-Tap SOS',
+    holdToTalk: 'HOLD / TAP TO TALK',
+    holdToSpeakPrompt: 'Hold or Tap button to speak voice note',
+    voiceToText: 'Voice to Text',
+    ready: 'Ready',
+    listening: 'Listening...',
+    transcribed: 'Transcribed ✓',
+    holdButtonAndSpeak: 'Hold button and speak...',
+    typeAlertMsg: 'Type alert message...',
+    sendAlert: 'Send Alert',
+    govtSosGateway: 'Government SOS Gateway',
+    directToCommand: 'Direct to Disaster Command Center',
+    loraDirect: 'LoRa Direct Gateway',
+    medicalEmergency: 'Medical Emergency',
+    foodWater: 'Food & Clean Drinking Water',
+    evacuationBoat: 'Flood Evacuation Boat',
+    trappedRoof: 'Trapped on Roof',
+    typeCustomSos: 'Type custom SOS emergency details...',
+    send: 'Send',
+    liveGovtSosLog: 'Live Govt SOS & Distress Log',
+    onlySosCommand: 'Only SOS & Command Center',
+    sosGatewayReady: 'Emergency SOS Gateway Ready',
+    standbyGovt: 'Standby for Govt Broadcasts',
+    directChatRecipient: 'Direct Chat Recipient:',
+    enterCallsign: 'Enter recipient callsign / username...',
+    set: 'Set',
+    iamSafe: 'I am safe 👍',
+    needHelp: 'Need help 🆘',
+    onMyWay: 'On my way 🏃',
+    allClear: 'All clear ✅',
+    messageRecipient: 'Message',
+    meshChat: 'Mesh Chat',
+    you: 'You',
+    decrypted: 'Decrypted',
+    lockedFor: 'Locked for',
+  },
+  hi: {
+    settings: 'सेटिंग्स',
+    appLanguage: 'ऐप की भाषा',
+    voiceLanguage: 'वॉयस भाषा',
+    alertTab: 'अलर्ट',
+    sosTab: 'एसओएस (SOS)',
+    meshTab: 'लोकल मेश',
+    oneTapSos: '1-टैप आपातकालीन एसओएस बीकन',
+    sendOneTapSos: '1-टैप एसओएस भेजें',
+    holdToTalk: 'बोलने के लिए दबाएं',
+    holdToSpeakPrompt: 'वॉयस नोट बोलने के लिए बटन दबाएं',
+    voiceToText: 'आवाज़ से टेक्स्ट',
+    ready: 'तैयार',
+    listening: 'सुन रहा है...',
+    transcribed: 'ट्रांसक्राइब हुआ ✓',
+    holdButtonAndSpeak: 'बटन दबाकर बोलें...',
+    typeAlertMsg: 'अलर्ट संदेश लिखें...',
+    sendAlert: 'अलर्ट भेजें',
+    govtSosGateway: 'सरकारी एसओएस गेटवे',
+    directToCommand: 'आपदा नियंत्रण केंद्र से सीधा संपर्क',
+    loraDirect: 'LoRa डायरेक्ट गेटवे',
+    medicalEmergency: 'चिकित्सा आपातकाल',
+    foodWater: 'भोजन और स्वच्छ पानी',
+    evacuationBoat: 'बाढ़ बचाव नाव',
+    trappedRoof: 'छत पर फंसे हैं',
+    typeCustomSos: 'आपातकालीन विवरण लिखें...',
+    send: 'भेजें',
+    liveGovtSosLog: 'लाइव सरकारी एसओएस लॉग',
+    onlySosCommand: 'केवल एसओएस और कमांड सेंटर',
+    sosGatewayReady: 'आपातकालीन एसओएस गेटवे तैयार',
+    standbyGovt: 'सरकारी घोषणाओं की प्रतीक्षा करें',
+    directChatRecipient: 'सीधा चैट प्राप्तकर्ता:',
+    enterCallsign: 'प्राप्तकर्ता का नाम दर्ज करें...',
+    set: 'सेट करें',
+    iamSafe: 'मैं सुरक्षित हूँ 👍',
+    needHelp: 'मदद चाहिए 🆘',
+    onMyWay: 'रास्ते में हूँ 🏃',
+    allClear: 'सब ठीक है ✅',
+    messageRecipient: 'संदेश',
+    meshChat: 'मेश चैट',
+    you: 'आप',
+    decrypted: 'डिक्रिप्टेड',
+    lockedFor: 'के लिए सुरक्षित',
+  },
+  ml: {
+    settings: 'ക്രമീകരണങ്ങൾ',
+    appLanguage: 'ആപ്പ് ഭാഷ',
+    voiceLanguage: 'ശബ്ദ ഭാഷ',
+    alertTab: 'അലർട്ട്',
+    sosTab: 'എസ്ഒഎസ്',
+    meshTab: 'ലോക്കൽ മെഷ്',
+    oneTapSos: '1-ടാപ്പ് അടിയന്തര എസ്ഒഎസ് ബീക്കൺ',
+    sendOneTapSos: '1-ടാപ്പ് എസ്ഒഎസ് അയക്കുക',
+    holdToTalk: 'സംസാരിക്കാൻ അമർത്തുക',
+    holdToSpeakPrompt: 'വോയ്സ് നോട്ടിനായി ബട്ടൺ അമർത്തുക',
+    voiceToText: 'ശബ്ദം ടെക്സ്റ്റാക്കുക',
+    ready: 'തയ്യാറാണ്',
+    listening: 'കേൾക്കുന്നു...',
+    transcribed: 'മാറ്റി എഴുതി ✓',
+    holdButtonAndSpeak: 'ബട്ടൺ അമർത്തി സംസാരിക്കുക...',
+    typeAlertMsg: 'സന്ദേശം ടൈപ്പ് ചെയ്യുക...',
+    sendAlert: 'അയക്കുക',
+    govtSosGateway: 'സർക്കാർ എസ്ഒഎസ് ഗേറ്റ്‌വേ',
+    directToCommand: 'കൺട്രോൾ റൂമിലേക്ക് നേരിട്ട്',
+    loraDirect: 'LoRa ഡയറക്ട് ഗേറ്റ്‌വേ',
+    medicalEmergency: 'ചികിത്സാ സഹായം',
+    foodWater: 'ഭക്ഷണവും കുടിവെള്ളവും',
+    evacuationBoat: 'രക്ഷാ ബോട്ട് ആവശ്യമുണ്ട്',
+    trappedRoof: 'മേൽക്കൂരയിൽ കുടുങ്ങി',
+    typeCustomSos: 'സഹായ വിവരങ്ങൾ ടൈപ്പ് ചെയ്യുക...',
+    send: 'അയക്കുക',
+    liveGovtSosLog: 'തത്സമയ എസ്ഒഎസ് ലോഗ്',
+    onlySosCommand: 'എസ്ഒഎസ് & കൺട്രോൾ റൂം മാത്രം',
+    sosGatewayReady: 'എസ്ഒഎസ് ഗേറ്റ്‌വേ തയ്യാറാണ്',
+    standbyGovt: 'സർക്കാർ അറിയിപ്പുകൾക്കായി കാത്തിരിക്കുക',
+    directChatRecipient: 'ചാറ്റ് സ്വീകർത്താവ്:',
+    enterCallsign: 'പേര് നൽകുക...',
+    set: 'സെറ്റ്',
+    iamSafe: 'ഞാൻ സുരക്ഷിതനാണ് 👍',
+    needHelp: 'സഹായം വേണം 🆘',
+    onMyWay: 'വഴിയെ വരുന്നു 🏃',
+    allClear: 'എല്ലാം ശരിയായി ✅',
+    messageRecipient: 'സന്ദേശം',
+    meshChat: 'മെഷ് ചാറ്റ്',
+    you: 'നിങ്ങൾ',
+    decrypted: 'ഡീക്രിപ്റ്റ് ചെയ്തു',
+    lockedFor: 'പൂട്ടിയിരിക്കുന്നു',
+  },
+  te: {
+    settings: 'సెట్టింగ్‌లు',
+    appLanguage: 'యాప్ భాష',
+    voiceLanguage: 'వాయిస్ భాష',
+    alertTab: 'అలర్ట్',
+    sosTab: 'ఎస్ఓఎస్',
+    meshTab: 'లోకల్ మెష్',
+    oneTapSos: '1-ట్యాప్ అత్యవసర SOS బీకన్',
+    sendOneTapSos: '1-ట్యాప్ SOS పంపండి',
+    holdToTalk: 'మాట్లాడటానికి నొక్కండి',
+    holdToSpeakPrompt: 'వాయిస్ నోట్ మాట్లాడటానికి బటన్ నొక్కండి',
+    voiceToText: 'వాయిస్ టు టెక్స్ట్',
+    ready: 'సిద్ధంగా ఉంది',
+    listening: 'వింటోంది...',
+    transcribed: 'మార్చబడింది ✓',
+    holdButtonAndSpeak: 'బటన్ నొక్కి మాట్లాడండి...',
+    typeAlertMsg: 'సందేశం టైప్ చేయండి...',
+    sendAlert: 'పంపండి',
+    govtSosGateway: 'ప్రభుత్వ SOS గేట్‌వే',
+    directToCommand: 'నియంత్రణ కేంద్రానికి నేరుగా',
+    loraDirect: 'LoRa డైరెక్ట్ గేట్‌వే',
+    medicalEmergency: 'వైద్య అత్యవసరం',
+    foodWater: 'ఆహారం & తాగునీరు',
+    evacuationBoat: 'వరద సహాయక పడవ',
+    trappedRoof: 'పైకప్పుపై చిక్కుకున్నాం',
+    typeCustomSos: 'సహాయ వివరాలను టైప్ చేయండి...',
+    send: 'పంపండి',
+    liveGovtSosLog: 'ప్రత్యక్ష SOS లాగ్',
+    onlySosCommand: 'SOS & కంట్రోల్ సెంటర్ మాత్రమే',
+    sosGatewayReady: 'అత్యవసర SOS గేట్‌వే సిద్ధం',
+    standbyGovt: 'ప్రభుత్వ ప్రసారాల కోసం వేచి ఉండండి',
+    directChatRecipient: 'చాట్ స్వీకర్త:',
+    enterCallsign: 'పేరు నమోదు చేయండి...',
+    set: 'సెట్',
+    iamSafe: 'నేను క్షేమంగా ఉన్నాను 👍',
+    needHelp: 'సహాయం కావాలి 🆘',
+    onMyWay: 'వస్తున్నాను 🏃',
+    allClear: 'అంతా క్లియర్ ✅',
+    messageRecipient: 'సందేశం',
+    meshChat: 'మెష్ చాట్',
+    you: 'మీరు',
+    decrypted: 'డీక్రిప్ట్ చేయబడింది',
+    lockedFor: 'లాక్ చేయబడింది',
+  },
+  kn: {
+    settings: 'ಸೆಟ್ಟಿಂಗ್‌ಗಳು',
+    appLanguage: 'ಅಪ್ಲಿಕೇಶನ್ ಭಾಷೆ',
+    voiceLanguage: 'ಧ್ವನಿ ಭಾಷೆ',
+    alertTab: 'ಎಚ್ಚರಿಕೆ',
+    sosTab: 'ಎಸ್ಓಎಸ್',
+    meshTab: 'ಲೋಕಲ್ ಮೆಶ್',
+    oneTapSos: '1-ಟ್ಯಾಪ್ ತುರ್ತು SOS ಬೀಕನ್',
+    sendOneTapSos: '1-ಟ್ಯಾಪ್ SOS ಕಳುಹಿಸಿ',
+    holdToTalk: 'ಮಾತನಾಡಲು ಒತ್ತಿ',
+    holdToSpeakPrompt: 'ಧ್ವನಿ ಟಿಪ್ಪಣಿಗಾಗಿ ಬಟನ್ ಒತ್ತಿ',
+    voiceToText: 'ಧ್ವನಿಯಿಂದ ಪಠ್ಯ',
+    ready: 'ಸಿದ್ಧವಾಗಿದೆ',
+    listening: 'ಕೇಳುತ್ತಿದೆ...',
+    transcribed: 'ಪರಿವರ್ತಿಸಲಾಗಿದೆ ✓',
+    holdButtonAndSpeak: 'ಬಟನ್ ಒತ್ತಿ ಮಾತನಾಡಿ...',
+    typeAlertMsg: 'ಸಂದೇಶ ಟೈಪ್ ಮಾಡಿ...',
+    sendAlert: 'ಕಳುಹಿಸಿ',
+    govtSosGateway: 'ಸರ್ಕಾರಿ SOS ಗೇಟ್‌ವೇ',
+    directToCommand: 'ನಿಯಂತ್ರಣ ಕೊಠಡಿಗೆ ನೇರ ಸಂಪರ್ಕ',
+    loraDirect: 'LoRa ಡೈರೆಕ್ಟ್ ಗೇಟ್‌ವೇ',
+    medicalEmergency: 'ವೈದ್ಯಕೀಯ ತುರ್ತು',
+    foodWater: 'ಆಹಾರ ಮತ್ತು ನೀರು',
+    evacuationBoat: 'ರಕ್ಷಣಾ ದೋಣಿ ಬೇಕು',
+    trappedRoof: 'ಮೇಲ್ಛಾವಣಿಯಲ್ಲಿ ಸಿಲುಕಿದ್ದೇವೆ',
+    typeCustomSos: 'ತುರ್ತು ವಿವರ ಟೈಪ್ ಮಾಡಿ...',
+    send: 'ಕಳುಹಿಸಿ',
+    liveGovtSosLog: 'ನೇರ SOS ಲಾಗ್',
+    onlySosCommand: 'SOS ಮತ್ತು ಕಮಾಂಡ್ ಸೆಂಟರ್ ಮಾತ್ರ',
+    sosGatewayReady: 'ತುರ್ತು SOS ಗೇಟ್‌ವೇ ಸಿದ್ಧವಾಗಿದೆ',
+    standbyGovt: 'ಸರ್ಕಾರಿ ಪ್ರಸಾರಕ್ಕಾಗಿ ಕಾಯಿರಿ',
+    directChatRecipient: 'ಸ್ವೀಕರಿಸುವವರು:',
+    enterCallsign: 'ಹೆಸರು ನಮೂದಿಸಿ...',
+    set: 'ಸೆಟ್',
+    iamSafe: 'ನಾನು ಸುರಕ್ಷಿತವಾಗಿದ್ದೇನೆ 👍',
+    needHelp: 'ಸಹಾಯ ಬೇಕು 🆘',
+    onMyWay: 'ದಾರಿಯಲ್ಲಿದ್ದೇನೆ 🏃',
+    allClear: 'ಎಲ್ಲವೂ ಸರಿಯಾಗಿದೆ ✅',
+    messageRecipient: 'ಸಂದೇಶ',
+    meshChat: 'ಮೆಶ್ ಚಾಟ್',
+    you: 'ನೀವು',
+    decrypted: 'ಡಿಕ್ರಿಪ್ಟ್ ಮಾಡಲಾಗಿದೆ',
+    lockedFor: 'ಲಾಕ್ ಮಾಡಲಾಗಿದೆ',
+  },
+  ur: {
+    settings: 'ترتیبات',
+    appLanguage: 'ایپ کی زبان',
+    voiceLanguage: 'آواز کی زبان',
+    alertTab: 'انتباہ',
+    sosTab: 'ایس او ایس',
+    meshTab: 'لوکل میش',
+    oneTapSos: '1-ٹیپ ہنگامی SOS بیکن',
+    sendOneTapSos: '1-ٹیپ SOS بھیجیں',
+    holdToTalk: 'بولنے کے لیے دبائیں',
+    holdToSpeakPrompt: 'وائس نوٹ کے لیے بٹن دبائیں',
+    voiceToText: 'آواز سے متن',
+    ready: 'تیار',
+    listening: 'سن رہا ہے...',
+    transcribed: 'تبدیل شدہ ✓',
+    holdButtonAndSpeak: 'بٹن دبا کر بولیں...',
+    typeAlertMsg: 'پیغام ٹائپ کریں...',
+    sendAlert: 'بھیجیں',
+    govtSosGateway: 'سرکاری SOS گیٹ وے',
+    directToCommand: 'کنٹرول روم سے براہ راست رابطہ',
+    loraDirect: 'LoRa ڈائریکٹ گیٹ وے',
+    medicalEmergency: 'طبی ایمرجنسی',
+    foodWater: 'کھانا اور پینے کا پانی',
+    evacuationBoat: 'ریسکیو کشتی کی ضرورت',
+    trappedRoof: 'چھت پر پھنسے ہوئے ہیں',
+    typeCustomSos: 'تفصیل ٹائپ کریں...',
+    send: 'بھیجیں',
+    liveGovtSosLog: 'لائیو SOS لاگ',
+    onlySosCommand: 'صرف SOS اور کمانڈ سینٹر',
+    sosGatewayReady: 'ایمرجنسی SOS گیٹ وے تیار ہے',
+    standbyGovt: 'سرکاری اعلانات کا انتظار کریں',
+    directChatRecipient: 'وصول کنندہ:',
+    enterCallsign: 'نام درج کریں...',
+    set: 'سیٹ',
+    iamSafe: 'میں محفوظ ہوں 👍',
+    needHelp: 'مدد چاہیے 🆘',
+    onMyWay: 'راستے میں ہوں 🏃',
+    allClear: 'سب ٹھیک ہے ✅',
+    messageRecipient: 'پیغام',
+    meshChat: 'میش چیٹ',
+    you: 'آپ',
+    decrypted: 'ڈیکرپٹ شدہ',
+    lockedFor: 'کے لیے مقفل',
+  },
+  bn: {
+    settings: 'সেটিংস',
+    appLanguage: 'অ্যাপের ভাষা',
+    voiceLanguage: 'ভয়েস ভাষা',
+    alertTab: 'সতর্কতা',
+    sosTab: 'এসওএস',
+    meshTab: 'লোকাল মেশ',
+    oneTapSos: '১-ট্যাপ জরুরি SOS বীকন',
+    sendOneTapSos: '১-ট্যাপ SOS পাঠান',
+    holdToTalk: 'কথা বলতে চাপুন',
+    holdToSpeakPrompt: 'ভয়েস নোটের জন্য বোতাম চেপে রাখুন',
+    voiceToText: 'ভয়েস থেকে টেক্সট',
+    ready: 'প্রস্তুত',
+    listening: 'শুনছে...',
+    transcribed: 'রূপান্তরিত ✓',
+    holdButtonAndSpeak: 'বোতাম চেপে কথা বলুন...',
+    typeAlertMsg: 'বার্তা টাইপ করুন...',
+    sendAlert: 'পাঠান',
+    govtSosGateway: 'সরকারি SOS গেটওয়ে',
+    directToCommand: 'কন্ট্রোল রুমে সরাসরি যোগাযোগ',
+    loraDirect: 'LoRa ডাইরেক্ট গেটওয়ে',
+    medicalEmergency: 'চিকিৎসা জরুরি অবস্থা',
+    foodWater: 'খাবার ও বিশুদ্ধ পানি',
+    evacuationBoat: 'উদ্ধারকারী নৌকা',
+    trappedRoof: 'ছাদে আটকে আছি',
+    typeCustomSos: 'জরুরি বিবরণ টাইপ করুন...',
+    send: 'পাঠান',
+    liveGovtSosLog: 'লাইভ SOS লগ',
+    onlySosCommand: 'শুধুমাত্র SOS ও কমান্ড সেন্টার',
+    sosGatewayReady: 'জরুরি SOS গেটওয়ে প্রস্তুত',
+    standbyGovt: 'সরকারি ঘোষণার জন্য অপেক্ষা করুন',
+    directChatRecipient: 'চ্যাট প্রাপক:',
+    enterCallsign: 'নাম লিখুন...',
+    set: 'সেট',
+    iamSafe: 'আমি নিরাপদ আছি 👍',
+    needHelp: 'সাহায্য দরকার 🆘',
+    onMyWay: 'আসছি 🏃',
+    allClear: 'সব ঠিক আছে ✅',
+    messageRecipient: 'বার্তা',
+    meshChat: 'মেশ চ্যাট',
+    you: 'আপনি',
+    decrypted: 'ডিক্রিপ্ট করা',
+    lockedFor: 'এর জন্য লক করা',
+  },
+  mr: {
+    settings: 'सेटिंग्ज',
+    appLanguage: 'अ‍ॅपची भाषा',
+    voiceLanguage: 'आवाज भाषा',
+    alertTab: 'इशारा',
+    sosTab: 'एसओएस',
+    meshTab: 'लोकल मेश',
+    oneTapSos: '१-टॅप आपत्कालीन SOS बीकन',
+    sendOneTapSos: '१-टॅप SOS पाठवा',
+    holdToTalk: 'बोलण्यासाठी दाबा',
+    holdToSpeakPrompt: 'व्हॉइस नोटसाठी बटण दाबा',
+    voiceToText: 'आवाजातून मजकूर',
+    ready: 'सज्ज',
+    listening: 'ऐकत आहे...',
+    transcribed: 'रूपांतरित ✓',
+    holdButtonAndSpeak: 'बटण दाबून बोला...',
+    typeAlertMsg: 'संदेश टाइप करा...',
+    sendAlert: 'पाठवा',
+    govtSosGateway: 'सरकारी SOS गेटवे',
+    directToCommand: 'नियंत्रण कक्षाशी थेट संपर्क',
+    loraDirect: 'LoRa डायरेक्ट गेटवे',
+    medicalEmergency: 'वैद्यकीय आणीबाणी',
+    foodWater: 'अन्न आणि पिण्याचे पाणी',
+    evacuationBoat: 'बचाव बोट हवी',
+    trappedRoof: 'छतावर अडकलो आहोत',
+    typeCustomSos: 'तपशील टाइप करा...',
+    send: 'पाठवा',
+    liveGovtSosLog: 'लाइव्ह SOS नोंद',
+    onlySosCommand: 'फक्त SOS आणि कमांड सेंटर',
+    sosGatewayReady: 'आपत्कालीन SOS गेटवे सज्ज आहे',
+    standbyGovt: 'सरकारी घोषणांची वाट पहा',
+    directChatRecipient: 'प्राप्तकर्ता:',
+    enterCallsign: 'नाव टाका...',
+    set: 'सेट',
+    iamSafe: 'मी सुरक्षित आहे 👍',
+    needHelp: 'मदत हवी आहे 🆘',
+    onMyWay: 'येत आहे 🏃',
+    allClear: 'सर्व ठीक आहे ✅',
+    messageRecipient: 'संदेश',
+    meshChat: 'मेश चॅट',
+    you: 'तुम्ही',
+    decrypted: 'डिक्रिप्ट केले',
+    lockedFor: 'साठी सुरक्षित',
+  },
+  gu: {
+    settings: 'સેટિંગ્સ',
+    appLanguage: 'ઍપની ભાષા',
+    voiceLanguage: 'અવાજ ભાષા',
+    alertTab: 'ચેતવણી',
+    sosTab: 'એસઓએસ',
+    meshTab: 'લોકલ મેશ',
+    oneTapSos: '1-ટેપ ઇમરજન્સી SOS બીકન',
+    sendOneTapSos: '1-ટેપ SOS મોકલો',
+    holdToTalk: 'બોલવા માટે દબાવો',
+    holdToSpeakPrompt: 'વૉઇસ નોટ માટે બટન દબાવો',
+    voiceToText: 'અવાજથી ટેક્સ્ટ',
+    ready: 'તૈયાર',
+    listening: 'સાંભળી રહ્યું છે...',
+    transcribed: 'રૂપાંતરિત ✓',
+    holdButtonAndSpeak: 'બટન દબાવીને બોલો...',
+    typeAlertMsg: 'સંદેશ લખો...',
+    sendAlert: 'મોકલો',
+    govtSosGateway: 'સરકારી SOS ગેટવે',
+    directToCommand: 'નિયંત્રણ કેન્દ્ર સાથે સીધો સંપર્ક',
+    loraDirect: 'LoRa ડાયરેક્ટ ગેટવે',
+    medicalEmergency: 'તબીબી કટોકટી',
+    foodWater: 'ખોરાક અને પીવાનું પાણી',
+    evacuationBoat: 'બચાવ બોટ જોઈએ',
+    trappedRoof: 'ધાબા પર ફસાયા છીએ',
+    typeCustomSos: 'વિગતો લખો...',
+    send: 'મોકલો',
+    liveGovtSosLog: 'લાઇવ SOS લૉગ',
+    onlySosCommand: 'માત્ર SOS અને કમાન્ડ સેન્ટર',
+    sosGatewayReady: 'ઇમરજન્સી SOS ગેટવે તૈયાર છે',
+    standbyGovt: 'સરકારી ઘોષણાઓની રાહ જુઓ',
+    directChatRecipient: 'પ્રાપ્તકર્તા:',
+    enterCallsign: 'નામ દાખલ કરો...',
+    set: 'સેટ',
+    iamSafe: 'હું સુરક્ષિત છું 👍',
+    needHelp: 'મદદ જોઈએ છે 🆘',
+    onMyWay: 'રસ્તામાં છું 🏃',
+    allClear: 'બધું બરાબર છે ✅',
+    messageRecipient: 'સંદેશ',
+    meshChat: 'મેશ ચેટ',
+    you: 'તમે',
+    decrypted: 'ડિક્રિપ્ટ કરેલ',
+    lockedFor: 'માટે લૉક કરેલ',
+  }
+};
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
@@ -644,6 +1086,16 @@ export default function FieldUserDashboard() {
     } catch {}
     return 'en';
   });
+  // 🌐 App Full UI Language State (Defaults to saved or Tamil 'ta')
+  const [appLang, setAppLang] = useState<string>(() => {
+    return localStorage.getItem('tantra_app_ui_language') || localStorage.getItem('fixed_user_language') || 'ta';
+  });
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const recentMeshPacketKeysRef = useRef<Set<string>>(new Set());
+
+  // Active UI dictionary for app full text localization
+  const t = UI_STRINGS[appLang] || UI_STRINGS['ta'] || UI_STRINGS['en'];
+
   const [activeTranslations, setActiveTranslations] = useState<Record<string, string>>({});
   const [coords, setCoords] = useState<{ lat: number; lng: number }>({ lat: 12.8718, lng: 80.2185 });
   const [addressName, setAddressName] = useState<string>("Locating GPS...");
@@ -1233,21 +1685,50 @@ export default function FieldUserDashboard() {
         const myClean = normalizeName(myUsername);
         const targetClean = normalizeName(lastMessage.target_username);
         const senderClean = normalizeName(lastMessage.sender_username);
-        if (targetClean === myClean || senderClean === myClean) {
+
+        // 1. SENDER ECHO REJECTION: If sent by this device, NEVER re-add it!
+        if (senderClean === myClean && myClean) {
+          return;
+        }
+
+        // 2. STRICT PRIVACY & RECEIVER CHECK
+        if (targetClean === myClean || targetClean === '@all_friends' || !targetClean) {
           let finalText = lastMessage.text;
-          if (lastMessage.encrypted_text && targetClean === myClean) {
-            finalText = decodeE2EE(lastMessage.encrypted_text, myUsername);
+          if (lastMessage.encrypted_text && (targetClean === myClean || targetClean === '@all_friends')) {
+            const dec = decodeE2EE(lastMessage.encrypted_text, myUsername);
+            if (dec) finalText = dec;
           }
+
+          const cleanCipher = (lastMessage.cipher_code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+          const cleanText = (finalText || '').trim();
+          const dedupKey = `${senderClean}_${targetClean}_${cleanText}_${cleanCipher.slice(-4)}`;
+
+          if (recentMeshPacketKeysRef.current.has(dedupKey)) {
+            return;
+          }
+          recentMeshPacketKeysRef.current.add(dedupKey);
+          setTimeout(() => recentMeshPacketKeysRef.current.delete(dedupKey), 15000);
+
           const displayMsg = {
             ...lastMessage,
             text: finalText,
             is_decrypted: targetClean === myClean && !!lastMessage.encrypted_text
           };
+
           setLocalMeshMessages(prev => {
-            const exists = prev.some(m => m.id === lastMessage.id || (m.timestamp === lastMessage.timestamp && m.text === finalText));
+            const exists = prev.some((m) => {
+              if (m.id && lastMessage.id && m.id === lastMessage.id) return true;
+              const mCipher = (m.cipher_code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+              if (mCipher && cleanCipher && (mCipher.endsWith(cleanCipher) || cleanCipher.endsWith(mCipher))) return true;
+              const mSender = normalizeName(m.sender_username);
+              const mText = (m.text || '').trim();
+              if (mSender === senderClean && mText === cleanText) return true;
+              return false;
+            });
             if (exists) return prev;
             return [displayMsg, ...prev].slice(0, 50);
           });
+
           if (targetClean === myClean) {
             triggerSafeHaptic(300);
             if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
@@ -1441,12 +1922,29 @@ export default function FieldUserDashboard() {
             const targetClean = normalizeName(parsed.target_username);
             const senderClean = normalizeName(parsed.sender_username);
 
-            // STRICT PRIVACY: Only store and display if I am the intended recipient or sender!
-            if (targetClean === myClean || senderClean === myClean) {
+            // 1. SENDER ECHO REJECTION: If this packet was sent by this device, NEVER re-add it!
+            if (senderClean === myClean && myClean) {
+              return;
+            }
+
+            // 2. STRICT PRIVACY & RECEIVER CHECK
+            if (targetClean === myClean || targetClean === '@all_friends' || !targetClean) {
               let finalText = parsed.text;
-              if (parsed.encrypted_text && targetClean === myClean) {
-                finalText = decodeE2EE(parsed.encrypted_text, myUsername);
+              if (parsed.encrypted_text && (targetClean === myClean || targetClean === '@all_friends')) {
+                const dec = decodeE2EE(parsed.encrypted_text, myUsername);
+                if (dec) finalText = dec;
               }
+
+              // Robust cipher code cleaning (remove 'LOCK#', 'KEY#', '#', '-')
+              const cleanCipher = (parsed.cipher_code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+              const cleanText = (finalText || '').trim();
+              const dedupKey = `${senderClean}_${targetClean}_${cleanText}_${cleanCipher.slice(-4)}`;
+
+              if (recentMeshPacketKeysRef.current.has(dedupKey)) {
+                return;
+              }
+              recentMeshPacketKeysRef.current.add(dedupKey);
+              setTimeout(() => recentMeshPacketKeysRef.current.delete(dedupKey), 15000);
 
               const displayMsg = {
                 ...parsed,
@@ -1455,7 +1953,15 @@ export default function FieldUserDashboard() {
               };
 
               setLocalMeshMessages((prev) => {
-                const exists = prev.some(m => m.id === parsed.id || (m.cipher_code === parsed.cipher_code && m.cipher_code));
+                const exists = prev.some((m) => {
+                  if (m.id && parsed.id && m.id === parsed.id) return true;
+                  const mCipher = (m.cipher_code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                  if (mCipher && cleanCipher && (mCipher.endsWith(cleanCipher) || cleanCipher.endsWith(mCipher))) return true;
+                  const mSender = normalizeName(m.sender_username);
+                  const mText = (m.text || '').trim();
+                  if (mSender === senderClean && mText === cleanText) return true;
+                  return false;
+                });
                 if (exists) return prev;
                 return [displayMsg, ...prev].slice(0, 50);
               });
@@ -1914,11 +2420,6 @@ export default function FieldUserDashboard() {
     }
 
     // Pipeline progress animation: Instant for Mode 1 & Mode 2, snappy for satellite
-    if (networkMode !== 'mode-1-hd-call' && networkMode !== 'mode-2-compressed-voice') {
-      await new Promise((r) => setTimeout(r, 150));
-      setPipelineStage('compressing');
-      await new Promise((r) => setTimeout(r, 150));
-    }
     setPipelineStage('transmitting');
 
     const payloadObj = {
@@ -1948,7 +2449,6 @@ export default function FieldUserDashboard() {
     const payload = JSON.stringify(payloadObj);
 
     // ONLY broadcast over local radio mesh in Mode 3 (handled above) or Mode 4 (Satellite SOS) or if emergency!
-    // Mode 1 (HD 5G) and Mode 2 (2G Voice) are direct cellular/internet uplinks to Command Center and MUST NOT emit local radio mesh packets!
     const isMeshRadioMode = (networkMode as string) === 'mode-4-satellite-beacon' || emergencyFlag;
     if (isMeshRadioMode && (window as any).AndroidBleMeshBridge && (window as any).AndroidBleMeshBridge.broadcastMeshPacket) {
       try {
@@ -1956,14 +2456,17 @@ export default function FieldUserDashboard() {
       } catch (e) {}
     }
 
+    // ⚡ Ultra-fast instant dispatch over WebSocket to Command Center
     if (send) {
       try { send(payloadObj); } catch {}
     }
 
-    // Dispatch directly to Command Center via High-Speed Parallel Endpoints
-    const targets = getReliableEndpoints('/api/messages/send');
-    await sendPayloadSingle(targets, payload);
+    // Immediately mark as delivered in local UI for instant feedback
     setSentMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, status: 'delivered' } : m));
+
+    // Concurrently dispatch to Command Center via High-Speed Endpoints without blocking
+    const targets = getReliableEndpoints('/api/messages/send');
+    sendPayloadSingle(targets, payload);
 
     setLastDeliveryToast(`✅ ${
       networkMode === 'mode-1-hd-call'
@@ -2129,9 +2632,15 @@ export default function FieldUserDashboard() {
       const echoKey = `${payloadObj.cipher_code}_${payloadObj.text || ''}_h${1}`;
       relayedPacketIdsRef.current.add(echoKey);
     }
+    const cleanCipher = (payloadObj.cipher_code || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const cleanText = (finalText || '').trim();
+    const dedupKey = `${normalizeName(effectiveSender)}_${normalizeName(effectiveTarget)}_${cleanText}_${cleanCipher.slice(-4)}`;
+    recentMeshPacketKeysRef.current.add(dedupKey);
+
     // Clear the echo block after 30 seconds
     setTimeout(() => {
       relayedPacketIdsRef.current.delete(msgId);
+      recentMeshPacketKeysRef.current.delete(dedupKey);
     }, 30000);
 
     setLocalMeshMessages((prev) => {
@@ -2177,8 +2686,18 @@ export default function FieldUserDashboard() {
     <div className="h-screen w-screen bg-black text-slate-100 flex flex-col justify-between overflow-hidden font-sans select-none">
       
       {/* 1. TOP HEADER */}
-      <header className="px-4 py-2.5 bg-gradient-to-b from-neutral-950/95 to-black/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
+      <header className="px-3.5 py-2.5 bg-gradient-to-b from-neutral-950/95 to-black/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-1.5">
+
+          {/* ⚙️ App Settings Button */}
+          <button
+            type="button"
+            onClick={() => setShowSettingsModal(true)}
+            className="w-8 h-8 rounded-full bg-white/5 border border-white/10 text-white/80 hover:text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center shadow-sm"
+            title={t.settings || "Settings"}
+          >
+            <span className="text-sm">⚙️</span>
+          </button>
 
           {/* 👤 Tactical User CallSign / Profile Button */}
           <button
@@ -2191,7 +2710,7 @@ export default function FieldUserDashboard() {
                 setShowUserModal(true);
               }
             }}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-semibold border transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-full text-[10px] font-semibold border transition-all flex items-center gap-1 active:scale-95 cursor-pointer ${
               isUsernameLocked
                 ? 'bg-emerald-950/50 border-emerald-400/30 text-emerald-300'
                 : 'bg-cyan-950/50 border-cyan-400/30 text-cyan-300'
@@ -2257,6 +2776,84 @@ export default function FieldUserDashboard() {
           </span>
         </div>
       </header>
+
+      {/* ⚙️ SETTINGS MODAL — FULL 10-LANGUAGE APP LOCALIZATION */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 select-none">
+          <div className="bg-neutral-950 border border-white/10 rounded-3xl w-full max-w-sm shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚙️</span>
+                <div>
+                  <h3 className="text-sm font-bold text-white">{t.settings || "Settings"}</h3>
+                  <p className="text-[10px] text-white/50">{t.appLanguage || "App Language"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                className="w-8 h-8 rounded-full bg-white/5 border border-white/10 text-white/60 hover:text-white flex items-center justify-center text-xs active:scale-95 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 10 Language Cards */}
+            <div className="p-4 space-y-2 overflow-y-auto flex-1">
+              <div className="text-[10px] uppercase font-semibold text-white/40 tracking-wider mb-2">
+                Select App Language / மொழியைத் தேர்ந்தெடுக்கவும்
+              </div>
+              {INDIC_LANGUAGES_9.map((l) => {
+                const isSelected = appLang === l.code;
+                return (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => {
+                      setAppLang(l.code);
+                      localStorage.setItem('tantra_app_ui_language', l.code);
+                      setSelectedTransLang(l.code);
+                      localStorage.setItem('fixed_user_language', l.code);
+                      localStorage.setItem('local_language', l.code);
+                      setLastDeliveryToast(`🌐 App language changed to ${l.name} (${l.label})`);
+                    }}
+                    className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-950/60 border-emerald-500/50 text-white shadow-lg'
+                        : 'bg-white/[0.03] border-white/5 text-white/70 hover:bg-white/[0.06] hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{l.flag}</span>
+                      <div>
+                        <div className="text-sm font-bold text-white">{l.name}</div>
+                        <div className="text-[10px] text-white/40">{l.label}</div>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <span className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-400 flex items-center justify-center text-xs font-bold">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-white/10 bg-black/40 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                className="px-5 py-2 rounded-full bg-emerald-600 text-white text-xs font-semibold active:scale-95 transition-all cursor-pointer"
+              >
+                {t.set || "Done"} ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 {/* 🌐 QUICK TOP-BAR LANGUAGE SELECTOR MODAL */}
       {showLangModal && (
@@ -2579,10 +3176,10 @@ export default function FieldUserDashboard() {
             <button
               type="button"
               onClick={triggerOneTapSOS}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-sm tracking-wide uppercase flex items-center justify-center gap-2 active:scale-[0.97] transition-all cursor-pointer"
+              className="w-full py-5 px-6 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white font-black text-base md:text-lg tracking-wider uppercase flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(239,68,68,0.5)] border-2 border-red-400 active:scale-[0.97] transition-all cursor-pointer"
             >
-              <span className="text-lg">🚨</span>
-              <span>1-Tap Emergency SOS Distress Beacon</span>
+              <span className="text-2xl animate-pulse">🚨</span>
+              <span>{t.oneTapSos || "1-Tap Emergency SOS Distress Beacon"}</span>
             </button>
 
             {/* GPS COORDINATES & PLACE NAME BADGE */}
@@ -2689,16 +3286,16 @@ export default function FieldUserDashboard() {
                 <div className="flex items-center justify-between text-[9px] text-emerald-400/80 font-medium pb-1 mb-1.5 border-b border-white/5">
                   <span className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${spokenSpeechText || persistentSpokenText ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`}></span>
-                    <span>Voice to Text</span>
+                    <span>{t.voiceToText || "Voice to Text"}</span>
                   </span>
                   <span className={`text-[8.5px] ${spokenSpeechText ? 'text-emerald-300' : persistentSpokenText ? 'text-emerald-400' : 'text-white/30'}`}>
-                    {spokenSpeechText ? 'Listening...' : persistentSpokenText ? 'Transcribed ✓' : 'Ready'}
+                    {spokenSpeechText ? (t.listening || 'Listening...') : persistentSpokenText ? (t.transcribed || 'Transcribed ✓') : (t.ready || 'Ready')}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1 px-1">
                   <div className="text-white/90 text-xs font-normal min-h-[24px] flex items-center justify-center">
                     <span className="break-words w-full text-center">
-                      {spokenSpeechText || persistentSpokenText || <span className="text-white/25 text-[11px]">Hold button and speak...</span>}
+                      {spokenSpeechText || persistentSpokenText || <span className="text-white/25 text-[11px]">{t.holdButtonAndSpeak || "Hold button and speak..."}</span>}
                     </span>
                   </div>
                 </div>
@@ -2745,7 +3342,7 @@ export default function FieldUserDashboard() {
                 type="text"
                 value={textInput}
                 onChange={(e) => { setTextInput(e.target.value); }}
-                placeholder="Type alert message..."
+                placeholder={t.typeAlertMsg || "Type alert message..."}
                 className="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-4 py-2.5 text-xs text-white placeholder-white/25 focus:outline-none focus:border-blue-500/50 transition-colors"
               />
               <button
@@ -2767,12 +3364,12 @@ export default function FieldUserDashboard() {
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🚨</span>
                   <div>
-                    <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wide">Government SOS Gateway</h3>
-                    <span className="text-[8.5px] text-emerald-400/70 font-medium">Direct to Disaster Command Center</span>
+                    <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wide">{t.govtSosGateway || "Government SOS Gateway"}</h3>
+                    <span className="text-[8.5px] text-emerald-400/70 font-medium">{t.directToCommand || "Direct to Disaster Command Center"}</span>
                   </div>
                 </div>
                 <span className="text-[8px] bg-red-500/10 border border-red-500/20 text-rose-400/70 px-2 py-0.5 rounded-full font-medium">
-                  LoRa Direct Gateway
+                  {t.loraDirect || "LoRa Direct Gateway"}
                 </span>
               </div>
 
@@ -2780,10 +3377,10 @@ export default function FieldUserDashboard() {
               <button
                 type="button"
                 onClick={triggerOneTapSOS}
-                className="w-full bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-sm py-3 rounded-2xl active:scale-[0.97] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white font-black text-base md:text-lg py-5 px-6 rounded-2xl shadow-[0_0_30px_rgba(239,68,68,0.5)] border-2 border-red-400 active:scale-[0.97] transition-all flex items-center justify-center gap-3 cursor-pointer"
               >
-                <span className="text-lg">🚨</span>
-                <span>Send 1-Tap SOS</span>
+                <span className="text-2xl animate-pulse">🚨</span>
+                <span>{t.sendOneTapSos || "Send 1-Tap SOS"}</span>
               </button>
 
 
@@ -2805,10 +3402,10 @@ export default function FieldUserDashboard() {
               {/* 4 Quick Emergency Distress Buttons */}
               <div className="grid grid-cols-2 gap-1.5 pt-1">
                 {[
-                  { icon: '🚑', text: 'Medical Emergency - Need Ambulance' },
-                  { icon: '🍞', text: 'Food & Clean Drinking Water Needed' },
-                  { icon: '🚤', text: 'Flood Evacuation Boat Required' },
-                  { icon: '🏠', text: 'Trapped on Roof - House Submerged' }
+                  { icon: '🚑', text: t.medicalEmergency || 'Medical Emergency' },
+                  { icon: '🍞', text: t.foodWater || 'Food & Clean Drinking Water' },
+                  { icon: '🚤', text: t.evacuationBoat || 'Flood Evacuation Boat' },
+                  { icon: '🏠', text: t.trappedRoof || 'Trapped on Roof' }
                 ].map((item, idx) => (
                   <button
                     key={idx}
@@ -2817,7 +3414,7 @@ export default function FieldUserDashboard() {
                     className="p-2 rounded-xl bg-black/60 border border-red-900/80 hover:border-red-400 text-left text-[9.5px] font-bold text-rose-200 flex items-center gap-1.5 active:scale-95 transition-all"
                   >
                     <span>{item.icon}</span>
-                    <span className="truncate">{item.text.split(' - ')[0]}</span>
+                    <span className="truncate">{item.text}</span>
                   </button>
                 ))}
               </div>
@@ -2829,16 +3426,16 @@ export default function FieldUserDashboard() {
                   value={sosCustomInput}
                   onChange={(e) => setSosCustomInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendSosToCommandCenter(sosCustomInput)}
-                  placeholder="Type custom SOS emergency details..."
+                  placeholder={t.typeCustomSos || "Type custom SOS emergency details..."}
                   className="flex-1 bg-slate-950 border border-red-800 rounded-xl px-3 py-2 text-xs text-rose-100 placeholder-slate-600 focus:outline-none focus:border-red-400 font-bold"
                 />
                 <button
                   type="button"
                   onClick={() => sendSosToCommandCenter(sosCustomInput)}
                   disabled={!sosCustomInput.trim()}
-                  className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-md border border-red-400 active:scale-95 transition-all"
+                  className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-md border border-red-400 active:scale-95 transition-all cursor-pointer"
                 >
-                  Send
+                  {t.send || "Send"}
                 </button>
               </div>
             </div>
@@ -2849,9 +3446,9 @@ export default function FieldUserDashboard() {
             <div className="space-y-2">
               <div className="flex items-center justify-between px-1">
                 <span className="text-[10.5px] font-black uppercase text-slate-300 tracking-wider flex items-center gap-1.5">
-                  <span>📡</span> Live Govt SOS & Distress Log
+                  <span>📡</span> {t.liveGovtSosLog || "Live Govt SOS & Distress Log"}
                 </span>
-                <span className="text-[9px] text-slate-500 font-bold">Only SOS & Command Center</span>
+                <span className="text-[9px] text-slate-500 font-bold">{t.onlySosCommand || "Only SOS & Command Center"}</span>
               </div>
 
               {/* Filter and display SOS and Command Center alerts */}
@@ -3027,7 +3624,7 @@ export default function FieldUserDashboard() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm">🎯</span>
-                  <span className="text-[10px] font-semibold text-cyan-400/80 uppercase tracking-wide">Direct Chat Recipient:</span>
+                  <span className="text-[10px] font-semibold text-cyan-400/80 uppercase tracking-wide">{t.directChatRecipient || "Direct Chat Recipient:"}</span>
                 </div>
                 <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -3053,7 +3650,7 @@ export default function FieldUserDashboard() {
                       }
                     }
                   }}
-                  placeholder="Enter recipient callsign / use..."
+                  placeholder={t.enterCallsign || "Enter recipient callsign / username..."}
                   className="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50 placeholder-white/25 transition-colors"
                 />
                 <button
@@ -3071,7 +3668,7 @@ export default function FieldUserDashboard() {
                   }}
                   className="bg-emerald-600 px-4 py-2 rounded-full text-xs font-semibold text-white active:scale-95 transition-all cursor-pointer"
                 >
-                  ✓ Set
+                  ✓ {t.set || "Set"}
                 </button>
               </div>
 
@@ -3080,7 +3677,12 @@ export default function FieldUserDashboard() {
 
             {/* Quick Reaction Chips */}
             <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar w-full">
-              {['I am safe 👍', 'Need help 🆘', 'On my way 🏃', 'All clear ✅'].map(chip => (
+              {[
+                t.iamSafe || 'I am safe 👍',
+                t.needHelp || 'Need help 🆘',
+                t.onMyWay || 'On my way 🏃',
+                t.allClear || 'All clear ✅'
+              ].map(chip => (
                 <button
                   key={chip}
                   type="button"
@@ -3209,7 +3811,7 @@ export default function FieldUserDashboard() {
                 type="text"
                 value={localMeshTextInput}
                 onChange={(e) => { setLocalMeshTextInput(e.target.value); }}
-                placeholder={`Message ${(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}...`}
+                placeholder={`${t.messageRecipient || 'Message'} ${(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}...`}
                 className="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-4 py-2.5 text-xs text-white placeholder-white/25 focus:outline-none focus:border-emerald-500/50 transition-colors"
               />
               <button
@@ -3224,10 +3826,10 @@ export default function FieldUserDashboard() {
             <div className="space-y-2.5 pt-1">
               <div className="flex items-center justify-between border-b border-white/5 pb-1.5 px-1">
                 <span className="text-[11px] font-semibold text-white/60 flex items-center gap-1.5">
-                  <span>💬</span> Mesh Chat
+                  <span>💬</span> {t.meshChat || 'Mesh Chat'}
                 </span>
                 <span className="text-[9px] text-cyan-400/60 font-medium bg-white/5 px-2 py-0.5 rounded-full">
-                  You: {myUsername}
+                  {t.you || 'You'}: {myUsername}
                 </span>
               </div>
 
@@ -3291,7 +3893,7 @@ export default function FieldUserDashboard() {
                           {/* Sender / Recipient Header */}
                           <div className="flex items-center justify-between gap-2 text-[9.5px] pb-0.5">
                             <span className={`font-semibold ${isSentByMe ? 'text-emerald-400/90' : 'text-cyan-400/90'}`}>
-                              {isSentByMe ? `You ➔ ${msg.target_username}` : `${msg.sender_username} ➔ You`}
+                              {isSentByMe ? `${t.you || 'You'} ➔ ${msg.target_username}` : `${msg.sender_username} ➔ ${t.you || 'You'}`}
                             </span>
                             <span className="text-[7px] text-white/30 font-mono">
                               {msg.local_mode === 'mode-3-p2p-nan' ? 'M3·24B' : msg.local_mode === 'mode-2-p2p-2g' ? 'M2·2G' : 'M1·HD'}
@@ -3314,12 +3916,12 @@ export default function FieldUserDashboard() {
                               <div>
                                 {msg.is_decrypted && (
                                   <span className="inline-block text-[7px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400/80 font-medium mb-1">
-                                    🔓 Decrypted
+                                    🔓 {t.decrypted || 'Decrypted'}
                                   </span>
                                 )}
                                 {isSentByMe && msg.is_locked && (
                                   <span className="inline-block text-[7px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400/80 font-medium mb-1">
-                                    🔒 Locked for {msg.target_username}
+                                    🔒 {t.lockedFor || 'Locked for'} {msg.target_username}
                                   </span>
                                 )}
                                 <p className="text-[13px] leading-relaxed font-normal text-white/90">
@@ -3366,7 +3968,7 @@ export default function FieldUserDashboard() {
         >
           {activeTab === 'talk' && <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-blue-400 rounded-full"></span>}
           <span className="text-lg">📢</span>
-          <span className="text-[10px] font-semibold">Alert</span>
+          <span className="text-[10px] font-semibold">{t.alertTab || "Alert"}</span>
         </button>
 
         <button
@@ -3377,7 +3979,7 @@ export default function FieldUserDashboard() {
         >
           {activeTab === 'sos' && <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-red-400 rounded-full"></span>}
           <span className="text-lg">🚨</span>
-          <span className="text-[10px] font-semibold">SOS</span>
+          <span className="text-[10px] font-semibold">{t.sosTab || "SOS"}</span>
         </button>
 
         <button
@@ -3388,7 +3990,7 @@ export default function FieldUserDashboard() {
         >
           {activeTab === 'mesh' && <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-cyan-400 rounded-full"></span>}
           <span className="text-lg">👥</span>
-          <span className="text-[10px] font-semibold">Local Mesh</span>
+          <span className="text-[10px] font-semibold">{t.meshTab || "Local Mesh"}</span>
         </button>
       </footer>
 
