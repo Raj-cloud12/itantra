@@ -13,7 +13,7 @@ class ChannelInterface(ABC):
     """
     Abstract interface for a communication channel.
     
-    The simulated channel (SimulatedChannel) implements this for the hackathon MVP.
+    The simulated channel (SimulatedChannel) implements this for link simulation and testing.
     A future LoRaChannel, HF radio adapter, or any other physical radio could
     implement this same interface to replace SimulatedChannel without changing
     any AI-layer code (compression, encryption, STT/TTS).

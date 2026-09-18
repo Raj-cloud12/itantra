@@ -1,9 +1,0 @@
-﻿Mode 1: status=delivered bandwidth=20 audio_sent=True
-Mode 2: status=delivered bandwidth=6 audio_sent=True
-Mode 3: status=delivered bandwidth=1 audio_sent=False
-RECEIVED text=Hello world - Mode 1 demo test audio=present length=516234 original_audio_bytes=45000
-RECEIVED text=Hello world - Mode 2 demo test audio=present length=516234 original_audio_bytes=45000
-RECEIVED text=Hello world - Mode 3 demo test audio=missing original_audio_bytes=45000
-RECEIVED text=Hello world - Mode 1 demo test audio=present length=516234 original_audio_bytes=45000
-RECEIVED text=Hello world - Mode 2 demo test audio=present length=516234 original_audio_bytes=45000
-RECEIVED text=Hello world - Mode 3 demo test audio=missing original_audio_bytes=45000

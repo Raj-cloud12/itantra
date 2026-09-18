@@ -1,33 +1,83 @@
+# Environments and dependencies
 .env
+*.env
 node_modules/
+**/node_modules/
 __pycache__/
-mobile_app_apk/android/.gradle/
-mobile_app_apk/android/app/build/
+**/__pycache__/
 .deps/
 .venv/
-*.apk
-backend/.deps/
-backend/.venv/
-mobile_app_apk/node_modules/
-mobile_app_apk/dist/
-frontend/dist/
-frontend/node_modules/
-tools/
-*.exe
-backend/test_modes_verification.py
-**/.deps/
 **/.venv/
+**/.deps/
+
+# Android build outputs & local config
+.gradle/
+**/.gradle/
+build/
+**/build/
+local.properties
+**/local.properties
+*.apk
+*.aab
+*.idsig
+
+# Frontend dist
+frontend/dist/
+mobile_app_apk/dist/
+
+# Binaries, compiled classes, and temporary tools
+*.exe
+*.class
+tmp/
+tools/
+itantar/
+
+# SQLite databases
 *.db
-phone_screen*.png
-p1_*.png
-p2_*.png
-phone_install_screen.png
-temp_*.txt
-test_packet.json
-tokens_test.txt
+*.sqlite3
+
+# Audio test files
+*.wav
+*.mp3
+
+# Logs & scratch output files
 *.log
-*.onnx
-samsung_screen*.png
+out.txt
+temp*.txt
+log*.txt
+ws_test_output.txt
+demo_test_output.txt
 out.json
 output.json
+test_packet.json
+
+# Test ML models
+*.onnx
+model_ta_test.int8.onnx
+
+# Root scratch / test scripts
 auto_install.ps1
+fix_*.py
+clean_*.py
+test_*.py
+test_*.kt
+SherpaTest.kt
+
+# Loose root screenshots
+*.png
+*.jpg
+!presentation_assets/*.png
+!presentation_assets/*.jpg
+!backend/dist/*.png
+!frontend/public/*.png
+!mobile_app_apk/android/app/src/main/res/**/*.png
+!mobile_app_apk/public/*.png
+
+# IDE configs
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+.vscode/
+**/.vscode/
+tokens_test.txt
