@@ -2177,10 +2177,10 @@ export default function FieldUserDashboard() {
     <div className="h-screen w-screen bg-black text-slate-100 flex flex-col justify-between overflow-hidden font-sans select-none">
       
       {/* 1. TOP HEADER */}
-      <header className="px-3.5 py-2 bg-black/95 border-b border-neutral-900 flex items-center justify-between shadow-xl shrink-0">
+      <header className="px-4 py-2.5 bg-gradient-to-b from-neutral-950/95 to-black/90 backdrop-blur-xl border-b border-white/5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
 
-          {/* 👤 Tactical User CallSign / Profile Button (Write-Once Hardware Locked) */}
+          {/* 👤 Tactical User CallSign / Profile Button */}
           <button
             type="button"
             onClick={() => {
@@ -2191,59 +2191,59 @@ export default function FieldUserDashboard() {
                 setShowUserModal(true);
               }
             }}
-            className={`px-2.5 py-1 rounded-xl font-mono text-[9.5px] font-black border transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-[10px] font-semibold border transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer ${
               isUsernameLocked
-                ? 'bg-neutral-900/90 border-emerald-500/70 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
-                : 'bg-neutral-900 border-cyan-500/70 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.25)]'
+                ? 'bg-emerald-950/50 border-emerald-400/30 text-emerald-300'
+                : 'bg-cyan-950/50 border-cyan-400/30 text-cyan-300'
             }`}
             title={isUsernameLocked ? "🔒 Permanent Hardware-Locked Node CallSign" : "Tap to set CallSign"}
           >
             <span className="text-[10px]">{isUsernameLocked ? '🔒' : '👤'}</span>
-            <span className="tracking-wide">{myUsername || '@citizen'}</span>
+            <span className="tracking-wide font-mono">{myUsername || '@citizen'}</span>
           </button>
 
-          {/* 🌐 TOP BAR LANGUAGE SELECTOR (Indic Voice Engine) - Compact */}
+          {/* 🌐 TOP BAR LANGUAGE SELECTOR */}
           <button
             type="button"
             onClick={() => setShowLangModal(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-neutral-900 border border-neutral-800 text-[10px] font-mono font-bold text-emerald-300 shadow-sm active:scale-95 transition-all cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium text-emerald-300 active:scale-95 transition-all cursor-pointer"
             title="Select Spoken Language"
           >
             <span className="text-[11px]">🌐</span>
             <span>{INDIC_LANGUAGES_9.find(l => l.code === selectedTransLang)?.label || 'English'}</span>
-            <span className="text-[7.5px] text-emerald-400">▾</span>
+            <span className="text-[7px] text-white/40">▾</span>
           </button>
         </div>
 
         {/* Tactical Mode & Battery Badge */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {activeTab === 'mesh' ? (
-            /* Local Mesh Mode (Display Only - Synced strictly from Demo Controller) */
+            /* Local Mesh Mode Badge */
             <div
-              className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 flex items-center gap-1.5 shadow-md select-none"
-              title="Active Local Mesh Mode (Controlled via Demo Control)"
+              className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5 select-none"
+              title="Active Local Mesh Mode"
             >
-              <span className={`w-2 h-2 rounded-full ${
+              <span className={`w-1.5 h-1.5 rounded-full ${
                 localMeshMode === 'mode-1-p2p-hd' ? 'bg-emerald-400' :
                 localMeshMode === 'mode-2-p2p-2g' ? 'bg-blue-400' : 'bg-amber-400 animate-pulse'
               }`}></span>
-              <span className="text-[10px] font-mono font-bold text-slate-200">
+              <span className="text-[10px] font-medium text-white/80">
                 {localMeshMode === 'mode-1-p2p-hd' ? 'Mesh M1 (HD)' :
                  localMeshMode === 'mode-2-p2p-2g' ? 'Mesh M2 (2G)' : 'Mesh M3 (NAN)'}
               </span>
             </div>
           ) : (
-            /* Alert / SOS Network Mode (Display Only - Synced strictly from Demo Controller) */
+            /* Alert / SOS Network Mode Badge */
             <div
-              className="px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-700 flex items-center gap-1.5 shadow-md select-none"
-              title="Active Network Mode (Controlled via Demo Control)"
+              className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5 select-none"
+              title="Active Network Mode"
             >
-              <span className={`w-2 h-2 rounded-full ${
+              <span className={`w-1.5 h-1.5 rounded-full ${
                 networkMode === 'mode-4-satellite-beacon' ? 'bg-red-500 animate-ping' :
                 networkMode === 'mode-3-ai-mesh' ? 'bg-emerald-400 animate-pulse' :
                 networkMode === 'mode-2-compressed-voice' ? 'bg-blue-400' : 'bg-cyan-400'
               }`}></span>
-              <span className="text-[10px] font-mono font-bold text-slate-200">
+              <span className="text-[10px] font-medium text-white/80">
                 {networkMode === 'mode-1-hd-call' ? 'Mode 1' :
                  networkMode === 'mode-2-compressed-voice' ? 'Mode 2' :
                  networkMode === 'mode-3-ai-mesh' ? 'Mode 3' : 'Mode 4'}
@@ -2251,8 +2251,8 @@ export default function FieldUserDashboard() {
             </div>
           )}
 
-          {/* Battery Status Pill */}
-          <span className="text-[9.5px] font-mono font-bold text-emerald-400 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-800">
+          {/* Battery Status */}
+          <span className="text-[9px] font-medium text-emerald-400/80 bg-white/5 px-2 py-1.5 rounded-full border border-white/10">
             🔋 {batteryPct}%
           </span>
         </div>
@@ -2579,22 +2579,22 @@ export default function FieldUserDashboard() {
             <button
               type="button"
               onClick={triggerOneTapSOS}
-              className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white font-black text-sm tracking-wider uppercase flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(225,29,72,0.6)] border-2 border-red-400 active:scale-95 transition-all cursor-pointer"
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-sm tracking-wide uppercase flex items-center justify-center gap-2 active:scale-[0.97] transition-all cursor-pointer"
             >
-              <span className="text-xl animate-ping">🚨</span>
-              <span>1-TAP EMERGENCY SOS DISTRESS BEACON</span>
+              <span className="text-lg">🚨</span>
+              <span>1-Tap Emergency SOS Distress Beacon</span>
             </button>
 
             {/* GPS COORDINATES & PLACE NAME BADGE */}
-            <div className="px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between text-[9.5px] font-mono shadow-inner gap-1">
-              <span className="text-emerald-400 font-bold flex flex-wrap items-center gap-1.5 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+            <div className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between text-[9.5px] gap-1">
+              <span className="text-emerald-400/80 font-medium flex flex-wrap items-center gap-1.5 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
                 <span>📍 {addressName || "Locating GPS..."}</span>
-                <span className="text-cyan-300 font-mono text-[9px]">
+                <span className="text-white/30 text-[9px]">
                   ({coords.lat.toFixed(4)}°N, {coords.lng.toFixed(4)}°E)
                 </span>
               </span>
-              <span className="text-blue-300 font-bold shrink-0">
+              <span className="text-white/40 font-medium shrink-0">
                 ⏰ {clockTimeStr} IST
               </span>
             </div>
@@ -2684,21 +2684,21 @@ export default function FieldUserDashboard() {
                 />
               )}
 
-              {/* 🎤 COMPACT REAL-TIME VOICE-TO-TEXT BOX DIRECTLY BELOW MIC (VISIBLE IN ALL MODES) */}
-              <div className="w-full max-w-xs mt-3 px-3.5 py-2.5 rounded-2xl bg-neutral-950 border border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.15)] text-center animate-fadeIn">
-                <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 font-bold border-b border-emerald-800/50 pb-1 mb-1.5">
+              {/* 🎤 COMPACT REAL-TIME VOICE-TO-TEXT BOX */}
+              <div className="w-full max-w-xs mt-3 px-3.5 py-2.5 rounded-2xl bg-white/[0.03] border border-emerald-500/20 text-center">
+                <div className="flex items-center justify-between text-[9px] text-emerald-400/80 font-medium pb-1 mb-1.5 border-b border-white/5">
                   <span className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${spokenSpeechText || persistentSpokenText ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${spokenSpeechText || persistentSpokenText ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`}></span>
                     <span>Voice to Text</span>
                   </span>
-                  <span className={`text-[8.5px] font-mono ${spokenSpeechText ? 'text-emerald-300 font-bold' : persistentSpokenText ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
+                  <span className={`text-[8.5px] ${spokenSpeechText ? 'text-emerald-300' : persistentSpokenText ? 'text-emerald-400' : 'text-white/30'}`}>
                     {spokenSpeechText ? 'Listening...' : persistentSpokenText ? 'Transcribed ✓' : 'Ready'}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1 px-1">
-                  <div className="text-emerald-100 text-xs font-sans font-bold min-h-[24px] flex items-center justify-center">
+                  <div className="text-white/90 text-xs font-normal min-h-[24px] flex items-center justify-center">
                     <span className="break-words w-full text-center">
-                      {spokenSpeechText || persistentSpokenText || <span className="text-slate-500 text-[11px] font-normal">Hold button and speak...</span>}
+                      {spokenSpeechText || persistentSpokenText || <span className="text-white/25 text-[11px]">Hold button and speak...</span>}
                     </span>
                   </div>
                 </div>
@@ -2706,16 +2706,16 @@ export default function FieldUserDashboard() {
 
             </div>
 
-            {/* 4-STAGE TRANSMISSION PIPELINE: PERMANENT LIVE DISPLAY (MODES 1, 2, 4) */}
+            {/* 4-STAGE TRANSMISSION PIPELINE */}
             {networkMode !== "mode-3-ai-mesh" && (
-              <div className="rounded-2xl bg-neutral-950 border border-neutral-800 p-3 shadow-md space-y-1.5 animate-fadeIn">
+              <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                    <span>TRANSMISSION PIPELINE ({networkMode === 'mode-1-hd-call' ? '4G/5G DIRECT VOICE' : networkMode === 'mode-2-compressed-voice' ? '2G CELT COMPRESSED' : networkMode === 'mode-4-satellite-beacon' ? '16B SATELLITE' : 'WI-FI AWARE & BLE MESH'})</span>
+                  <h4 className="text-[10px] font-medium text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <span>Transmission Pipeline ({networkMode === 'mode-1-hd-call' ? '4G/5G Direct' : networkMode === 'mode-2-compressed-voice' ? '2G Compressed' : networkMode === 'mode-4-satellite-beacon' ? '16B Satellite' : 'BLE Mesh'})</span>
                   </h4>
-                  <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded border bg-emerald-950 text-emerald-300 border-emerald-800">
-                    🔒 AES-GCM Encrypted
+                  <span className="text-[8px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/20">
+                    🔒 AES-GCM
                   </span>
                 </div>
                 
@@ -2746,32 +2746,32 @@ export default function FieldUserDashboard() {
                 value={textInput}
                 onChange={(e) => { setTextInput(e.target.value); }}
                 placeholder="Type alert message..."
-                className="flex-1 bg-neutral-950 border border-neutral-800 rounded-2xl px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                className="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-4 py-2.5 text-xs text-white placeholder-white/25 focus:outline-none focus:border-blue-500/50 transition-colors"
               />
               <button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-2xl text-xs font-bold transition-all shadow-md active:scale-95"
+                className="bg-blue-600 text-white w-10 h-10 rounded-full text-sm font-bold transition-all active:scale-90 flex items-center justify-center cursor-pointer"
               >
-                Send Alert
+                ➤
               </button>
             </form>
           </div>
         )}
         {/* TAB 2: SOS EMERGENCY DISPATCH & GOVT RESCUE FEED */}
         {activeTab === 'sos' && (
-          <div className="flex-1 overflow-y-auto space-y-3 font-mono">
+          <div className="flex-1 overflow-y-auto space-y-3">
             
             {/* 1. TOP SOS DISPATCH CARD */}
-            <div className="p-4 rounded-3xl bg-gradient-to-br from-red-950 via-black to-neutral-950 border-2 border-red-600 shadow-[0_0_30px_rgba(239,68,68,0.4)] space-y-3">
-              <div className="flex items-center justify-between border-b border-red-900/80 pb-2">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-red-950/80 via-black to-neutral-950 border border-red-500/30 space-y-3">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl animate-pulse">🚨</span>
+                  <span className="text-lg">🚨</span>
                   <div>
-                    <h3 className="text-xs font-black text-rose-300 uppercase tracking-wide">Government SOS Gateway</h3>
-                    <span className="text-[8.5px] text-emerald-400 font-bold">Direct to Disaster Command Center</span>
+                    <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wide">Government SOS Gateway</h3>
+                    <span className="text-[8.5px] text-emerald-400/70 font-medium">Direct to Disaster Command Center</span>
                   </div>
                 </div>
-                <span className="text-[8px] bg-red-950 border border-red-700 text-rose-300 px-2 py-0.5 rounded font-bold animate-pulse">
+                <span className="text-[8px] bg-red-500/10 border border-red-500/20 text-rose-400/70 px-2 py-0.5 rounded-full font-medium">
                   LoRa Direct Gateway
                 </span>
               </div>
@@ -2780,10 +2780,10 @@ export default function FieldUserDashboard() {
               <button
                 type="button"
                 onClick={triggerOneTapSOS}
-                className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white font-black text-sm py-3.5 rounded-2xl shadow-[0_0_20px_rgba(239,68,68,0.8)] border border-red-300 active:scale-95 transition-all flex items-center justify-center gap-2.5 animate-pulse cursor-pointer"
+                className="w-full bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-sm py-3 rounded-2xl active:scale-[0.97] transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="text-lg">🚨</span>
-                <span>SEND 1-TAP SOS</span>
+                <span>Send 1-Tap SOS</span>
               </button>
 
 
@@ -3017,25 +3017,25 @@ export default function FieldUserDashboard() {
           </div>
         )}
 
-        {/* TAB 3: LOCAL MESH (FRIENDS P2P CHAT - 3 MODES ONLY, NO SOS, NO COMMAND CENTER) */}
+        {/* TAB 3: LOCAL MESH (FRIENDS P2P CHAT) */}
         {activeTab === 'mesh' && (
-          <div className="flex-1 overflow-y-auto space-y-3 font-mono">
+          <div className="flex-1 overflow-y-auto space-y-2.5">
 
 
-            {/* Target Friend Selector (WhatsApp Style Direct Recipient) */}
-            <div className="p-3.5 rounded-2xl bg-neutral-950 border border-cyan-800/80 shadow-[0_0_20px_rgba(6,182,212,0.15)] space-y-2.5">
+            {/* Target Friend Selector */}
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-base">🎯</span>
-                  <span className="text-[11px] font-black text-cyan-300 uppercase tracking-wide">Direct Chat Recipient:</span>
+                  <span className="text-sm">🎯</span>
+                  <span className="text-[10px] font-semibold text-cyan-400/80 uppercase tracking-wide">Direct Chat Recipient:</span>
                 </div>
-                <span className="text-xs font-black text-emerald-300 bg-emerald-950 px-3 py-1 rounded-xl border border-emerald-600 shadow-inner flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   {(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}
                 </span>
               </div>
 
-              {/* Clean Single Input Field for Recipient Username */}
+              {/* Input Field for Recipient */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -3053,8 +3053,8 @@ export default function FieldUserDashboard() {
                       }
                     }
                   }}
-                  placeholder="Enter recipient callsign / username..."
-                  className="flex-1 bg-slate-950 border-2 border-cyan-600/80 rounded-xl px-3.5 py-2 text-xs text-cyan-200 font-bold focus:outline-none focus:border-cyan-300 placeholder-slate-600"
+                  placeholder="Enter recipient callsign / use..."
+                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50 placeholder-white/25 transition-colors"
                 />
                 <button
                   type="button"
@@ -3069,7 +3069,7 @@ export default function FieldUserDashboard() {
                       }
                     }
                   }}
-                  className="bg-gradient-to-r from-emerald-600 to-cyan-600 px-4 py-2 rounded-xl text-xs font-black text-white shadow-md active:scale-95 border border-emerald-400"
+                  className="bg-emerald-600 px-4 py-2 rounded-full text-xs font-semibold text-white active:scale-95 transition-all cursor-pointer"
                 >
                   ✓ Set
                 </button>
@@ -3079,7 +3079,7 @@ export default function FieldUserDashboard() {
             </div>
 
             {/* Quick Reaction Chips */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar w-full max-w-sm">
+            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar w-full">
               {['I am safe 👍', 'Need help 🆘', 'On my way 🏃', 'All clear ✅'].map(chip => (
                 <button
                   key={chip}
@@ -3087,7 +3087,7 @@ export default function FieldUserDashboard() {
                   onClick={() => {
                     sendLocalMeshPrivateMessage(chip, 24, undefined, undefined, 0);
                   }}
-                  className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-neutral-900 border border-neutral-700 text-slate-200 hover:border-emerald-500 hover:text-white shrink-0 active:scale-95 transition-all"
+                  className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/5 border border-white/10 text-white/60 hover:text-white hover:border-white/20 shrink-0 active:scale-95 transition-all cursor-pointer"
                 >
                   {chip}
                 </button>
@@ -3203,40 +3203,40 @@ export default function FieldUserDashboard() {
                   sendLocalMeshPrivateMessage(val, 24, undefined, undefined, 0);
                 }
               }}
-              className="flex items-center gap-2 shrink-0 px-1 pb-3"
+              className="flex items-center gap-2 shrink-0 px-1 pb-2"
             >
               <input
                 type="text"
                 value={localMeshTextInput}
                 onChange={(e) => { setLocalMeshTextInput(e.target.value); }}
                 placeholder={`Message ${(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}...`}
-                className="flex-1 bg-neutral-950 border border-neutral-800 rounded-2xl px-4 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                className="flex-1 bg-white/[0.04] border border-white/10 rounded-full px-4 py-2.5 text-xs text-white placeholder-white/25 focus:outline-none focus:border-emerald-500/50 transition-colors"
               />
               <button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-2xl text-xs font-bold transition-all shadow-md active:scale-95"
+                className="bg-emerald-600 text-white w-10 h-10 rounded-full text-sm font-bold transition-all active:scale-90 flex items-center justify-center cursor-pointer"
               >
-                Send
+                ➤
               </button>
             </form>
 
             {/* P2P Voice & Text Chat Stream */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between border-b border-neutral-900 pb-1.5 px-1">
-                <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
-                  <span>💬</span> MESH CHAT
+            <div className="space-y-2.5 pt-1">
+              <div className="flex items-center justify-between border-b border-white/5 pb-1.5 px-1">
+                <span className="text-[11px] font-semibold text-white/60 flex items-center gap-1.5">
+                  <span>💬</span> Mesh Chat
                 </span>
-                <span className="text-[9px] text-cyan-400 font-mono font-bold bg-neutral-900 px-2 py-0.5 rounded-lg border border-neutral-700">
+                <span className="text-[9px] text-cyan-400/60 font-medium bg-white/5 px-2 py-0.5 rounded-full">
                   You: {myUsername}
                 </span>
               </div>
 
               {localMeshMessages.length === 0 ? (
-                <div className="p-6 text-center text-slate-500 text-xs font-mono rounded-2xl bg-slate-950/60 border border-slate-900">
+                <div className="p-6 text-center text-white/25 text-xs rounded-2xl bg-white/[0.02] border border-white/5">
                   <span>🎙️ Hold microphone to send a voice note to {(!targetFriend || targetFriend === '@' || targetFriend === '@not_set' || targetFriend.length <= 2) ? '@all_friends' : targetFriend}</span>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {localMeshMessages.filter((msg) => {
                     const targetClean = normalizeName(msg.target_username);
                     const senderClean = normalizeName(msg.sender_username);
@@ -3280,32 +3280,28 @@ export default function FieldUserDashboard() {
                       >
                         {/* Chat Bubble */}
                         <div
-                          className={`max-w-[85%] rounded-3xl p-3 shadow-xl space-y-1.5 text-xs font-sans transition-all border ${
+                          className={`max-w-[82%] rounded-2xl px-3 py-2.5 space-y-1 text-xs transition-all ${
                             isSentByMe
-                              ? 'bg-gradient-to-br from-emerald-800/90 via-teal-900/90 to-emerald-950 text-emerald-50 rounded-br-none border-emerald-500/80 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+                              ? 'bg-gradient-to-br from-emerald-900/80 to-teal-950/90 text-emerald-50 rounded-br-sm'
                               : isForMe
-                              ? 'bg-gradient-to-br from-blue-900/90 via-slate-900 to-indigo-950 text-blue-50 rounded-bl-none border-cyan-500/80 shadow-[0_0_20px_rgba(6,182,212,0.3)]'
-                              : 'bg-slate-950/90 text-slate-500 rounded-2xl border-slate-800 opacity-60'
+                              ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 text-slate-50 rounded-bl-sm'
+                              : 'bg-slate-950/60 text-slate-500 rounded-2xl opacity-50'
                           }`}
                         >
                           {/* Sender / Recipient Header */}
-                          <div className="flex items-center justify-between gap-3 text-[10px] font-mono border-b border-white/10 pb-1 font-bold">
-                            <span className={isSentByMe ? 'text-emerald-300' : 'text-cyan-300'}>
+                          <div className="flex items-center justify-between gap-2 text-[9.5px] pb-0.5">
+                            <span className={`font-semibold ${isSentByMe ? 'text-emerald-400/90' : 'text-cyan-400/90'}`}>
                               {isSentByMe ? `You ➔ ${msg.target_username}` : `${msg.sender_username} ➔ You`}
                             </span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[7.5px] px-1.5 py-0.5 rounded font-mono font-bold bg-black/40 border border-white/10">
-                                {msg.local_mode === 'mode-3-p2p-nan' ? '📡 Mode 3 Mesh (24B)' : msg.local_mode === 'mode-2-p2p-2g' ? '📻 2G (1.2 KB)' : '🎙️ HD (45 KB)'}
-                              </span>
-                              <span className="text-[8px] opacity-80">
-                                {msg.is_decrypted ? '🔓 E2EE Decrypted' : isSentByMe && msg.is_locked ? '🔒 Locked' : isForMeOrMine ? '🔓 E2EE' : '🔒 RELAY'}
-                              </span>
-                            </div>
+                            <span className="text-[7px] text-white/30 font-mono">
+                              {msg.local_mode === 'mode-3-p2p-nan' ? 'M3·24B' : msg.local_mode === 'mode-2-p2p-2g' ? 'M2·2G' : 'M1·HD'}
+                              {' · '}
+                              {msg.is_decrypted ? 'E2EE' : isSentByMe && msg.is_locked ? '🔒' : isForMeOrMine ? 'E2EE' : '🔒'}
+                            </span>
                           </div>
 
-                          {/* Message Content with WhatsApp Voice Player */}
-                          <div className="space-y-2">
-                            {/* Custom Interactive WhatsApp Voice Player */}
+                          {/* Message Content */}
+                          <div className="space-y-1.5">
                             {(msg.audio_url || (msg as any).audioUrl) && (
                               <VoiceNotePlayer
                                 audioUrl={msg.audio_url || (msg as any).audioUrl}
@@ -3314,39 +3310,37 @@ export default function FieldUserDashboard() {
                                 durationSeconds={msg.duration_seconds || 4}
                               />
                             )}
-                            {/* Message Text Caption */}
                             {msg.text && (
-                              <div className="space-y-1">
+                              <div>
                                 {msg.is_decrypted && (
-                                  <span className="inline-block text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-bold border border-cyan-500/40">
-                                    🔓 Decrypted for You
+                                  <span className="inline-block text-[7px] px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400/80 font-medium mb-1">
+                                    🔓 Decrypted
                                   </span>
                                 )}
                                 {isSentByMe && msg.is_locked && (
-                                  <span className="inline-block text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40">
-                                    🔒 Bound & Locked for {msg.target_username}
+                                  <span className="inline-block text-[7px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400/80 font-medium mb-1">
+                                    🔒 Locked for {msg.target_username}
                                   </span>
                                 )}
-                                <p className="text-xs leading-relaxed font-medium px-1 text-slate-100">
+                                <p className="text-[13px] leading-relaxed font-normal text-white/90">
                                   {msg.text}
                                 </p>
                               </div>
                             )}
                             {!isForMeOrMine && msg.cipher_code && (
-                              <div className="px-2 py-1 rounded-lg bg-black/60 border border-neutral-800 text-[8px] font-mono text-emerald-400 flex items-center justify-between">
-                                <span>🔒 Encrypted Mesh Transit</span>
-                                <span className="text-cyan-300 text-[7.5px] font-mono">{msg.cipher_code}</span>
+                              <div className="text-[7px] font-mono text-white/20">
+                                🔒 {msg.cipher_code}
                               </div>
                             )}
                           </div>
 
-                          {/* Timestamp & Double-Tick Status */}
-                          <div className="flex items-center justify-end gap-1 text-[8.5px] font-mono text-white/60 pt-0.5">
-                            <span className="font-bold text-slate-300">
+                          {/* Timestamp & Double-Tick */}
+                          <div className="flex items-center justify-end gap-1 text-[8px] text-white/35 pt-0.5">
+                            <span>
                               {msg.display_time || formatTimeIST(msg.timestamp || msg.created_at)}
                             </span>
                             {isSentByMe && (
-                              <span className="text-cyan-300 font-bold text-[10px]">✓✓</span>
+                              <span className="text-cyan-400/70 text-[9px]">✓✓</span>
                             )}
                           </div>
                         </div>
@@ -3363,35 +3357,38 @@ export default function FieldUserDashboard() {
       </div>
 
       {/* 3. BOTTOM NAVIGATION BAR */}
-      <footer className="px-6 py-2.5 bg-black/95 border-t border-neutral-900 flex items-center justify-around shrink-0 shadow-2xl">
+      <footer className="px-6 py-2 bg-gradient-to-t from-neutral-950/95 to-black/90 backdrop-blur-xl border-t border-white/5 flex items-center justify-around shrink-0">
         <button
           onClick={() => setActiveTab('talk')}
-          className={`flex flex-col items-center gap-1 transition-all cursor-pointer ${
-            activeTab === 'talk' ? 'text-blue-400 font-bold scale-105' : 'text-slate-500 hover:text-slate-300'
+          className={`flex flex-col items-center gap-0.5 py-1 px-4 transition-all cursor-pointer relative ${
+            activeTab === 'talk' ? 'text-blue-400' : 'text-white/30'
           }`}
         >
-          <span className="text-xl">📢</span>
-          <span className="text-[10.5px] font-mono">Alert</span>
+          {activeTab === 'talk' && <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-blue-400 rounded-full"></span>}
+          <span className="text-lg">📢</span>
+          <span className="text-[10px] font-semibold">Alert</span>
         </button>
 
         <button
           onClick={() => setActiveTab('sos')}
-          className={`flex flex-col items-center gap-1 transition-all cursor-pointer ${
-            activeTab === 'sos' ? 'text-red-400 font-bold scale-105 animate-pulse' : 'text-slate-500 hover:text-slate-300'
+          className={`flex flex-col items-center gap-0.5 py-1 px-4 transition-all cursor-pointer relative ${
+            activeTab === 'sos' ? 'text-red-400' : 'text-white/30'
           }`}
         >
-          <span className="text-xl">🚨</span>
-          <span className="text-[10.5px] font-mono">SOS</span>
+          {activeTab === 'sos' && <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-red-400 rounded-full"></span>}
+          <span className="text-lg">🚨</span>
+          <span className="text-[10px] font-semibold">SOS</span>
         </button>
 
         <button
           onClick={() => setActiveTab('mesh')}
-          className={`flex flex-col items-center gap-1 transition-all cursor-pointer ${
-            activeTab === 'mesh' ? 'text-cyan-400 font-bold scale-105' : 'text-slate-500 hover:text-slate-300'
+          className={`flex flex-col items-center gap-0.5 py-1 px-4 transition-all cursor-pointer relative ${
+            activeTab === 'mesh' ? 'text-cyan-400' : 'text-white/30'
           }`}
         >
-          <span className="text-xl">👥</span>
-          <span className="text-[10.5px] font-mono">Local Mesh</span>
+          {activeTab === 'mesh' && <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-cyan-400 rounded-full"></span>}
+          <span className="text-lg">👥</span>
+          <span className="text-[10px] font-semibold">Local Mesh</span>
         </button>
       </footer>
 
