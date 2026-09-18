@@ -1,6 +1,6 @@
 {
   "appId": "com.ititantra.civilianapp",
-  "appName": "iTiTantra Node",
+  "appName": "iTantra",
   "webDir": "dist",
   "server": {
     "androidScheme": "https",

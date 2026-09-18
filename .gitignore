@@ -1,3 +1,4 @@
+# iTantra - Indian Multilingual Disaster Communication & Mesh Network
 # Environments and dependencies
 .env
 *.env
@@ -42,6 +43,11 @@ itantar/
 
 # Logs & scratch output files
 *.log
+*.err
+*.out
+*.tsbuildinfo
+*.config.d.ts
+vite.config.js
 out.txt
 temp*.txt
 log*.txt
@@ -66,8 +72,6 @@ SherpaTest.kt
 # Loose root screenshots
 *.png
 *.jpg
-!presentation_assets/*.png
-!presentation_assets/*.jpg
 !backend/dist/*.png
 !frontend/public/*.png
 !mobile_app_apk/android/app/src/main/res/**/*.png

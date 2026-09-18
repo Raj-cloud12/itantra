@@ -1,72 +1,64 @@
-# 📱 iTiTantra Standalone Mobile App — Android Studio APK Build Guide
+﻿# 📱 iTantra Mobile App — Android Studio Build Guide
 
-This directory (`d:\itantra\mobile_app_apk`) contains the **standalone Mobile App project** ready to be compiled into a native **Android APK** using Android Studio.
-
----
-
-## 🚀 Quick Step-by-Step Android Studio APK Generation:
-
-### Method 1: Using Capacitor (Recommended)
-
-1. Open PowerShell or Terminal in this folder:
-   ```bash
-   cd d:\itantra\mobile_app_apk
-   ```
-
-2. Install dependencies & build Web assets:
-   ```bash
-   npm install
-   npm run build
-   ```
-
-3. Add Android Native Platform:
-   ```bash
-   npx cap add android
-   npx cap sync android
-   ```
-
-4. Open in Android Studio:
-   ```bash
-   npx cap open android
-   ```
-
-5. In **Android Studio**:
-   - Go to menu: **Build** ➔ **Build Bundle(s) / APK(s)** ➔ **Build APK(s)**
-   - Click **locate** to find your compiled `app-debug.apk` file!
-   - Install the APK on your phone!
+This directory contains the mobile client project for **iTantra**, configured for native Android compilation using Android Studio and Gradle.
 
 ---
 
-### Method 2: Direct WebView Wrap in Android Studio (Zero Config)
+## 🚀 Building the APK
 
-If you just want to load the live app inside a native Android Studio WebView:
-
-1. Open **Android Studio** ➔ **New Project** ➔ **Empty Activity**.
-2. Name: `iTiTantra Node` | Package: `com.ititantra.civilianapp`.
-3. In `activity_main.xml`, add a full-screen `WebView`:
-   ```xml
-   <WebView
-       android:id="@+id/webView"
-       android:layout_width="match_parent"
-       android:layout_height="match_parent" />
-   ```
-4. In `MainActivity.java` or `MainActivity.kt`:
-   ```kotlin
-   val webView = findViewById<WebView>(R.id.webView)
-   webView.settings.javaScriptEnabled = true
-   webView.settings.domStorageEnabled = true
-   webView.loadUrl("https://10.243.247.76:5173/mobile")
-   ```
-5. In `AndroidManifest.xml`, add internet permission:
-   ```xml
-   <uses-permission android:name="android.permission.INTERNET" />
-   <uses-permission android:name="android.permission.BLUETOOTH" />
-   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-   ```
-6. Click **Build APK** ➔ Done!
+### Prerequisites
+- **Android Studio** (Hedgehog / Iguana or newer recommended)
+- **JDK 17** (bundled with Android Studio JBR)
+- **Node.js 18+** & **npm**
 
 ---
 
-## 🎯 Dual-App Architecture Summary:
-- 💻 **Laptop / Command Center Web App**: Remains running on `https://localhost:5173/command-center`
-- 📱 **Mobile Phone Android APK**: Compiled from this folder (`d:\itantra\mobile_app_apk`)
+### Step-by-Step Instructions
+
+#### 1. Install Dependencies & Build Web Assets
+From this directory:
+```bash
+npm install
+npm run build
+```
+
+#### 2. Sync Native Android Project
+Sync web assets and plugins to the native Android Gradle project:
+```bash
+npx cap sync android
+```
+
+#### 3. Open in Android Studio
+Launch Android Studio with this project:
+```bash
+npx cap open android
+```
+*Or manually open the `android` subfolder directly inside Android Studio.*
+
+#### 4. Build APK via Gradle
+- **Via Command Line**:
+  ```bash
+  cd android
+  ./gradlew assembleDebug      # Linux / macOS
+  gradlew.bat assembleDebug    # Windows
+  ```
+  The compiled APK is generated at:
+  `android/app/build/outputs/apk/debug/app-debug.apk`
+
+- **Via Android Studio GUI**:
+  1. Click **Build** ➔ **Build Bundle(s) / APK(s)** ➔ **Build APK(s)**.
+  2. Once complete, click **locate** in the notification popup to view `app-debug.apk`.
+
+#### 5. Install to Device
+Connect your Android test phone with USB debugging enabled:
+```bash
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+---
+
+## ⚙️ Native Android Capabilities
+- **Bluetooth Low Energy (BLE 5.0)**: Background advertising and packet scanning without active pairing.
+- **Wi-Fi Aware (NAN)**: Peer-to-peer discovery and direct data sockets within 100m range.
+- **Sherpa-ONNX Whisper Engine**: Offline speech recognition with zero cloud dependencies.
+- **Hardware Haptics**: Vibration confirmation on packet reception and emergency broadcast triggers.

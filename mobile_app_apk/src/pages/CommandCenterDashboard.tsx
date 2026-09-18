@@ -717,15 +717,6 @@ export default function CommandCenterDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🧠 Auto-ANS: Automatically trigger ANS analysis when 10+ messages accumulate
-  const autoAnsTriggeredRef = useRef(false);
-  useEffect(() => {
-    if (feed.length >= 10 && !autoAnsTriggeredRef.current && !isAnalyzing) {
-      autoAnsTriggeredRef.current = true;
-      analyzeIntegrity(false);
-    }
-  }, [feed.length, isAnalyzing]);
-
   const switchMode = async (mode: 'mode-1-hd-call' | 'mode-2-compressed-voice' | 'mode-3-ai-mesh' | 'mode-4-satellite-beacon') => {
     setActiveNetworkMode(mode);
     const apiBase = getApiBase();
@@ -917,10 +908,10 @@ export default function CommandCenterDashboard() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-black text-slate-100">
-                iTiTantra Disaster Command Center
+              <h1 className="text-sm lg:text-base font-black text-slate-100">
+                iTantra - Indian Multilingual Disaster Communication & Mesh Network
               </h1>
-              <span className="text-[9px] bg-red-950 text-rose-300 border border-red-800 px-2 py-0.5 rounded font-mono font-bold">
+              <span className="text-[9px] bg-red-950 text-rose-300 border border-red-800 px-2 py-0.5 rounded font-mono font-bold shrink-0">
                 ISRO NavIC / GOVT SOS GATEWAY
               </span>
             </div>
@@ -1102,7 +1093,7 @@ export default function CommandCenterDashboard() {
           <div className="pt-4 border-t border-neutral-800 text-[10px] text-neutral-500 space-y-1">
             <div className="text-cyan-400 font-bold">🏢 Government Control Centre</div>
             <div>Encryption: AES-GCM Compact Mesh Codec</div>
-            <div>Protocol: iTiTantra 4-Tier v2.4</div>
+            <div>Protocol: iTantra 4-Tier v2.4</div>
           </div>
         </aside>
 
@@ -1139,11 +1130,6 @@ export default function CommandCenterDashboard() {
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-slate-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span className="font-bold text-slate-200">Live Feed</span>
-                {feed.length >= 10 && (
-                  <span className="ml-1 text-[9.5px] px-2 py-0.5 rounded-md bg-purple-900/70 text-purple-300 border border-purple-500/40 font-bold">
-                    🧠 Auto-ANS (10+ Msgs)
-                  </span>
-                )}
               </div>
 
               {/* Instant ANS Trigger */}

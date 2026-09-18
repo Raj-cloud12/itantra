@@ -1,3 +1,4 @@
+// iTantra Android Native Node Application
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'

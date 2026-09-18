@@ -55,12 +55,12 @@ export default function LandingPage() {
       <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center">
         
         <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 shadow-inner mb-6">
-          <img src="/logo.png" alt="iTiTantra Logo" className="w-6 h-6 rounded-lg object-cover shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-          <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider uppercase">iTiTantra Dual-App Protocol Suite</span>
+          <img src="/logo.png" alt="iTantra Logo" className="w-6 h-6 rounded-lg object-cover shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+          <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider uppercase">iTantra Dual-App Protocol Suite</span>
         </div>
 
         <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 mb-4">
-          iTiTantra Platform
+          iTantra Platform
         </h1>
         
         <p className="text-base sm:text-lg text-slate-300 mb-8 max-w-2xl font-normal leading-relaxed">

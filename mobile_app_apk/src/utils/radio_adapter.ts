@@ -1,5 +1,5 @@
 /**
- * iTiTantra 3-Band Radio Frequency Transceiver Adapter
+ * iTantra 3-Band Radio Frequency Transceiver Adapter
  * 
  * Manages 3 distinct Radio Frequencies for the 3 communication modes:
  * 1. 1800 MHz / 2300 MHz (Cellular Broadband RF) -> Mode 1 HD Voice Call

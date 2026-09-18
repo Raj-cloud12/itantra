@@ -1,5 +1,5 @@
 /**
- * iTiTantra Government Authorized Emergency SOS Frequency Broadcaster
+ * iTantra Government Authorized Emergency SOS Frequency Broadcaster
  * 
  * Manages National Emergency 112 Signaling Band / USSD Cell Broadcast Channels
  * for transmitting official government disaster alerts to all civilian mobile nodes.

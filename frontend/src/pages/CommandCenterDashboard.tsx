@@ -718,15 +718,6 @@ export default function CommandCenterDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🧠 Auto-ANS: Automatically trigger ANS analysis when 10+ messages accumulate
-  const autoAnsTriggeredRef = useRef(false);
-  useEffect(() => {
-    if (feed.length >= 10 && !autoAnsTriggeredRef.current && !isAnalyzing) {
-      autoAnsTriggeredRef.current = true;
-      analyzeIntegrity(false);
-    }
-  }, [feed.length, isAnalyzing]);
-
   const switchMode = async (mode: 'mode-1-hd-call' | 'mode-2-compressed-voice' | 'mode-3-ai-mesh' | 'mode-4-satellite-beacon') => {
     setActiveNetworkMode(mode);
     const apiBase = getApiBase();
@@ -915,15 +906,15 @@ export default function CommandCenterDashboard() {
         <div className="flex items-center gap-3">
           <img
             src="/logo_round.png"
-            alt="iTiTantra Logo"
+            alt="iTantra Logo"
             className="w-11 h-11 rounded-full border-2 border-cyan-400/60 shadow-[0_0_20px_rgba(6,182,212,0.6)] object-cover bg-black"
           />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-black text-slate-100 tracking-wide">
-                iTiTantra Disaster Command Center
+              <h1 className="text-sm lg:text-base font-black text-slate-100 tracking-wide">
+                iTantra - Indian Multilingual Disaster Communication & Mesh Network
               </h1>
-              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-600 px-2 py-0.5 rounded-full font-mono font-black shadow-[0_0_10px_rgba(6,182,212,0.3)]">
+              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-600 px-2 py-0.5 rounded-full font-mono font-black shadow-[0_0_10px_rgba(6,182,212,0.3)] shrink-0">
                 v1.0
               </span>
               <span className="text-[9px] bg-red-950 text-rose-300 border border-red-800 px-2 py-0.5 rounded font-mono font-bold">
@@ -974,7 +965,7 @@ export default function CommandCenterDashboard() {
         </div>
         <div className="flex items-center gap-4 text-[10.5px] text-neutral-400">
           <div>ENCRYPTION: <span className="text-cyan-300 font-bold">AES-256-GCM E2EE</span></div>
-          <div>PROTOCOL: <span className="text-purple-300 font-bold">iTiTantra v1.0</span></div>
+          <div>PROTOCOL: <span className="text-purple-300 font-bold">iTantra v1.0</span></div>
         </div>
       </div>
 
@@ -1130,7 +1121,7 @@ export default function CommandCenterDashboard() {
           <div className="pt-4 border-t border-neutral-800 text-[10px] text-neutral-500 space-y-1">
             <div className="text-cyan-400 font-bold">🏢 Government Control Centre</div>
             <div>Encryption: AES-GCM Compact Mesh Codec</div>
-            <div>Protocol: iTiTantra 4-Tier v1.0</div>
+            <div>Protocol: iTantra 4-Tier v1.0</div>
           </div>
         </aside>
 
@@ -1167,11 +1158,6 @@ export default function CommandCenterDashboard() {
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-slate-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span className="font-bold text-slate-200">Live Feed</span>
-                {feed.length >= 10 && (
-                  <span className="ml-1 text-[9.5px] px-2 py-0.5 rounded-md bg-purple-900/70 text-purple-300 border border-purple-500/40 font-bold">
-                    🧠 Auto-ANS (10+ Msgs)
-                  </span>
-                )}
               </div>
 
               {/* Instant ANS Trigger */}

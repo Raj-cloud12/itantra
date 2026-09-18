@@ -5,9 +5,9 @@ from sqlalchemy.orm import declarative_base
 import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "ititantra.db").replace('\\', '/')
+DB_PATH = os.path.join(BASE_DIR, "itantra.db").replace('\\', '/')
 
-# SQLite async engine with absolute path to ititantra.db
+# SQLite async engine with absolute path to itantra.db
 engine = create_async_engine(
     f"sqlite+aiosqlite:///{DB_PATH}",
     echo=False,

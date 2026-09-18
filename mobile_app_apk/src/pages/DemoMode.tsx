@@ -140,7 +140,7 @@ export default function DemoMode() {
           </div>
           <div>
             <h1 className="text-base font-black text-slate-100 flex items-center gap-2">
-              iTiTantra Demo Controller
+              iTantra Demo Controller
             </h1>
             <span className="text-[10px] text-slate-400">Direct Manual Switcher for Presentation & Testing</span>
           </div>

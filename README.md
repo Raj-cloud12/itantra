@@ -135,10 +135,11 @@ itantra/
 │   │   │   ├── assets/       # Whisper-Tiny ONNX models & public web assets
 │   │   │   └── res/          # Launcher icons, app manifests, layout configs
 │   │   └── build.gradle      # Optimized build configuration (R8 minification, ABI filters)
+│   ├── capacitor.config.json # Native bridge configuration
 │   └── README_ANDROID_STUDIO.md # Android Studio compilation guide
 │
-├── presentation_assets/      # Official diagrams, architecture workflows, screenshots
 ├── .gitignore                # Production git exclusion rules
+├── LICENSE                   # MIT License
 └── README.md                 # Project documentation
 ```
 
@@ -148,21 +149,21 @@ itantra/
 
 ### 1. Android Mobile App (APK)
 
-#### Option A: Install Pre-Built Production APK
-The optimized APK (`~118 MB` with offline Sherpa-ONNX AI models bundled) is ready to install directly:
-```bash
-adb install -r d:\itantra\iTiTantra_Latest.apk
-```
+#### Option A: Build and Install via Command Line
+1. Navigate to the Android project directory and assemble the debug APK:
+   ```bash
+   cd mobile_app_apk/android
+   ./gradlew assembleDebug      # Linux / macOS
+   gradlew.bat assembleDebug    # Windows
+   ```
+2. Install the APK to your connected test device:
+   ```bash
+   adb install -r app/build/outputs/apk/debug/app-debug.apk
+   ```
 
 #### Option B: Build from Source in Android Studio
 1. Open Android Studio and select **Open Project** -> Choose `mobile_app_apk/android`.
-2. Let Gradle sync project dependencies.
-3. Build the APK:
-   ```bash
-   cd mobile_app_apk/android
-   ./gradlew assembleDebug
-   ```
-4. Find the compiled APK in `app/build/outputs/apk/debug/app-debug.apk`.
+2. Let Gradle sync project dependencies and run directly on a physical device.
 
 ---
 

@@ -1,0 +1,9 @@
+{
+	"appId": "com.ititantra.civilianapp",
+	"appName": "iTantra",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https",
+		"cleartext": true
+	}
+}

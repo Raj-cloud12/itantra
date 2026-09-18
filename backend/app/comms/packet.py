@@ -34,7 +34,7 @@ def _session_bytes(session_id: str) -> bytes:
         # The UI intentionally uses a readable shared demo ID. Keep that logical
         # ID at the WebSocket/database layer while using a deterministic UUID on
         # the binary wire format.
-        return uuid.uuid5(uuid.NAMESPACE_URL, f"ititantra-session:{session_id}").bytes
+        return uuid.uuid5(uuid.NAMESPACE_URL, f"itantra-session:{session_id}").bytes
 
 
 def pack_packet(session_id: str, flags: int, language: str, lat: float, lng: float, seq_num: int, payload: bytes) -> bytes:

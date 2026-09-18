@@ -1,3 +1,5 @@
+"""iTantra: Tactical Disaster Communication System Backend"""
+
 import io
 import base64
 
@@ -94,10 +96,11 @@ try:
 except:
     pass
 # Dynamic database path that works on local Windows, Linux, Docker, and Render
-DB_PATH = os.environ.get("DB_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ititantra.db")))
+DB_PATH = os.environ.get("DB_PATH", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "itantra.db")))
 
-app = FastAPI(title="iTiTantra Tactical Offline Backend", version="2.0.0")
+app = FastAPI(title="iTantra Tactical Offline Backend", version="2.0.0")
 
+# Setup CORS for Frontend Dev & Mobile LAN Devices
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -117,7 +120,7 @@ active_local_mode = "mode-2-p2p-2g"
 async def health_check():
     return {
         "status": "healthy",
-        "service": "iTiTantra Tactical Offline Backend",
+        "service": "iTantra Tactical Offline Backend",
         "active_network_mode": active_network_mode,
         "active_local_mode": active_local_mode,
         "version": "2.0.0"
@@ -911,16 +914,15 @@ async def transcribe_for_translate(payload: AudioTranscribePayload):
 @app.get("/download-apk")
 def download_apk():
     candidates = [
-        r"D:\itantra\iTiTantra_Latest.apk",
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ititantra-latest.apk")),
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "iTiTantra_Latest.apk")),
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "ititantra-latest.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "itantra-latest.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "itantra-latest.apk")),
     ]
     for c in candidates:
         if os.path.exists(c):
             return FileResponse(
                 path=c,
-                filename="iTiTantra_Latest.apk",
+                filename="iTantra.apk",
                 media_type="application/vnd.android.package-archive"
             )
     return {"error": "APK file not found"}
@@ -1335,7 +1337,7 @@ else:
     async def root_fallback():
         return {
             "status": "online",
-            "service": "iTiTantra Tactical Offline Backend",
+            "service": "iTantra Tactical Offline Backend",
             "health": "/api/health",
             "docs": "/docs",
             "version": "2.0.0"
