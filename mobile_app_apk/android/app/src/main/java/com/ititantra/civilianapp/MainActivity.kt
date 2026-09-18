@@ -1940,6 +1940,7 @@ class MainActivity : AppCompatActivity() {
     private val compactChunkAssembler = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.ConcurrentHashMap<Int, ByteArray>>()
     private val compactAssembledLength = java.util.concurrent.ConcurrentHashMap<String, Int>()
     private val compactRelayedCiphers = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val compactRelayTimers = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     private val relayedPacketKeys = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val handledAckCiphers = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
@@ -1982,11 +1983,46 @@ class MainActivity : AppCompatActivity() {
         val rawEmerg = (data[4].toInt() and 0xFF) == 1
         val chunkSlice = if (data.size > 5) data.copyOfRange(5, data.size) else ByteArray(0)
 
+        val isSelf = recentSelfBroadcastCiphers.contains(cipher.uppercase())
+        if (isSelf) {
+            Log.d("BLE_MESH", "Ignoring own broadcast cipher $cipher")
+            return
+        }
+
         val chunkMap = compactChunkAssembler.computeIfAbsent(cipher) { java.util.concurrent.ConcurrentHashMap() }
         chunkMap[cIdx] = chunkSlice
 
         val hasAll = (0 until totalChunks).all { chunkMap.containsKey(it) }
+        val alreadyRelayed = compactRelayedCiphers[cipher] == true
 
+        // 🚀 FULL MESSAGE INTEGRITY: Wait for ALL chunks to arrive so the complete emergency text is preserved!
+        // Single-chunk 1-tap beacons (totalChunks == 1) have hasAll=true immediately (sub-100ms instant).
+        if (hasAll && !alreadyRelayed) {
+            triggerCompactRelay(cipher, cipherHi, cipherLo, totalChunks, rawEmerg, rssi)
+        } else if (rawEmerg && !alreadyRelayed && !compactRelayTimers.containsKey(cipher)) {
+            // Safety fallback: If subsequent chunks are delayed or dropped over radio airwaves,
+            // fallback after 2.5s to relay whatever arrived instead of dropping the beacon.
+            compactRelayTimers[cipher] = true
+            Handler(Looper.getMainLooper()).postDelayed({
+                compactRelayTimers.remove(cipher)
+                if (compactRelayedCiphers[cipher] != true) {
+                    triggerCompactRelay(cipher, cipherHi, cipherLo, totalChunks, rawEmerg, rssi)
+                }
+            }, 2500L)
+        }
+    }
+
+    private fun triggerCompactRelay(
+        cipher: String,
+        cipherHi: Int,
+        cipherLo: Int,
+        totalChunks: Int,
+        rawEmerg: Boolean,
+        rssi: Int
+    ) {
+        if (compactRelayedCiphers.putIfAbsent(cipher, true) != null) return
+
+        val chunkMap = compactChunkAssembler[cipher] ?: return
         val byteStream = java.io.ByteArrayOutputStream()
         for (i in 0 until totalChunks) {
             val chunk = chunkMap[i]
@@ -1999,120 +2035,109 @@ class MainActivity : AppCompatActivity() {
         val decodedText = TantraMeshCodec.decodeCompact(byteStream.toByteArray())
         val isEmerg = rawEmerg || decodedText.contains("🚨") || decodedText.contains("SOS") || decodedText.contains("Emergency")
 
-        val isSelf = recentSelfBroadcastCiphers.contains(cipher.uppercase())
-        if (isSelf) {
-            Log.d("BLE_MESH", "Ignoring own broadcast cipher $cipher")
-            return
+        compactAssembledLength[cipher] = decodedText.length
+        // Send ACK once when complete so Phone 1 stops broadcasting
+        broadcastBleCompactAck(cipherHi.toByte(), cipherLo.toByte(), 2)
+
+        val isPrivateMesh = decodedText.startsWith("🔒|") || decodedText.startsWith("MESH3|")
+        // Strict Vibration: ONLY critical emergency SOS alerts vibrate
+        if (isEmerg) {
+            vibratePhone(250)
+        }
+        updateDeviceLocation()
+        val lat = if (currentLatitude != 0.0) currentLatitude else 12.8718
+        val lon = if (currentLongitude != 0.0) currentLongitude else 80.2185
+
+        val isGovt = decodedText.contains("GOVT") || decodedText.contains("COMMAND")
+        val place = resolveDevicePlaceName(lat, lon)
+        val fullText = if (decodedText.isNotBlank() && decodedText != "🚨 SOS" && !decodedText.startsWith("🚨 SOS: HELP!")) {
+            decodedText
+        } else {
+            "🚨 SOS: I am in emergency, kindly help me! [$place - GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
         }
 
-        val alreadyRelayed = compactRelayedCiphers[cipher] == true
-        // 🚀 SUB-100MS IMMEDIATE RELAY: Fire immediately if all chunks are present OR if it's an emergency beacon and we received chunk 0!
-        if ((hasAll || (isEmerg && cIdx == 0)) && !alreadyRelayed) {
-            compactRelayedCiphers[cipher] = true
-            compactAssembledLength[cipher] = decodedText.length
-            // Send ACK once when complete so Phone 1 stops broadcasting
-            broadcastBleCompactAck(cipherHi.toByte(), cipherLo.toByte(), 2)
+        var senderUser = if (isGovt) "@command_center" else "@victim_phone_1"
+        var targetUser = if (isGovt) "@all_citizens" else "@command_center"
+        var encPayload = ""
+        var cipherToUse = cipher
+        var displayText = if (isGovt) decodedText else fullText
 
-            val isPrivateMesh = decodedText.startsWith("🔒|") || decodedText.startsWith("MESH3|")
-            // Strict Vibration: ONLY critical emergency SOS alerts vibrate
-            if (isEmerg) {
-                vibratePhone(250)
-            }
-            updateDeviceLocation()
-            val lat = if (currentLatitude != 0.0) currentLatitude else 12.8718
-            val lon = if (currentLongitude != 0.0) currentLongitude else 80.2185
+        if (isPrivateMesh) {
+            val parts = decodedText.split("|")
+            senderUser = parts.getOrNull(1) ?: "@citizen"
+            targetUser = parts.getOrNull(2) ?: "@all_friends"
+            cipherToUse = parts.getOrNull(3) ?: cipher
+            encPayload = parts.getOrNull(4) ?: ""
+            displayText = "🔒 Encrypted Message (Locked for $targetUser)"
+        }
 
-            val isGovt = decodedText.contains("GOVT") || decodedText.contains("COMMAND")
-            val place = resolveDevicePlaceName(lat, lon)
-            val fullText = if (decodedText.isNotBlank() && decodedText != "🚨 SOS" && !decodedText.startsWith("🚨 SOS: HELP!")) {
-                decodedText
-            } else {
-                "🚨 SOS: I am in emergency, kindly help me! [$place - GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
-            }
+        val cleanC = cipherToUse.lowercase().replace("[^a-z0-9]".toRegex(), "")
+        val sdf = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+        }
+        val istTime = sdf.format(java.util.Date()).uppercase()
 
-            var senderUser = if (isGovt) "@command_center" else "@victim_phone_1"
-            var targetUser = if (isGovt) "@all_citizens" else "@command_center"
-            var encPayload = ""
-            var cipherToUse = cipher
-            var displayText = if (isGovt) decodedText else fullText
-
+        val packetObj = JSONObject().apply {
+            put("id", "air_${cleanC}")
+            put("channel_type", if (isPrivateMesh) "CIVILIAN_P2P" else "EMERGENCY_ALERT")
+            put("cipher_code", cipherToUse)
+            put("hop_count", 2)
+            put("is_emergency", isEmerg && !isPrivateMesh)
+            put("text", displayText)
+            put("latitude", lat)
+            put("longitude", lon)
+            put("address_name", "$place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]")
+            put("network_mode", if (isEmerg && !isPrivateMesh) "mode-4-satellite-beacon" else "mode-3-ai-mesh")
+            put("gateway_node", if (isGovt) "🏢 Command Center (Downlink BLE)" else "📱 Phone 2 (Silent Mesh Relay Node)")
+            put("timestamp", java.time.Instant.now().toString())
+            put("display_time", istTime)
+            put("type", if (isEmerg && !isPrivateMesh) "emergency_alert" else "voice_message")
+            put("sender_role", if (isGovt) "command" else "field")
+            put("sender_username", senderUser)
+            put("target_username", targetUser)
+            put("is_local_mesh_private", isPrivateMesh)
+            put("session_id", if (isPrivateMesh) "LOCAL_MESH_PRIVATE" else "DEMO_GLOBAL_SESSION_01")
             if (isPrivateMesh) {
-                val parts = decodedText.split("|")
-                senderUser = parts.getOrNull(1) ?: "@citizen"
-                targetUser = parts.getOrNull(2) ?: "@all_friends"
-                cipherToUse = parts.getOrNull(3) ?: cipher
-                encPayload = parts.getOrNull(4) ?: ""
-                displayText = "🔒 Encrypted Message (Locked for $targetUser)"
+                put("is_locked", true)
+                put("encrypted_text", encPayload)
+                put("local_mode", "mode-3-p2p-nan")
             }
+        }
+        Log.i("BLE_MESH", "AIR INTERCEPT COMPACT FINAL: ($totalChunks/$totalChunks chunks, text='$displayText', cipher=$cipherToUse, RSSI=$rssi dBm, isGovt=$isGovt, isPrivate=$isPrivateMesh)")
+        runOnUiThread {
+            notifyWebviewPacketReceived(packetObj.toString(), "BLE_MESH_RELAY")
+        }
 
-            val cleanC = cipherToUse.lowercase().replace("[^a-z0-9]".toRegex(), "")
-            val sdf = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.US).apply {
-                timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
-            }
-            val istTime = sdf.format(java.util.Date()).uppercase()
-
-            val packetObj = JSONObject().apply {
-                put("id", "air_${cleanC}")
-                put("channel_type", if (isPrivateMesh) "CIVILIAN_P2P" else "EMERGENCY_ALERT")
-                put("cipher_code", cipherToUse)
-                put("hop_count", 2)
-                put("is_emergency", isEmerg && !isPrivateMesh)
-                put("text", displayText)
-                put("latitude", lat)
-                put("longitude", lon)
-                put("address_name", "$place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]")
-                put("network_mode", if (isEmerg && !isPrivateMesh) "mode-4-satellite-beacon" else "mode-3-ai-mesh")
-                put("gateway_node", if (isGovt) "🏢 Command Center (Downlink BLE)" else "📱 Phone 2 (Silent Mesh Relay Node)")
-                put("timestamp", java.time.Instant.now().toString())
-                put("display_time", istTime)
-                put("type", if (isEmerg && !isPrivateMesh) "emergency_alert" else "voice_message")
-                put("sender_role", if (isGovt) "command" else "field")
-                put("sender_username", senderUser)
-                put("target_username", targetUser)
-                put("is_local_mesh_private", isPrivateMesh)
-                put("session_id", if (isPrivateMesh) "LOCAL_MESH_PRIVATE" else "DEMO_GLOBAL_SESSION_01")
-                if (isPrivateMesh) {
-                    put("is_locked", true)
-                    put("encrypted_text", encPayload)
-                    put("local_mode", "mode-3-p2p-nan")
+        // Dual Relay directly to local gateway and Cloudflare ONLY IF NOT FROM COMMAND CENTER!
+        if (!isGovt) {
+            val relayPath = if (isPrivateMesh) "/api/mesh/p2p/send" else "/api/messages/send"
+            Thread {
+                val targets = listOf(
+                    "https://itantra-4yzo.onrender.com$relayPath",
+                    "http://127.0.0.1:8000$relayPath",
+                    "http://192.168.137.146:8000$relayPath",
+                    "http://192.168.137.1:8000$relayPath"
+                )
+                for (target in targets) {
+                    try {
+                        val url = java.net.URL(target)
+                        val conn = url.openConnection() as java.net.HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.setRequestProperty("Content-Type", "application/json")
+                        conn.doOutput = true
+                        conn.connectTimeout = 2500
+                        conn.readTimeout = 2500
+                        conn.outputStream.use { os ->
+                            os.write(packetObj.toString().toByteArray(StandardCharsets.UTF_8))
+                        }
+                        val code = conn.responseCode
+                        if (code in 200..299) {
+                            Log.i("BLE_MESH", "SUCCESS: Compact Dual Relay to $target delivered (HTTP $code)")
+                            break
+                        }
+                    } catch (e: Exception) {}
                 }
-            }
-            Log.i("BLE_MESH", "AIR INTERCEPT COMPACT FINAL: ($totalChunks/$totalChunks chunks, text='$displayText', cipher=$cipherToUse, RSSI=$rssi dBm, isGovt=$isGovt, isPrivate=$isPrivateMesh)")
-            runOnUiThread {
-                notifyWebviewPacketReceived(packetObj.toString(), "BLE_MESH_RELAY")
-            }
-
-            // Dual Relay directly to local gateway and Cloudflare ONLY IF NOT FROM COMMAND CENTER!
-            if (!isGovt) {
-                val relayPath = if (isPrivateMesh) "/api/mesh/p2p/send" else "/api/messages/send"
-                Thread {
-                    val targets = listOf(
-                        "https://itantra-4yzo.onrender.com$relayPath",
-                        "http://127.0.0.1:8000$relayPath",
-                        "http://192.168.137.146:8000$relayPath",
-                        "http://192.168.137.1:8000$relayPath"
-                    )
-                    for (target in targets) {
-                        try {
-                            val url = java.net.URL(target)
-                            val conn = url.openConnection() as java.net.HttpURLConnection
-                            conn.requestMethod = "POST"
-                            conn.setRequestProperty("Content-Type", "application/json")
-                            conn.doOutput = true
-                            conn.connectTimeout = 2500
-                            conn.readTimeout = 2500
-                            conn.outputStream.use { os ->
-                                os.write(packetObj.toString().toByteArray(StandardCharsets.UTF_8))
-                            }
-                            val code = conn.responseCode
-                            if (code in 200..299) {
-                                Log.i("BLE_MESH", "SUCCESS: Compact Dual Relay to $target delivered (HTTP $code)")
-                                break
-                            }
-                        } catch (e: Exception) {}
-                    }
-                }.start()
-            }
+            }.start()
         }
     }
 
