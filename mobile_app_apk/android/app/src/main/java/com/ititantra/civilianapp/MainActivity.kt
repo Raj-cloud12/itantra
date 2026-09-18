@@ -1998,7 +1998,6 @@ class MainActivity : AppCompatActivity() {
         }
         val decodedText = TantraMeshCodec.decodeCompact(byteStream.toByteArray())
         val isEmerg = rawEmerg || decodedText.contains("🚨") || decodedText.contains("SOS") || decodedText.contains("Emergency")
-        val prevLen = compactAssembledLength[cipher] ?: 0
 
         val isSelf = recentSelfBroadcastCiphers.contains(cipher.uppercase())
         if (isSelf) {
@@ -2022,7 +2021,6 @@ class MainActivity : AppCompatActivity() {
             updateDeviceLocation()
             val lat = if (currentLatitude != 0.0) currentLatitude else 12.8718
             val lon = if (currentLongitude != 0.0) currentLongitude else 80.2185
-            val uniqueSeq = System.currentTimeMillis() % 100000
 
             val isGovt = decodedText.contains("GOVT") || decodedText.contains("COMMAND")
             val place = resolveDevicePlaceName(lat, lon)

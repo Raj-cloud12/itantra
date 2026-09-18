@@ -4,11 +4,10 @@ plugins {
 }
 
 android {
+    // Allow ONNX models to be compressed inside APK (saves ~20-30 MB)
+    // Sherpa ONNX handles decompression automatically on first load
     androidResources {
-        noCompress 'onnx', 'txt'
-    }
-    aaptOptions {
-        noCompress 'onnx', 'txt'
+        // noCompress removed to allow APK compression of models
     }
 
     namespace 'com.ititantra.civilianapp'
@@ -20,11 +19,23 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0"
+
+        // Only bundle ARM architectures (real phones)
+        // Drops x86/x86_64 emulator-only libs (~72 MB savings)
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
     }
 
     buildTypes {
+        debug {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -65,4 +76,3 @@ task downloadWhisperModels {
     }
 }
 preBuild.dependsOn downloadWhisperModels
-
