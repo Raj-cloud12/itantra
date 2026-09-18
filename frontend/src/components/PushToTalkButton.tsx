@@ -8,6 +8,10 @@ interface PushToTalkButtonProps {
   language?: string;
   onLiveInterimText?: (text: string) => void;
   onStartRecord?: () => void;
+  holdToTalkLabel?: string;
+  recordingLabel?: string;
+  tapToSendLabel?: string;
+  helperPrompt?: string;
 }
 
 export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
@@ -16,7 +20,11 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
   networkMode = 'mode-3-ai-mesh',
   language = 'ta',
   onLiveInterimText,
-  onStartRecord
+  onStartRecord,
+  holdToTalkLabel,
+  recordingLabel,
+  tapToSendLabel,
+  helperPrompt
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
@@ -183,7 +191,7 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
       >
         <span className="text-4xl mb-1">{isRecording ? '🎙️' : '🎤'}</span>
         <span className="font-black text-xs tracking-wider uppercase text-white">
-          {isRecording ? (isToggleModeRef.current ? 'TAP TO SEND' : 'RECORDING...') : 'HOLD / TAP TO TALK'}
+          {isRecording ? (isToggleModeRef.current ? (tapToSendLabel || 'TAP TO SEND') : (recordingLabel || 'RECORDING...')) : (holdToTalkLabel || 'HOLD / TAP TO TALK')}
         </span>
         <span className="text-[11px] font-bold text-amber-300 font-mono mt-0.5">
           {isRecording ? `${recordDuration}s` : ''}
@@ -200,7 +208,7 @@ export const PushToTalkButton: React.FC<PushToTalkButtonProps> = ({
             </span>
           </>
         ) : (
-          <span className="text-slate-400">Hold or Tap button to speak voice note</span>
+          <span className="text-slate-400">{helperPrompt || "Hold or Tap button to speak voice note"}</span>
         )}
       </div>
     </div>

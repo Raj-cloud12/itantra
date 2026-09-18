@@ -269,10 +269,28 @@ export default function CommandCenterDashboard() {
   const playedTtsRef = useRef<Set<string>>(new Set());
   const hasInitialLoadedRef = useRef(false);
 
-  // 🌐 Groq Translation with Offline AI Dictionary Fallback
+  // 🌐 Instant Translation to English (Neural Engine + Groq Cloud Fallback)
   const translateWithGroq = async (msgId: string, text: string, lang = 'ta') => {
     if (!text || translatedTexts[msgId as string]) return;
     setTranslatingId(msgId);
+
+    // 1. Direct Instant Neural Translation
+    try {
+      const gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text.trim())}`;
+      const gRes = await fetch(gUrl, { signal: AbortSignal.timeout(4000) });
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        if (gData && gData[0]) {
+          const transStr = gData[0].map((item: any) => item[0]).filter(Boolean).join('').trim();
+          if (transStr && transStr.toLowerCase() !== text.trim().toLowerCase()) {
+            setTranslatedTexts(prev => ({ ...prev, [msgId]: transStr }));
+            setTranslatingId(null);
+            return;
+          }
+        }
+      }
+    } catch {}
+
     const endpoints = [
       '/api/translate/groq',
       'https://symposium-desktops-identical-christopher.trycloudflare.com/api/translate/groq',
@@ -289,7 +307,7 @@ export default function CommandCenterDashboard() {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.translated) {
+          if (data.translated && data.translated.toLowerCase() !== text.trim().toLowerCase()) {
             setTranslatedTexts(prev => ({ ...prev, [msgId]: data.translated }));
             setTranslatingId(null);
             return;
@@ -297,10 +315,10 @@ export default function CommandCenterDashboard() {
         }
       } catch {}
     }
-    // Instant offline fallback
+    // Instant offline dictionary fallback
     try {
       const fallback = instantTranslate9(text)?.translations?.en;
-      if (fallback) {
+      if (fallback && fallback.toLowerCase() !== text.trim().toLowerCase()) {
         setTranslatedTexts(prev => ({ ...prev, [msgId]: fallback }));
       }
     } catch {}

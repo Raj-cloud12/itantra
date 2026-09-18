@@ -57,6 +57,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'நீங்கள்',
     decrypted: 'மறைகுறியீடு நீக்கப்பட்டது',
     lockedFor: 'பூட்டப்பட்டது',
+    satelliteDistressConnected: '1-டேப் சாட்டிலைட் டிஸ்ட்ரஸ் பீக்கன் (LoRa நேரடி நுழைவாயில்) பேரிடர் கட்டுப்பாட்டு அறையுடன் இணைக்கப்பட்டுள்ளது.',
   },
   en: {
     settings: 'Settings',
@@ -101,6 +102,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'You',
     decrypted: 'Decrypted',
     lockedFor: 'Locked for',
+    satelliteDistressConnected: '1-Tap Satellite Distress Beacon (LoRa Direct Gateway) connected to Disaster Command Center.',
   },
   hi: {
     settings: 'सेटिंग्स',
@@ -145,6 +147,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'आप',
     decrypted: 'डिक्रिप्टेड',
     lockedFor: 'के लिए सुरक्षित',
+    satelliteDistressConnected: '1-टैप सैटेलाइट डिस्ट्रेस बीकन (LoRa डायरेक्ट गेटवे) आपदा नियंत्रण केंद्र से जुड़ा है।',
   },
   ml: {
     settings: 'ക്രമീകരണങ്ങൾ',
@@ -189,6 +192,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'നിങ്ങൾ',
     decrypted: 'ഡീക്രിപ്റ്റ് ചെയ്തു',
     lockedFor: 'പൂട്ടിയിരിക്കുന്നു',
+    satelliteDistressConnected: '1-ടാപ്പ് സാറ്റലൈറ്റ് ഡിസ്ട്രസ്സ് ബീക്കൺ (LoRa ഡയറക്ട് ഗേറ്റ്‌വേ) ദുരന്ത നിയന്ത്രണ കേന്ദ്രവുമായി ബന്ധിപ്പിച്ചിരിക്കുന്നു.',
   },
   te: {
     settings: 'సెట్టింగ్‌లు',
@@ -233,6 +237,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'మీరు',
     decrypted: 'డీక్రిప్ట్ చేయబడింది',
     lockedFor: 'లాక్ చేయబడింది',
+    satelliteDistressConnected: '1-ట్యాప్ శాటిలైట్ డిస్ట్రెస్ బీకన్ (LoRa డైరెక్ట్ గేట్‌వే) విపత్తు నియంత్రణ కేంద్రానికి అనుసంధానించబడింది.',
   },
   kn: {
     settings: 'ಸೆಟ್ಟಿಂಗ್‌ಗಳು',
@@ -277,6 +282,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'ನೀವು',
     decrypted: 'ಡಿಕ್ರಿಪ್ಟ್ ಮಾಡಲಾಗಿದೆ',
     lockedFor: 'ಲಾಕ್ ಮಾಡಲಾಗಿದೆ',
+    satelliteDistressConnected: '1-ಟ್ಯಾಪ್ ಉಪಗ್ರಹ ಸಂಕಷ್ಟ ಬೀಕನ್ (LoRa ಡೈರೆಕ್ಟ್ ಗೇಟ್‌ವೇ) ವಿಪತ್ತು ನಿಯಂತ್ರಣ ಕೊಠಡಿಗೆ ಸಂಪರ್ಕಗೊಂಡಿದೆ.',
   },
   ur: {
     settings: 'ترتیبات',
@@ -321,6 +327,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'آپ',
     decrypted: 'ڈیکرپٹ شدہ',
     lockedFor: 'کے لیے مقفل',
+    satelliteDistressConnected: '1-ٹیپ سیٹلائٹ ڈسٹریس بیکن (LoRa ڈائریکٹ گیٹ وے) ڈیزاسٹر کنٹرول سینٹر سے منسلک ہے۔',
   },
   bn: {
     settings: 'সেটিংস',
@@ -365,6 +372,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'আপনি',
     decrypted: 'ডিক্রিপ্ট করা',
     lockedFor: 'এর জন্য লক করা',
+    satelliteDistressConnected: '১-ট্যাপ স্যাটেলাইট ডিস্ট্রেস বীকন (LoRa ডিরেক্ট গেটওয়ে) দুর্যোগ নিয়ন্ত্রণ কেন্দ্রের সাথে সংযুক্ত।',
   },
   mr: {
     settings: 'सेटिंग्ज',
@@ -409,6 +417,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'तुम्ही',
     decrypted: 'डिक्रिप्ट केले',
     lockedFor: 'साठी सुरक्षित',
+    satelliteDistressConnected: '१-टॅप सॅटेलाइट डिस्ट्रेस बीकन (LoRa थेट गेटवे) आपत्ती नियंत्रण कक्षाशी जोडलेले आहे.',
   },
   gu: {
     settings: 'સેટિંગ્સ',
@@ -453,6 +462,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'તમે',
     decrypted: 'ડિક્રિપ્ટ કરેલ',
     lockedFor: 'માટે લૉક કરેલ',
+    satelliteDistressConnected: '૧-ટેપ સેટેલાઇટ ડિસ્ટ્રેસ બીકન (LoRa ડાયરેક્ટ ગેટવે) આપત્તિ નિયંત્રણ કેન્દ્ર સાથે જોડાયેલ છે.',
   }
 };
 
@@ -1088,7 +1098,7 @@ export default function FieldUserDashboard() {
   });
   // 🌐 App Full UI Language State (Defaults to saved or Tamil 'ta')
   const [appLang, setAppLang] = useState<string>(() => {
-    return localStorage.getItem('tantra_app_ui_language') || localStorage.getItem('fixed_user_language') || 'ta';
+    return localStorage.getItem('tantra_app_ui_language') || 'ta';
   });
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const recentMeshPacketKeysRef = useRef<Set<string>>(new Set());

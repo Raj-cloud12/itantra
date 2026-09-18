@@ -641,7 +641,7 @@ async def config_simulator(data: dict):
 # ============================================================
 # 🧠 GROQ CLOUD LLM TRANSLATION API (Free Tier - GPT-OSS 120B)
 # ============================================================
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
 
 class GroqTranslatePayload(BaseModel):
     text: str
@@ -665,22 +665,34 @@ async def tts_ai_read(payload: TtsPayload):
 
 @app.post("/api/translate/groq")
 async def groq_translate(payload: GroqTranslatePayload):
-    """Translate any Indic language text to English using Groq Cloud LLM"""
+    """Translate any Indic language text to English using Groq Cloud LLM or Neural Translate"""
     if not payload.text or not payload.text.strip():
         return {"status": "error", "error": "Empty text"}
 
-    api_key = GROQ_API_KEY
-    if not api_key or api_key == "gsk_placeholder_set_your_key":
-        # Fallback: use local translate_indic_9 dictionary
-        translations = translate_indic_9(payload.text, payload.source_lang or "ta")
-        return {
-            "status": "success",
-            "original": payload.text,
-            "translated": translations.get("en", payload.text),
-            "translations": translations,
-            "engine": "Local Indic Dictionary (set GROQ_API_KEY for LLM)"
-        }
+    from urllib.parse import quote
 
+    # 1. Fast, Reliable Google Neural Translate Fallback
+    try:
+        g_url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={payload.target_lang or 'en'}&dt=t&q={quote(payload.text.strip())}"
+        with httpx.Client(timeout=5.0, verify=False) as client:
+            g_resp = client.get(g_url)
+            if g_resp.status_code == 200:
+                g_data = g_resp.json()
+                if g_data and g_data[0]:
+                    g_trans = "".join([item[0] for item in g_data[0] if item and item[0]]).strip()
+                    if g_trans and g_trans.lower() != payload.text.strip().lower():
+                        audio_voice = await generate_english_ai_voice(g_trans)
+                        return {
+                            "status": "success",
+                            "original": payload.text,
+                            "translated": g_trans,
+                            "audio_url": audio_voice,
+                            "engine": "Neural Translation Engine"
+                        }
+    except Exception as ge:
+        print(f"[Neural Translate Error]: {ge}", flush=True)
+
+    api_key = GROQ_API_KEY
     lang_names = {
         "ta": "Tamil", "hi": "Hindi", "te": "Telugu", "ml": "Malayalam",
         "kn": "Kannada", "bn": "Bengali", "mr": "Marathi", "gu": "Gujarati", "en": "English"
@@ -693,52 +705,44 @@ ONLY output the translated text, nothing else. No explanations, no quotes.
 
 Text: {payload.text.strip()}"""
 
-    try:
-        with httpx.Client(timeout=15.0, verify=False) as client:
-            resp = client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "openai/gpt-oss-120b",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.1,
-                    "max_tokens": 500
+    if api_key and api_key != "gsk_placeholder_set_your_key":
+        try:
+            with httpx.Client(timeout=10.0, verify=False) as client:
+                resp = client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.1,
+                        "max_tokens": 500
+                    }
+                )
+            if resp.status_code == 200:
+                data = resp.json()
+                translated = data["choices"][0]["message"]["content"].strip()
+                audio_voice = await generate_english_ai_voice(translated)
+                return {
+                    "status": "success",
+                    "original": payload.text,
+                    "translated": translated,
+                    "audio_url": audio_voice,
+                    "engine": "Groq LLM (Llama 3.3 70B)"
                 }
-            )
-        if resp.status_code == 200:
-            data = resp.json()
-            translated = data["choices"][0]["message"]["content"].strip()
-            print(f"[Groq LLM Translate] {src_name}->{tgt_name}: {payload.text[:50]} => {translated[:50]}", flush=True)
-            audio_voice = await generate_english_ai_voice(translated)
-            return {
-                "status": "success",
-                "original": payload.text,
-                "translated": translated,
-                "audio_url": audio_voice,
-                "engine": "Groq Cloud LLM (GPT-OSS 120B)"
-            }
-        else:
-            print(f"[Groq API Error] {resp.status_code}: {resp.text[:200]}", flush=True)
-            # Fallback to local
-            translations = translate_indic_9(payload.text, payload.source_lang or "ta")
-            return {
-                "status": "success",
-                "original": payload.text,
-                "translated": translations.get("en", payload.text),
-                "engine": f"Local Fallback (Groq {resp.status_code})"
-            }
-    except Exception as e:
-        print(f"[Groq Translate Error]: {e}", flush=True)
-        translations = translate_indic_9(payload.text, payload.source_lang or "ta")
-        return {
-            "status": "success",
-            "original": payload.text,
-            "translated": translations.get("en", payload.text),
-            "engine": f"Local Fallback (Network Error)"
-        }
+        except Exception as e:
+            print(f"[Groq Translate Error]: {e}", flush=True)
+
+    translations = translate_indic_9(payload.text, payload.source_lang or "ta")
+    return {
+        "status": "success",
+        "original": payload.text,
+        "translated": translations.get("en", payload.text),
+        "translations": translations,
+        "engine": "Local Indic Dictionary"
+    }
 
 @app.post("/api/groq/set-key")
 def set_groq_key(data: dict):
