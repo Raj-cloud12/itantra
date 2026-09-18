@@ -77,9 +77,15 @@ try:
 except Exception:
     pass
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import time
 import httpx
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_ist_time_str() -> str:
+    """Always return current time formatted in Indian Standard Time (IST, UTC+5:30)"""
+    return datetime.now(IST).strftime("%I:%M %p")
 
 import sys
 try:
@@ -965,13 +971,40 @@ def get_p2p_messages():
     global recent_p2p_messages
     return recent_p2p_messages[-50:]
 
+# In-Memory P2P Deduplication Caches
+processed_p2p_ids = set()
+recent_p2p_dedup = {}
+
 @app.post("/api/mesh/p2p/send")
 async def send_p2p_message(payload: MessagePayload):
-    global recent_p2p_messages
+    global recent_p2p_messages, processed_p2p_ids, recent_p2p_dedup
+    now = time.time()
     msg_uuid = payload.id or str(uuid.uuid4())
     sender_name = payload.sender_username or "@citizen"
     target_name = payload.target_username or "@friend"
     final_text = (payload.text or "").strip()
+    cipher = (payload.cipher_code or "").strip().upper()
+    
+    # 1. Exact ID Deduplication
+    if msg_uuid in processed_p2p_ids:
+        print(f"[P2P DEDUP] Suppressed duplicate P2P ID {msg_uuid}", flush=True)
+        return {"status": "delivered", "deduplicated": True, "id": msg_uuid}
+    processed_p2p_ids.add(msg_uuid)
+    if len(processed_p2p_ids) > 1000:
+        processed_p2p_ids.clear()
+        
+    # 2. Content & Cipher Sliding-Window Deduplication (20s Window)
+    clean_sig = re.sub(r'[\s\W]+', ' ', final_text).strip().lower()
+    content_key = f"{sender_name}_{target_name}_{cipher[-6:] if cipher else ''}_{clean_sig[:40]}"
+    if content_key in recent_p2p_dedup:
+        last_t = recent_p2p_dedup[content_key]
+        if now - last_t < 20.0:
+            print(f"[P2P DEDUP] Suppressed duplicate P2P content flood ({content_key})", flush=True)
+            return {"status": "delivered", "deduplicated": True, "id": msg_uuid}
+    recent_p2p_dedup[content_key] = now
+    if len(recent_p2p_dedup) > 200:
+        cutoff = now - 30.0
+        recent_p2p_dedup = {k: v for k, v in recent_p2p_dedup.items() if v > cutoff}
     
     p2p_data = {
         "id": msg_uuid,
@@ -991,7 +1024,7 @@ async def send_p2p_message(payload: MessagePayload):
         "audio_url": payload.audio_url,
         "audioUrl": payload.audio_url,
         "duration_seconds": payload.duration_seconds or 3,
-        "display_time": payload.display_time or datetime.now().strftime("%I:%M %p"),
+        "display_time": payload.display_time or get_ist_time_str(),
         "gateway_node": payload.gateway_node or "📱 P2P Mesh Direct",
         "hop_count": payload.hop_count or 1,
         "is_emergency": False,
@@ -1031,7 +1064,7 @@ async def air_broadcast_mesh(payload: dict):
         "gateway_node": payload.get("gateway_node"),
         "status": status,
         "timestamp": payload.get("timestamp") or datetime.utcnow().isoformat(),
-        "display_time": payload.get("display_time") or datetime.now().strftime("%I:%M %p")
+        "display_time": payload.get("display_time") or get_ist_time_str()
     }
     await manager.broadcast(air_packet)
     return {"status": status, "packet": air_packet}
@@ -1178,7 +1211,7 @@ async def send_message(payload: MessagePayload):
                 payload.cipher_code or "0x4954015F01414F67AE42A082C502448A",
                 payload.gateway_node or "🏢 Government Control Centre",
                 payload.hop_count or 2,
-                payload.display_time or datetime.now().strftime("%I:%M %p")
+                payload.display_time or get_ist_time_str()
             ))
             msg_id = c.lastrowid
             conn.commit()
@@ -1208,7 +1241,7 @@ async def send_message(payload: MessagePayload):
         "audio_url": payload.audio_url,
         "audioUrl": payload.audio_url,
         "duration_seconds": payload.duration_seconds or 4,
-        "display_time": payload.display_time or datetime.now().strftime("%I:%M %p"),
+        "display_time": payload.display_time or get_ist_time_str(),
         "gateway_node": payload.gateway_node or "📱 Phone 2: Relay Node",
         "hop_count": payload.hop_count or 2,
         "is_emergency": payload.is_emergency,

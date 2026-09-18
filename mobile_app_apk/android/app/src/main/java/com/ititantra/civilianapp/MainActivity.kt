@@ -2047,8 +2047,14 @@ class MainActivity : AppCompatActivity() {
                 displayText = "🔒 Encrypted Message (Locked for $targetUser)"
             }
 
+            val cleanC = cipherToUse.lowercase().replace("[^a-z0-9]".toRegex(), "")
+            val sdf = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+            }
+            val istTime = sdf.format(java.util.Date()).uppercase()
+
             val packetObj = JSONObject().apply {
-                put("id", "air_${cipherToUse.lowercase()}_${uniqueSeq}")
+                put("id", "air_${cleanC}")
                 put("channel_type", if (isPrivateMesh) "CIVILIAN_P2P" else "EMERGENCY_ALERT")
                 put("cipher_code", cipherToUse)
                 put("hop_count", 2)
@@ -2059,7 +2065,8 @@ class MainActivity : AppCompatActivity() {
                 put("address_name", "$place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]")
                 put("network_mode", if (isEmerg && !isPrivateMesh) "mode-4-satellite-beacon" else "mode-3-ai-mesh")
                 put("gateway_node", if (isGovt) "🏢 Command Center (Downlink BLE)" else "📱 Phone 2 (Silent Mesh Relay Node)")
-                put("timestamp", "${System.currentTimeMillis()}")
+                put("timestamp", java.time.Instant.now().toString())
+                put("display_time", istTime)
                 put("type", if (isEmerg && !isPrivateMesh) "emergency_alert" else "voice_message")
                 put("sender_role", if (isGovt) "command" else "field")
                 put("sender_username", senderUser)

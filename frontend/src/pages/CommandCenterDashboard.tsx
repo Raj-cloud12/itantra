@@ -681,6 +681,7 @@ export default function CommandCenterDashboard() {
           const cleanText = (item.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
           const timeBucket = Math.floor(new Date(item.timestamp).getTime() / 15000);
           const sig = `${cleanText}_${timeBucket}`;
+          if (cleanText && seenSignatures.has(sig)) continue;
           if (cleanText) seenSignatures.add(sig);
           uniqueFeed.push(item);
         }
