@@ -347,8 +347,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun vibratePhone(ms: Long = 200) {
         val now = System.currentTimeMillis()
-        if (now - lastVibrationTimestamp < 3500L) {
-            // Strictly prevent repetitive or continuous vibration loops within 3.5 seconds
+        if (now - lastVibrationTimestamp < 4500L) {
+            // Strictly prevent repetitive or continuous vibration loops within 4.5 seconds
             return
         }
         lastVibrationTimestamp = now
@@ -2322,35 +2322,20 @@ class MainActivity : AppCompatActivity() {
                           rawPayload.contains("\"is_emergency\": true") ||
                           rawPayload.contains("🚨") ||
                           rawPayload.contains("SOS")
-        val isMode3 = rawPayload.contains("mode-3") || rawPayload.contains("MESH3|")
-        // Strict Vibration Matrix: Vibrate on Mode 3 (both Alert and Local Mesh) and Emergency SOS!
-        // Mode 1 and Mode 2 peer devices and ACKs remain silent.
-        val shouldVibrate = (isEmergency || isMode3) && !isAck
-
-        // Haptic Vibration for incoming Mode 3 or emergency SOS messages
-        if (shouldVibrate && (now - lastHapticTimestamp > 1500L)) {
+        // Vibration is managed safely with strict packet-ID deduplication inside WebView triggerSafeHaptic.
+        // Native layer only sounds tone for new critical emergency SOS
+        if (isEmergency && !isAck && (now - lastHapticTimestamp > 5000L)) {
             lastHapticTimestamp = now
             try {
-                // Single clean crisp haptic pulse (200ms)
-                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-                if (vibrator != null && vibrator.hasVibrator()) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        vibrator.vibrate(android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-                    } else {
-                        @Suppress("DEPRECATION")
-                        vibrator.vibrate(200)
-                    }
-                }
-                // Tone Generator ONLY for emergency/satellite distress alerts (never for private chats or routine mesh)
-                if (!isPrivateMesh && (isEmergency || rawPayload.contains("mode-4"))) {
-                    val toneGen = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 75)
-                    toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 200)
+                if (!isPrivateMesh) {
+                    val toneGen = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 70)
+                    toneGen.startTone(android.media.ToneGenerator.TONE_PROP_BEEP2, 180)
                     Handler(Looper.getMainLooper()).postDelayed({
                         try { toneGen.release() } catch (e: Exception) {}
-                    }, 400)
+                    }, 350)
                 }
             } catch (e: Exception) {
-                Log.e("MESH_AIR", "Error in haptic/tone: ${e.message}")
+                Log.e("MESH_AIR", "Error in tone: ${e.message}")
             }
         }
 

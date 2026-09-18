@@ -1119,9 +1119,18 @@ export default function FieldUserDashboard() {
   const lastSentSpeechRef = useRef<{ text: string; time: number }>({ text: '', time: 0 });
 
   const lastVibrateTsRef = useRef<number>(0);
-  const triggerSafeHaptic = (ms: number = 200) => {
+  const vibratedPacketIdsRef = useRef<Set<string>>(new Set());
+  const triggerSafeHaptic = (ms: number = 200, dedupId?: string) => {
+    if (dedupId) {
+      if (vibratedPacketIdsRef.current.has(dedupId)) return;
+      vibratedPacketIdsRef.current.add(dedupId);
+      if (vibratedPacketIdsRef.current.size > 200) {
+        const first = vibratedPacketIdsRef.current.values().next().value;
+        if (first) vibratedPacketIdsRef.current.delete(first);
+      }
+    }
     const now = Date.now();
-    if (now - lastVibrateTsRef.current < 4000) return;
+    if (now - lastVibrateTsRef.current < 5000) return;
     lastVibrateTsRef.current = now;
     try {
       (window as any).AndroidBleMeshBridge?.vibrateDevice?.(ms);
@@ -1400,8 +1409,7 @@ export default function FieldUserDashboard() {
         return [{ ...parsed, text, is_emergency: isEmergencyAlert, display_time: formatTimeIST() }, ...prev].slice(0, 30);
       });
       setLastDeliveryToast(`${isEmergencyAlert ? '🚨 EMERGENCY SOS' : '📡 MODE 3 ALERT'}: ${text.slice(0, 40)}`);
-      triggerSafeHaptic(300);
-      try { (window as any).AndroidBleMeshBridge?.vibrateDevice?.(300); } catch (e) {}
+      triggerSafeHaptic(300, String(parsed.id || parsed.cipher_code || text));
     }
 
     // Only civilian peer-to-peer messages enter Local Mesh feed; never emergency alerts or command center packets!
@@ -1416,8 +1424,7 @@ export default function FieldUserDashboard() {
       });
       // Vibrate on Mode 3 incoming Local Mesh message
       if (isMode3Mesh) {
-        triggerSafeHaptic(300);
-        try { (window as any).AndroidBleMeshBridge?.vibrateDevice?.(300); } catch (e) {}
+        triggerSafeHaptic(200, String(parsed.id || parsed.cipher_code || text));
       }
     }
   };
@@ -1652,10 +1659,9 @@ export default function FieldUserDashboard() {
           return [lastMessage, ...prev].slice(0, 30);
         });
 
-        // Vibrate on Mode 3 alert or emergency SOS
-        if (isEmergency || lastMessage.network_mode === 'mode-3-ai-mesh' || networkMode === 'mode-3-ai-mesh') {
-          triggerSafeHaptic(300);
-          try { (window as any).AndroidBleMeshBridge?.vibrateDevice?.(300); } catch (e) {}
+        // Vibrate strictly once on new emergency SOS
+        if (isEmergency) {
+          triggerSafeHaptic(300, String(lastMessage.id || lastMessage.timestamp || lastMessage.text));
         }
 
         if (isFromCommand) {
@@ -1740,10 +1746,7 @@ export default function FieldUserDashboard() {
           });
 
           if (targetClean === myClean) {
-            triggerSafeHaptic(300);
-            if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
-              try { (window as any).AndroidBleMeshBridge.vibrateDevice(300); } catch (e) {}
-            }
+            triggerSafeHaptic(250, String(cleanCipher || cleanText));
             setLastDeliveryToast(`📬 🔓 E2EE Decrypted from ${senderClean}: "${finalText}"`);
           }
         }
@@ -1979,18 +1982,11 @@ export default function FieldUserDashboard() {
               const channelName = channel === 'WIFI_AWARE_NAN' ? 'Wi-Fi Aware (NAN 100m)' : channel === 'BLE_RADIO' ? 'BLE Radio (30m)' : 'Local Radio';
               if (targetClean === myClean) {
                 setLastDeliveryToast(`📬 🔓 Decrypted from ${senderClean}: "${finalText}" (${channelName})`);
-                triggerSafeHaptic(300);
-                if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
-                  try { (window as any).AndroidBleMeshBridge.vibrateDevice(300); } catch (e) {}
-                }
+                triggerSafeHaptic(250, String(parsed.id || cleanCipher || cleanText));
               }
             } else {
-              // 📱 Intermediate Mule Relay (Phone 2):
-              // 1. "phone 2 also want to vibratee" -> Vibrate on Phone 2!
-              triggerSafeHaptic(200);
-              if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
-                try { (window as any).AndroidBleMeshBridge.vibrateDevice(200); } catch (e) {}
-              }
+              // 📱 Intermediate Mule Relay (Phone 2): Vibrate ONCE on relay
+              triggerSafeHaptic(150, String(parsed.id || parsed.cipher_code || 'relay'));
 
               // 2. Strict Privacy: Phone 2 CANNOT read the message. Do NOT display or toast!
 
@@ -2672,11 +2668,6 @@ export default function FieldUserDashboard() {
 
     // Light sender feedback on message dispatch
     triggerSafeHaptic(80);
-    if ((window as any).AndroidBleMeshBridge?.vibrateDevice) {
-      try {
-        (window as any).AndroidBleMeshBridge.vibrateDevice(80);
-      } catch (e) {}
-    }
 
     setLastDeliveryToast(isMode3 ? `🔒 Locked & Dispatched to ${effectiveTarget}` : `✅ Sent to ${effectiveTarget}`);
 
