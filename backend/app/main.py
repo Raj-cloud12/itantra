@@ -958,7 +958,7 @@ def get_apk_info():
         "filename": "iTantra.apk",
         "version": "1.0",
         "size_mb": size_mb,
-        "package_id": "com.ititantra.civilianapp",
+        "package_id": "iTantra.civilianapp",
         "app_name": "iTantra",
         "download_url": "/download-apk",
         "gdrive_url": GDRIVE_VIEW_URL,

@@ -6,7 +6,7 @@ export default function DownloadPage() {
     version: '1.0',
     size_mb: 112.2,
     filename: 'iTantra.apk',
-    package_id: 'com.ititantra.civilianapp',
+    package_id: 'iTantra.civilianapp',
     app_name: 'iTantra'
   });
 
@@ -20,7 +20,8 @@ export default function DownloadPage() {
             ...prev,
             size_mb: data.size_mb,
             version: data.version || '1.0',
-            filename: data.filename || 'iTantra.apk'
+            filename: data.filename || 'iTantra.apk',
+            package_id: data.package_id || 'iTantra.civilianapp'
           }));
         }
       })
@@ -135,7 +136,7 @@ export default function DownloadPage() {
                 <span>Download iTantra.apk ({apkInfo.size_mb} MB)</span>
               </a>
               <p className="text-center text-[11px] text-neutral-500 mt-3 font-mono">
-                🔒 Verified Signed Production Release · Direct 1-Click Download
+                Direct 1-Click Download
               </p>
             </div>
 
