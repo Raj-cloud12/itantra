@@ -54,15 +54,6 @@ export default function DownloadPage() {
             </div>
           </Link>
         </div>
-
-        <div className="flex items-center gap-3 text-xs font-semibold">
-          <Link
-            to="/field"
-            className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-emerald-500/50 hover:bg-slate-800 transition-all flex items-center gap-2 shadow-sm"
-          >
-            📱 <span>Web Mobile App</span>
-          </Link>
-        </div>
       </header>
 
       {/* Main Hero Container */}
@@ -72,10 +63,6 @@ export default function DownloadPage() {
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 shadow-inner mb-6">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span className="font-mono text-cyan-400 font-bold">Release v{apkInfo.version}</span>
-          <span className="text-slate-500">•</span>
-          <span className="text-slate-400">Signed Production APK</span>
-          <span className="text-slate-500">•</span>
-          <span className="text-emerald-400 font-mono font-semibold">{apkInfo.size_mb} MB</span>
         </div>
 
         {/* Title */}
