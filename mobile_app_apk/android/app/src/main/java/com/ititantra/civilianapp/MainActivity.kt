@@ -134,7 +134,7 @@ class MainActivity : AppCompatActivity() {
                 connection.connectTimeout = 30000
                 connection.readTimeout = 90000
                 connection.instanceFollowRedirects = true
-                connection.setRequestProperty("User-Agent", "iTiTantra-Android")
+                connection.setRequestProperty("User-Agent", "iTantra-Android")
                 connection.connect()
 
                 val code = connection.responseCode
@@ -222,7 +222,7 @@ class MainActivity : AppCompatActivity() {
     private var wifiAwareSession: WifiAwareSession? = null
     private var publishDiscoverySession: PublishDiscoverySession? = null
     private var subscribeDiscoverySession: SubscribeDiscoverySession? = null
-    private val AWARE_SERVICE_NAME = "iTiTantra_Local_Mesh"
+    private val AWARE_SERVICE_NAME = "iTantra_Local_Mesh"
 
     // Wi-Fi Neighbor Direct (DNS-SD 802.11 Action Frames - 100m Range, Zero Hotspot, Zero Router)
     private var wifiP2pManager: WifiP2pManager? = null
@@ -399,7 +399,7 @@ class MainActivity : AppCompatActivity() {
         autoEnableRadios()
         try {
             val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            multicastLock = wifi?.createMulticastLock("iTiTantra_multicast_lock")
+            multicastLock = wifi?.createMulticastLock("iTantra_multicast_lock")
             multicastLock?.setReferenceCounted(true)
             multicastLock?.acquire()
             Log.i("UDP_MESH", "SUCCESS: Wi-Fi Multicast Lock Acquired!")
@@ -419,7 +419,7 @@ class MainActivity : AppCompatActivity() {
         settings.allowFileAccessFromFileURLs = true
         settings.allowUniversalAccessFromFileURLs = true
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        settings.userAgentString = settings.userAgentString + " iTiTantra-Native-Android-Node/1.0"
+        settings.userAgentString = settings.userAgentString + " iTantra-Native-Android/1.0"
 
         // Register Native Android Wi-Fi Aware, BLE & Radio Bridge
         webView.addJavascriptInterface(BleMeshBridge(), "AndroidBleMeshBridge")
@@ -553,7 +553,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val config = PublishConfig.Builder()
                     .setServiceName(AWARE_SERVICE_NAME)
-                    .setServiceSpecificInfo("iTiTantra_Node".toByteArray(StandardCharsets.UTF_8))
+                    .setServiceSpecificInfo("iTantra_Node".toByteArray(StandardCharsets.UTF_8))
                     .build()
 
                 wifiAwareSession?.publish(config, object : DiscoverySessionCallback() {
@@ -663,7 +663,7 @@ class MainActivity : AppCompatActivity() {
                             sb.toString()
                         }
                         val hop = txtRecordMap["h"]?.toIntOrNull() ?: 1
-                        val sender = txtRecordMap["s"] ?: "@victim_phone_1"
+                        val sender = txtRecordMap["s"] ?: "@field_node_101"
                         val id = txtRecordMap["id"] ?: ("air_" + cipher.lowercase() + "_h" + hop)
 
                         val dedupKey = "wifi_${cipher}_${hop}"
@@ -782,7 +782,7 @@ class MainActivity : AppCompatActivity() {
             val cipher = json.optString("cipher_code", "KEY#ENC-4954-015F")
             val text = json.optString("text", "")
             val hop = json.optInt("hop_count", 1)
-            val sender = json.optString("sender_username", "@victim_phone_1")
+            val sender = json.optString("sender_username", "@field_node_101")
             val id = json.optString("id", "air_" + System.currentTimeMillis())
 
             val txtRecord = HashMap<String, String>()
@@ -1086,7 +1086,7 @@ class MainActivity : AppCompatActivity() {
             val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             if (downloadDir != null) {
                 if (!downloadDir.exists()) downloadDir.mkdirs()
-                list.add(File(downloadDir, ".ititantra_device_profile.dat"))
+                list.add(File(downloadDir, ".itantra_device_profile.dat"))
             }
         } catch (e: Exception) {}
         try {
@@ -1094,12 +1094,12 @@ class MainActivity : AppCompatActivity() {
             val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
             if (docsDir != null) {
                 if (!docsDir.exists()) docsDir.mkdirs()
-                list.add(File(docsDir, ".ititantra_device_profile.dat"))
+                list.add(File(docsDir, ".itantra_device_profile.dat"))
             }
         } catch (e: Exception) {}
         try {
             // 3. App Internal Files (Private sandbox backup)
-            list.add(File(filesDir, "ititantra_device_profile.dat"))
+            list.add(File(filesDir, "itantra_device_profile.dat"))
         } catch (e: Exception) {}
         return list
     }
@@ -1122,7 +1122,7 @@ class MainActivity : AppCompatActivity() {
 
         // 1. Cache in SharedPreferences
         try {
-            val prefs = getSharedPreferences("ititantra_device_identity", Context.MODE_PRIVATE)
+            val prefs = getSharedPreferences("itantra_device_identity", Context.MODE_PRIVATE)
             prefs.edit()
                 .putString("locked_username", formatted)
                 .putBoolean("is_locked", true)
@@ -1157,7 +1157,7 @@ class MainActivity : AppCompatActivity() {
 
         // 1. Check SharedPreferences first (instant cache)
         try {
-            val prefs = getSharedPreferences("ititantra_device_identity", Context.MODE_PRIVATE)
+            val prefs = getSharedPreferences("itantra_device_identity", Context.MODE_PRIVATE)
             val cachedUser = prefs.getString("locked_username", "")
             val isLocked = prefs.getBoolean("is_locked", false)
             if (!cachedUser.isNullOrEmpty() && isLocked) {
@@ -1185,7 +1185,7 @@ class MainActivity : AppCompatActivity() {
                         Log.i("IDENTITY", "Restored identity '$username' from persistent file: ${file.absolutePath}")
                         // Re-seed SharedPreferences cache
                         try {
-                            val prefs = getSharedPreferences("ititantra_device_identity", Context.MODE_PRIVATE)
+                            val prefs = getSharedPreferences("itantra_device_identity", Context.MODE_PRIVATE)
                             prefs.edit()
                                 .putString("locked_username", username)
                                 .putBoolean("is_locked", true)
@@ -1216,18 +1216,18 @@ class MainActivity : AppCompatActivity() {
             val docsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
             if (docsDir != null) {
                 if (!docsDir.exists()) docsDir.mkdirs()
-                list.add(File(docsDir, ".ititantra_mesh_chats.dat"))
+                list.add(File(docsDir, ".itantra_mesh_chats.dat"))
             }
         } catch (e: Exception) {}
         try {
             val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             if (downloadDir != null) {
                 if (!downloadDir.exists()) downloadDir.mkdirs()
-                list.add(File(downloadDir, ".ititantra_mesh_chats.dat"))
+                list.add(File(downloadDir, ".itantra_mesh_chats.dat"))
             }
         } catch (e: Exception) {}
         try {
-            list.add(File(filesDir, "ititantra_mesh_chats.dat"))
+            list.add(File(filesDir, "itantra_mesh_chats.dat"))
         } catch (e: Exception) {}
         return list
     }
@@ -1235,7 +1235,7 @@ class MainActivity : AppCompatActivity() {
     private fun savePermanentChatHistory(chatJson: String): Boolean {
         if (chatJson.isBlank()) return false
         try {
-            val prefs = getSharedPreferences("ititantra_mesh_chats", Context.MODE_PRIVATE)
+            val prefs = getSharedPreferences("itantra_mesh_chats", Context.MODE_PRIVATE)
             prefs.edit().putString("chat_history_json", chatJson).apply()
         } catch (e: Exception) {}
 
@@ -1256,7 +1256,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadPermanentChatHistory(): String {
         try {
-            val prefs = getSharedPreferences("ititantra_mesh_chats", Context.MODE_PRIVATE)
+            val prefs = getSharedPreferences("itantra_mesh_chats", Context.MODE_PRIVATE)
             val cached = prefs.getString("chat_history_json", "")
             if (!cached.isNullOrEmpty() && cached.trim().startsWith("[")) {
                 return cached
@@ -1272,7 +1272,7 @@ class MainActivity : AppCompatActivity() {
                     if (jsonStr.startsWith("[")) {
                         Log.i("CHAT_STORAGE", "Restored chat history from ${file.absolutePath}")
                         try {
-                            getSharedPreferences("ititantra_mesh_chats", Context.MODE_PRIVATE)
+                            getSharedPreferences("itantra_mesh_chats", Context.MODE_PRIVATE)
                                 .edit().putString("chat_history_json", jsonStr).apply()
                         } catch (e: Exception) {}
                         return jsonStr
@@ -1950,7 +1950,7 @@ class MainActivity : AppCompatActivity() {
             "EMERGENCY: Immediate rescue needed. Location: $place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
         }
 
-        var senderUser = if (isGovt) "@command_center" else "@victim_phone_1"
+        var senderUser = if (isGovt) "@command_center" else "@field_node_101"
         var targetUser = if (isGovt) "@all_citizens" else "@command_center"
         var encPayload = ""
         var cipherToUse = cipher
@@ -2104,11 +2104,11 @@ class MainActivity : AppCompatActivity() {
                         put("longitude", lon)
                         put("address_name", "GPS (${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E)")
                         put("network_mode", if (isEmerg) "mode-4-satellite-beacon" else "mode-3-ai-mesh")
-                        put("gateway_node", "📱 Phone 2 (BLE Mesh Relay Node)")
+                        put("gateway_node", "BLE Mesh Relay Node")
                         put("timestamp", "${System.currentTimeMillis()}")
                         if (isEmerg) put("type", "emergency_alert") else put("type", "voice_message")
                         put("sender_role", "field")
-                        put("sender_username", "@victim_phone_1")
+                        put("sender_username", "@field_node_101")
                     }
                     Log.i("BLE_MESH", "AIR INTERCEPT: Assembled (${chunkMap.size}/$totalChunks chunks): '$assembled'")
                     runOnUiThread {
@@ -2150,7 +2150,7 @@ class MainActivity : AppCompatActivity() {
                     put("timestamp", "${System.currentTimeMillis()}")
                     if (isEmerg) put("type", "emergency_alert") else put("type", "voice_message")
                     put("sender_role", "field")
-                    put("sender_username", "@victim_phone_1")
+                    put("sender_username", "@field_node_101")
                 }
 
                 Log.i("BLE_MESH", "AIR INTERCEPT: Relaying packet id=air_${cipher.lowercase()}_${uniqueSeq} isEmerg=$isEmerg")

@@ -48,7 +48,7 @@ export default function DownloadPage() {
               <div className="flex items-center gap-2">
                 <span className="font-black text-base text-white tracking-wide">iTantra</span>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold tracking-wider">
-                  SIH 2026
+                  v1.0
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400 hidden sm:block">Indian Multilingual Disaster Communication & Mesh Network</p>
@@ -177,7 +177,7 @@ export default function DownloadPage() {
               <div className="text-2xl mb-3">🔒</div>
               <h4 className="font-bold text-sm text-white mb-1.5">Mode 3 Private E2EE Chat</h4>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Military-grade AES-256-GCM encryption locks peer-to-peer chats so only the recipient can decrypt messages.
+                End-to-end AES-256-GCM authenticated encryption locks peer-to-peer chats so only the recipient can decrypt messages.
               </p>
             </div>
 
@@ -256,7 +256,7 @@ export default function DownloadPage() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 bg-black py-8 px-6 text-center text-xs text-neutral-500 font-mono">
         <p>iTantra: Indian Multilingual TTS & STT-Aided Neural Transceiver Radio Access for Low-Bitrate Links</p>
-        <p className="mt-1 text-[11px] text-neutral-600">Smart India Hackathon Product · MIT Licensed</p>
+        <p className="mt-1 text-[11px] text-neutral-600">Open Source · MIT Licensed</p>
       </footer>
 
     </div>

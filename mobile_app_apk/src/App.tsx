@@ -7,6 +7,14 @@ import DemoMode from './pages/DemoMode';
 import DownloadPage from './pages/DownloadPage';
 
 export default function App() {
+  React.useEffect(() => {
+    // If user lands with legacy hash e.g. /#/download, migrate to clean path
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      const path = window.location.hash.slice(1);
+      window.history.replaceState(null, '', path);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
       <Routes>
@@ -23,6 +31,7 @@ export default function App() {
         
         {/* Dedicated APK Download Portal */}
         <Route path="/download" element={<DownloadPage />} />
+        <Route path="/download/*" element={<DownloadPage />} />
         <Route path="/download-apk-page" element={<DownloadPage />} />
         <Route path="/apk" element={<DownloadPage />} />
 

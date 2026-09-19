@@ -924,7 +924,7 @@ export default function CommandCenterDashboard() {
             className="px-3.5 py-2 bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-600 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-purple-400"
           >
             <span>🎛️</span>
-            <span>Demo Hub</span>
+            <span>Network Simulator</span>
           </Link>
 
           {/* BIG RED SOS BROADCAST BUTTON */}

@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "iTiTantra Node"
+rootProject.name = "iTantra"
 include ':app'

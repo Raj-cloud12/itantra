@@ -1,5 +1,5 @@
 # ============================================================
-# iTiTantra Civilian App — ProGuard / R8 Keep Rules
+# iTantra Civilian App — ProGuard / R8 Keep Rules
 # Production-safe: Keeps all app, Sherpa ONNX, and bridge classes
 # ============================================================
 

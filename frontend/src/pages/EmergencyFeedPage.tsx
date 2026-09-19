@@ -95,7 +95,7 @@ export const EmergencyFeedPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="text-cyan-400 text-lg">🛡️</span>
           <span className="text-[11px] font-bold text-cyan-200">
-            Privacy Guarantee: Phone 2 forwards raw 24-Byte AES Ciphers without viewing victim private plaintext.
+            End-to-End Privacy: Relays forward authenticated ciphertext payloads without decrypting user messages.
           </span>
         </div>
         <span className="text-[10px] text-slate-400 font-bold">

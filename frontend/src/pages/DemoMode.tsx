@@ -139,9 +139,9 @@ export default function DemoMode() {
           </div>
           <div>
             <h1 className="text-base font-black text-slate-100 flex items-center gap-2">
-              iTantra Demo Controller
+              iTantra Network Controller
             </h1>
-            <span className="text-[10px] text-slate-400">Direct Manual Switcher for Presentation & Testing</span>
+            <span className="text-[10px] text-slate-400">Tactical Multi-Tier Network Configuration</span>
           </div>
         </div>
 
@@ -320,7 +320,7 @@ export default function DemoMode() {
           Government: <strong className="text-rose-400">{govtMode.toUpperCase()}</strong> · Local Mesh: <strong className="text-cyan-400">{friendsMode.toUpperCase()}</strong>
         </div>
         <div className="text-emerald-400 font-bold text-[11px]">
-          ⚡ Ready for Live Presentation
+          ⚡ Network State Synchronized
         </div>
       </footer>
 

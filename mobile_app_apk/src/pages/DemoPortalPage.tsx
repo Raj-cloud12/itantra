@@ -46,7 +46,7 @@ export default function DemoPortalPage() {
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
         <div className="text-center flex flex-col items-center">
           <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-4"></div>
-          <h2 className="text-lg font-bold text-emerald-400">Launching Jury Demo Mode...</h2>
+          <h2 className="text-lg font-bold text-emerald-400">Loading Network Operations Simulator...</h2>
           <p className="text-xs text-slate-400 mt-1">Initializing AI Compression & Bandwidth Simulator Gateway</p>
         </div>
       </div>

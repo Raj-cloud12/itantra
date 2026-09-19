@@ -63,7 +63,7 @@ export function useWebSocket(url: string | null): WebSocketHookResult {
             break;
 
           case 'mode_switch':
-            // Mode switched by Demo Hub or Command Center
+            // Mode switched dynamically by network controller or command center
             setLastMessage(data);
             break;
 
