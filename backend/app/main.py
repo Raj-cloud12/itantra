@@ -912,8 +912,13 @@ async def transcribe_for_translate(payload: AudioTranscribePayload):
     }
 
 @app.get("/download-apk")
+@app.get("/api/download/apk")
 def download_apk():
     candidates = [
+        r"D:\iTantra.apk",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "iTantra.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "release", "app-release.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "release", "app-release.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "itantra-latest.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "itantra-latest.apk")),
@@ -926,6 +931,37 @@ def download_apk():
                 media_type="application/vnd.android.package-archive"
             )
     return {"error": "APK file not found"}
+
+@app.get("/api/apk/info")
+def get_apk_info():
+    candidates = [
+        r"D:\iTantra.apk",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "iTantra.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "release", "app-release.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "release", "app-release.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk")),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            size_mb = round(os.path.getsize(c) / (1024 * 1024), 1)
+            return {
+                "available": True,
+                "filename": "iTantra.apk",
+                "version": "1.0",
+                "size_mb": size_mb,
+                "package_id": "com.ititantra.civilianapp",
+                "app_name": "iTantra",
+                "download_url": "/download-apk"
+            }
+    return {
+        "available": True,
+        "filename": "iTantra.apk",
+        "version": "1.0",
+        "size_mb": 112.1,
+        "package_id": "com.ititantra.civilianapp",
+        "app_name": "iTantra",
+        "download_url": "/download-apk"
+    }
 
 @app.post("/api/session/create")
 def create_session():

@@ -1,11 +1,14 @@
 # iTantra: Indian Multilingual TTS & STT-Aided Neural Transceiver Radio Access for Low-Bitrate Links
 
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Web-blue.svg)](https://github.com/Raj-cloud12/itantra)
+[![Download APK](https://img.shields.io/badge/Download-iTantra.apk%20(v1.0)-emerald.svg)](https://github.com/Raj-cloud12/itantra)
 [![Smart India Hackathon](https://img.shields.io/badge/Hackathon-Smart%20India%20Hackathon%20Product-orange.svg)](https://github.com/Raj-cloud12/itantra)
 [![Security](https://img.shields.io/badge/Encryption-AES--256--GCM-brightgreen.svg)](https://github.com/Raj-cloud12/itantra)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > **iTantra** is a tactical, zero-infrastructure disaster communication network. When extreme weather, floods, earthquakes, or cyclones destroy mobile cell towers and fiber backhauls, iTantra establishes an autonomous, peer-to-peer radio mesh network across civilian smartphones to relay emergency voice notes, text alerts, and GPS distress beacons directly to rescue command centers — **with zero cellular network or active internet connection required**.
+
+📥 **[Download iTantra Android APK (v1.0)](/download)** • 📱 **[Online Mobile Scan & QR Portal](/download)** • 🏢 **[Live Command Center](/)**
 
 ---
 

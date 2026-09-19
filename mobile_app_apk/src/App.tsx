@@ -4,6 +4,7 @@ import { Routes, Route } from 'react-router-dom';
 import CommandCenterDashboard from './pages/CommandCenterDashboard';
 import FieldUserDashboard from './pages/FieldUserDashboard';
 import DemoMode from './pages/DemoMode';
+import DownloadPage from './pages/DownloadPage';
 
 export default function App() {
   return (
@@ -20,6 +21,11 @@ export default function App() {
         <Route path="/field/:sessionId" element={<FieldUserDashboard />} />
         <Route path="/mobile" element={<FieldUserDashboard />} />
         
+        {/* Dedicated APK Download Portal */}
+        <Route path="/download" element={<DownloadPage />} />
+        <Route path="/download-apk-page" element={<DownloadPage />} />
+        <Route path="/apk" element={<DownloadPage />} />
+
         {/* Helper & Demo Views */}
         <Route path="/demo" element={<DemoMode />} />
         <Route path="/demo/:sessionId" element={<DemoMode />} />

@@ -21,6 +21,9 @@ local.properties
 *.apk
 *.aab
 *.idsig
+**/release/
+output-metadata.json
+
 
 # Frontend dist
 frontend/dist/

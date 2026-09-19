@@ -927,6 +927,15 @@ export default function CommandCenterDashboard() {
 
         {/* SOS BROADCAST TRIGGER & 4 Tactical Modes */}
         <div className="flex items-center gap-3">
+          {/* DOWNLOAD APK BUTTON */}
+          <Link
+            to="/download"
+            className="px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-black text-xs rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1.5 border border-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+          >
+            <span>📱</span>
+            <span>Download APK</span>
+          </Link>
+
           {/* DEMO CONTROLLER BUTTON */}
           <Link
             to="/demo"
