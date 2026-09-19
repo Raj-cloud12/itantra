@@ -1366,9 +1366,19 @@ if DIST_DIR and os.path.exists(DIST_DIR):
     async def serve_spa_frontend(full_path: str):
         if full_path.startswith("api/") or full_path.startswith("ws/") or full_path == "docs" or full_path == "openapi.json":
             return {"error": "Endpoint not found"}
+        if "assets/" in full_path:
+            asset_filename = full_path.split("assets/")[-1]
+            asset_target = os.path.join(assets_dir, asset_filename)
+            if os.path.isfile(asset_target):
+                return FileResponse(asset_target)
         target = os.path.join(DIST_DIR, full_path)
         if os.path.isfile(target):
             return FileResponse(target)
+        for static_file in ["logo.png", "logo_round.png", "manifest.json", "favicon.ico", "download-qr.png"]:
+            if full_path.endswith(static_file):
+                static_target = os.path.join(DIST_DIR, static_file)
+                if os.path.isfile(static_target):
+                    return FileResponse(static_target)
         return FileResponse(os.path.join(DIST_DIR, "index.html"))
 else:
     @app.get("/")
