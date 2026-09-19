@@ -59,7 +59,7 @@ async def generate_english_ai_voice(text: str) -> str:
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any, Union
@@ -930,7 +930,8 @@ def download_apk():
                 filename="iTantra.apk",
                 media_type="application/vnd.android.package-archive"
             )
-    return {"error": "APK file not found"}
+    remote_fallback = os.environ.get("APK_DOWNLOAD_URL", "https://github.com/Raj-cloud12/itantra/releases/download/v1.0/iTantra.apk")
+    return RedirectResponse(url=remote_fallback, status_code=302)
 
 @app.get("/api/apk/info")
 def get_apk_info():
