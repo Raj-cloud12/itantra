@@ -911,9 +911,15 @@ async def transcribe_for_translate(payload: AudioTranscribePayload):
         "language": lang
     }
 
+GDRIVE_APK_FILE_ID = "1xy8R1cWIrWCrN6pr_WC2f7zdCHDMq6gY"
+GDRIVE_DIRECT_URL = f"https://drive.usercontent.google.com/download?id={GDRIVE_APK_FILE_ID}&export=download&confirm=t"
+GDRIVE_VIEW_URL = f"https://drive.google.com/file/d/{GDRIVE_APK_FILE_ID}/view?usp=drivesdk"
+
 @app.get("/download-apk")
 @app.get("/api/download/apk")
-def download_apk():
+def download_apk(source: str = "auto"):
+    if source == "gdrive":
+        return RedirectResponse(url=GDRIVE_DIRECT_URL, status_code=302)
     candidates = [
         r"D:\iTantra.apk",
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "iTantra.apk")),
@@ -930,7 +936,7 @@ def download_apk():
                 filename="iTantra.apk",
                 media_type="application/vnd.android.package-archive"
             )
-    remote_fallback = os.environ.get("APK_DOWNLOAD_URL", "https://github.com/Raj-cloud12/itantra/releases/download/v1.0/iTantra.apk")
+    remote_fallback = os.environ.get("APK_DOWNLOAD_URL", GDRIVE_DIRECT_URL)
     return RedirectResponse(url=remote_fallback, status_code=302)
 
 @app.get("/api/apk/info")
@@ -942,26 +948,21 @@ def get_apk_info():
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "release", "app-release.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk")),
     ]
+    size_mb = 112.2
     for c in candidates:
         if os.path.exists(c):
             size_mb = round(os.path.getsize(c) / (1024 * 1024), 1)
-            return {
-                "available": True,
-                "filename": "iTantra.apk",
-                "version": "1.0",
-                "size_mb": size_mb,
-                "package_id": "com.ititantra.civilianapp",
-                "app_name": "iTantra",
-                "download_url": "/download-apk"
-            }
+            break
     return {
         "available": True,
         "filename": "iTantra.apk",
         "version": "1.0",
-        "size_mb": 112.1,
+        "size_mb": size_mb,
         "package_id": "com.ititantra.civilianapp",
         "app_name": "iTantra",
-        "download_url": "/download-apk"
+        "download_url": "/download-apk",
+        "gdrive_url": GDRIVE_VIEW_URL,
+        "gdrive_direct_url": GDRIVE_DIRECT_URL
     }
 
 @app.post("/api/session/create")

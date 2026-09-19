@@ -5,10 +5,12 @@ import { Link } from 'react-router-dom';
 export default function DownloadPage() {
   const [apkInfo, setApkInfo] = useState({
     version: '1.0',
-    size_mb: 112.1,
+    size_mb: 112.2,
     filename: 'iTantra.apk',
     package_id: 'com.ititantra.civilianapp',
-    app_name: 'iTantra'
+    app_name: 'iTantra',
+    gdrive_url: 'https://drive.google.com/file/d/1xy8R1cWIrWCrN6pr_WC2f7zdCHDMq6gY/view?usp=drivesdk',
+    gdrive_direct_url: 'https://drive.usercontent.google.com/download?id=1xy8R1cWIrWCrN6pr_WC2f7zdCHDMq6gY&export=download&confirm=t'
   });
   const [downloadUrl, setDownloadUrl] = useState<string>('/download-apk');
   const [copied, setCopied] = useState(false);
@@ -27,7 +29,9 @@ export default function DownloadPage() {
             ...prev,
             size_mb: data.size_mb,
             version: data.version || '1.0',
-            filename: data.filename || 'iTantra.apk'
+            filename: data.filename || 'iTantra.apk',
+            gdrive_url: data.gdrive_url || prev.gdrive_url,
+            gdrive_direct_url: data.gdrive_direct_url || prev.gdrive_direct_url
           }));
         }
       })
@@ -161,17 +165,28 @@ export default function DownloadPage() {
                 <span>Download iTantra.apk ({apkInfo.size_mb} MB)</span>
               </a>
 
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-slate-300 hover:text-white hover:border-slate-700 transition-all flex items-center justify-center gap-2"
+                  className="py-2.5 px-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-slate-300 hover:text-white hover:border-slate-700 transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  <span>{copied ? '✅ Link Copied to Clipboard!' : '📋 Copy Download Link'}</span>
+                  <span>{copied ? '✅ Link Copied!' : '📋 Copy Link'}</span>
                 </button>
+                <a
+                  href={apkInfo.gdrive_direct_url || "https://drive.usercontent.google.com/download?id=1xy8R1cWIrWCrN6pr_WC2f7zdCHDMq6gY&export=download&confirm=t"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 px-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-emerald-300 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-950/30 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/>
+                  </svg>
+                  <span>Google Drive Mirror</span>
+                </a>
               </div>
             </div>
 
