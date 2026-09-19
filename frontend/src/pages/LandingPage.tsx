@@ -64,7 +64,7 @@ export default function LandingPage() {
         </h1>
         
         <p className="text-base sm:text-lg text-slate-300 mb-8 max-w-2xl font-normal leading-relaxed">
-          The system is split into <strong className="text-emerald-400">TWO dedicated applications</strong> for easy testing on Laptop & Mobile:
+          Two coordinated interfaces for field operations: a <strong className="text-emerald-400">civilian mobile app</strong> for offline voice and SOS, and a <strong className="text-blue-400">command center</strong> for live situational awareness.
         </p>
 
         {!sessionData ? (
@@ -73,7 +73,7 @@ export default function LandingPage() {
             disabled={loading}
             className="group relative inline-flex items-center justify-center px-8 py-4 text-base font-extrabold text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-2xl shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:shadow-[0_0_45px_rgba(16,185,129,0.5)] hover:scale-105 transition-all disabled:opacity-50 cursor-pointer mb-8"
           >
-            <span>{loading ? 'Initializing Dual-App Session...' : '🚀 Launch Two Dedicated Apps'}</span>
+          <span>{loading ? 'Initializing session...' : 'Open Incident Command Portal'}</span>
           </button>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl items-stretch mt-2 mb-8">

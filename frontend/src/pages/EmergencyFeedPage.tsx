@@ -67,19 +67,19 @@ export const EmergencyFeedPage: React.FC = () => {
       <header className="p-4 bg-[#0a1324] border-b border-cyan-800/60 shadow-xl flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-2xl animate-pulse">📡</span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-black text-cyan-300 uppercase tracking-wider">
-                PHONE #2: ZERO-KNOWLEDGE RELAY GATEWAY
-              </h1>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600 text-[9px] font-bold animate-pulse">
-                TUNNEL ACTIVE
-              </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-black text-cyan-300 uppercase tracking-wider">
+                  RELAY NODE TELEMETRY GATEWAY
+                </h1>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-600 text-[9px] font-bold animate-pulse">
+                  TUNNEL ACTIVE
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400">
+                Bluetooth Mesh Receiver ➔ Internet Forwarder to Command Center
+              </p>
             </div>
-            <p className="text-[10px] text-slate-400">
-              Bluetooth Mesh Receiver ➔ Cloudflare Tunnel Forwarder to Command Center
-            </p>
-          </div>
         </div>
 
         <Link
@@ -134,7 +134,7 @@ export const EmergencyFeedPage: React.FC = () => {
                   </span>
                   <span className="text-slate-400 text-xs font-black">➔</span>
                   <span className="px-2 py-0.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-black">
-                    HOP 2: TUNNEL (0.001ms)
+                    HOP 2: TUNNEL (~40ms)
                   </span>
                   <span className="text-slate-400 text-xs font-black">➔</span>
                   <span className="px-2 py-0.5 rounded-lg bg-purple-950 text-purple-300 border border-purple-700 text-[10px] font-black">

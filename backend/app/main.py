@@ -6,7 +6,7 @@ import base64
 ai_voice_cache = {}
 
 async def generate_ai_voice(text: str, lang: str = "auto") -> str:
-    """Generate high-fidelity Azure Neural AI voice (ta-IN-ValluvarNeural for Tamil, en-US-AriaNeural for English) with instant in-memory caching"""
+    """Synthesize neural audio for emergency alert text with in-memory caching."""
     if not text or not text.strip():
         return ""
     clean_text = text.strip()
@@ -283,7 +283,7 @@ def translate_indic_9(text: str, source_lang: str = "auto") -> dict:
         res[l] = text
     return res
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 def convert_tamil_to_tanglish(tamil_text: str) -> str:
     """Convert Tamil Unicode script into natural phonetic Tanglish using Groq LLM."""
@@ -468,11 +468,11 @@ class ConnectionManager:
             conn_role = meta.get("role", "field")
             conn_user = meta.get("username")
 
-            # 🛑 USER HARD REQUIREMENT: Control Center must NEVER receive Local Mesh messages!
+            # Private local mesh traffic is isolated from command center feeds
             if is_private and conn_role == "command":
                 continue
 
-            # 🛑 USER HARD REQUIREMENT: Only the target user and sender can receive/open!
+            # Direct peer messages are dispatched only to sender and recipient sockets
             if is_private and conn_user and target_u and sender_u:
                 if conn_user != target_u and conn_user != sender_u:
                     continue
@@ -647,10 +647,7 @@ async def config_simulator(data: dict):
     return {"status": "ok", "config": data}
 
 
-# ============================================================
-# 🧠 GROQ CLOUD LLM TRANSLATION API (Free Tier - GPT-OSS 120B)
-# ============================================================
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 class GroqTranslatePayload(BaseModel):
     text: str
@@ -662,13 +659,13 @@ class TtsPayload(BaseModel):
 
 @app.post("/api/tts/english")
 async def tts_english(payload: TtsPayload):
-    """Generate crystal clear English AI voice from text"""
+    """Synthesize English audio from text."""
     audio_url = await generate_english_ai_voice(payload.text)
     return {"status": "success", "audio_url": audio_url}
 
 @app.post("/api/tts/ai-read")
 async def tts_ai_read(payload: TtsPayload):
-    """Generate crystal clear Neural AI voice (Tamil or English) from text"""
+    """Synthesize audio from text."""
     audio_url = await generate_ai_voice(payload.text)
     return {"status": "success", "audio_url": audio_url}
 
@@ -921,7 +918,7 @@ def download_apk(source: str = "auto"):
     if source == "gdrive":
         return RedirectResponse(url=GDRIVE_DIRECT_URL, status_code=302)
     candidates = [
-        r"D:\iTantra.apk",
+        os.environ.get("APK_FILE_PATH", ""),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "iTantra.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "release", "app-release.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "release", "app-release.apk")),
@@ -930,7 +927,7 @@ def download_apk(source: str = "auto"):
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "itantra-latest.apk")),
     ]
     for c in candidates:
-        if os.path.exists(c):
+        if c and os.path.exists(c):
             return FileResponse(
                 path=c,
                 filename="iTantra.apk",
@@ -942,7 +939,7 @@ def download_apk(source: str = "auto"):
 @app.get("/api/apk/info")
 def get_apk_info():
     candidates = [
-        r"D:\iTantra.apk",
+        os.environ.get("APK_FILE_PATH", ""),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "iTantra.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "release", "app-release.apk")),
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "mobile_app_apk", "android", "app", "build", "outputs", "apk", "release", "app-release.apk")),
@@ -950,7 +947,7 @@ def get_apk_info():
     ]
     size_mb = 112.2
     for c in candidates:
-        if os.path.exists(c):
+        if c and os.path.exists(c):
             size_mb = round(os.path.getsize(c) / (1024 * 1024), 1)
             break
     return {
@@ -1181,10 +1178,10 @@ async def send_message(payload: MessagePayload):
     # Mode 1 & Mode 2: Real Voice Note Messages (Audio preserved, text preserved)
     if mode == 'mode-2-compressed-voice':
         if not final_text or final_text.strip() == '':
-            final_text = "🎙️ 2G CELT Compressed Voice Note (1.2 KB)"
+            final_text = "2G CELT Compressed Voice Note (1.2 KB)"
     elif mode == 'mode-1-hd-call':
         if not final_text or final_text.strip() == '':
-            final_text = "🎙️ 4G/5G HD Direct Voice Note"
+            final_text = "4G/5G HD Direct Voice Note"
     elif mode == 'mode-3-ai-mesh':
         # Mode 3: 24-byte AI Mesh Text (Zero Audio Transmitted, backend STT removed)
         payload.audio_url = None

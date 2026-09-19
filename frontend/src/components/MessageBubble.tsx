@@ -106,7 +106,7 @@ export function MessageBubble({ message, currentRole = 'field', isMe }: MessageB
           </div>
         )}
 
-        {/* High-Impact Telemetry Pill for Jury Presentation */}
+        {/* Telemetry Pill */}
         <div className="mt-2 p-1.5 rounded-xl bg-slate-950/90 border border-cyan-500/40 text-[9px] font-mono text-cyan-300 flex flex-col gap-1 shadow-md">
           <div className="flex items-center justify-between font-bold border-b border-slate-800/80 pb-0.5">
             <span className="text-emerald-400 flex items-center gap-1">

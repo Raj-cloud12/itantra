@@ -140,8 +140,7 @@ def compress(text: str) -> CompressionResult:
     if matches:
         result = bytearray()
         remaining = normalized
-        # To avoid overlapping matches causing issues, process carefully
-        # Simple greedy approach for MVP
+        # Greedy longest-match tokenization
         for phrase, code in matches:
             if phrase in remaining:
                 parts = remaining.split(phrase, 1)
@@ -157,8 +156,6 @@ def compress(text: str) -> CompressionResult:
                 
                 remaining = parts[1].strip()
             else:
-                # Handled fuzzy matched phrase which might not be an exact substring
-                # This is a simplification for the hackathon
                 remaining = remaining.replace(phrase, '', 1)
                 result.extend(b'\x00' + code)
                 remaining = remaining.strip()
@@ -207,4 +204,4 @@ def decompress(data: bytes, method: str) -> str:
         try:
             return data.decode('utf-8', errors='ignore')
         except Exception:
-            return "🎙️ [Emergency Packet Decoded]"
+            return data.decode('utf-8', errors='replace')

@@ -1,75 +1,73 @@
-# iTantra: Indian Multilingual TTS & STT-Aided Neural Transceiver Radio Access for Low-Bitrate Links
+# iTantra: Low-Bandwidth Disaster Communication & Mesh Gateway
 
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Web-blue.svg)](https://github.com/Raj-cloud12/itantra)
-[![Download APK](https://img.shields.io/badge/Download-iTantra.apk%20(v1.0)-emerald.svg)](https://github.com/Raj-cloud12/itantra)
-[![Smart India Hackathon](https://img.shields.io/badge/Hackathon-Smart%20India%20Hackathon%20Product-orange.svg)](https://github.com/Raj-cloud12/itantra)
+[![Release](https://img.shields.io/badge/Release-iTantra.apk%20v1.0-emerald.svg)](https://github.com/Raj-cloud12/itantra)
 [![Security](https://img.shields.io/badge/Encryption-AES--256--GCM-brightgreen.svg)](https://github.com/Raj-cloud12/itantra)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-> **iTantra** is a tactical, zero-infrastructure disaster communication network. When extreme weather, floods, earthquakes, or cyclones destroy mobile cell towers and fiber backhauls, iTantra establishes an autonomous, peer-to-peer radio mesh network across civilian smartphones to relay emergency voice notes, text alerts, and GPS distress beacons directly to rescue command centers — **with zero cellular network or active internet connection required**.
+> **iTantra** is an offline-first emergency communication platform. When extreme weather, floods, earthquakes, or cyclones knock out cellular towers and fiber backhauls, iTantra forms a peer-to-peer radio mesh network across standard Android smartphones to relay distress alerts, voice notes, and GPS beacons to emergency command centers — without requiring active cellular coverage or internet access.
 
-📥 **[Download iTantra Android APK (v1.0)](/download)** • 📱 **[Online Mobile Scan & QR Portal](/download)** • 🏢 **[Live Command Center](/)**
-
----
-
-## 🎯 The Real-World Problem
-
-During catastrophic disasters like cyclones (Michaung, Vardah), flash floods, or landslides, conventional telecommunication infrastructure collapses:
-- Cell towers lose grid power and backup generator diesel within 3–6 hours.
-- Underground optical fiber backhauls suffer physical severance from falling trees and flooding.
-- Trapped civilians are unable to dial emergency services (112 / 108 / NDRF), leaving search and rescue teams operating blind.
-
-**iTantra solves this ground-zero communication blackout.** Every citizen's phone running iTantra becomes a self-healing radio relay node in a distributed air mesh.
+📥 **[Download Android APK (v1.0)](https://itantra-4yzo.onrender.com/download)** • 🌐 **[Live Deployment](https://itantra-4yzo.onrender.com)** • 📋 **[MIT License](LICENSE)**
 
 ---
 
-## 🛰️ The 4-Tier Tactical Fallback Architecture
+## 🎯 The Problem
 
-iTantra dynamically shifts across 4 communication tiers depending on available radio frequencies and network survivability:
+During major disasters (cyclones, catastrophic floods, earthquakes), terrestrial telecommunications infrastructure frequently fails:
+- Base stations lose power within hours as backup generator fuel is depleted.
+- Underground optical fiber lines suffer physical breaks from falling trees, flooding, and ground movement.
+- Civilians in affected zones cannot reach emergency services (112, NDRF, local dispatch), leaving responders with no ground-level situational awareness.
 
-```
+**iTantra bridges this blackout.** Participating smartphones act as self-healing relay nodes in a local ad-hoc radio mesh, hopping distress packets forward until they reach an uplink node with network connectivity.
+
+---
+
+## 🛰️ 4-Tier Communication Fallback Architecture
+
+iTantra dynamically adapts transmission strategies according to available radio links and channel conditions:
+
+`
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                   iTantra Fallback Hierarchy                                │
 ├────────────────────────────────┬────────────────────────────────────────────────────────────┤
 │ Tier 1: 4G / 5G Broadband      │ High-speed bidirectional WebSockets & live voice telemetry │
 ├────────────────────────────────┼────────────────────────────────────────────────────────────┤
-│ Tier 2: 2G CELT Audio Link     │ Ultra-compact voice frames compressed to ~1.2 KB           │
+│ Tier 2: 2G Audio Link          │ Ultra-compact voice frames compressed to ~1.2 KB           │
 ├────────────────────────────────┼────────────────────────────────────────────────────────────┤
 │ Tier 3: BLE & Wi-Fi Direct Mesh│ 100% OFFLINE peer-to-peer air packet relay (No SIM/No Net) │
 ├────────────────────────────────┼────────────────────────────────────────────────────────────┤
-│ Tier 4: LoRa & Satellite Beacon│ 16-byte ultra-compact distress frame (ISRO NavIC / 865 MHz)│
+│ Tier 4: Compact Distress Beacon│ 16-byte minimal distress frame (GPS + status flag)         │
 └────────────────────────────────┴────────────────────────────────────────────────────────────┘
-```
+`
 
 ---
 
-## ⚡ Key System Features
+## ⚡ Core Architecture & Capabilities
 
-### 1. 📴 100% Offline Radio Mesh (Tier 3)
-- **Air-Toss P2P Broadcasting**: Phone 1 encodes messages into compact TantraMesh binary packets and advertises them via Bluetooth Low Energy (BLE) Peripheral Advertising and Wi-Fi Neighbor 802.11 action frames.
-- **Silent Multi-Hop Relay**: Nearby devices (Phone 2, Phone 3, etc.) continuously scan the airwaves, intercept packets, verify checksums, and hop them forward toward any device with an active gateway connection.
-- **Automatic Delivery Acknowledgments (ACK)**: Once a packet reaches the destination or command uplink, a compact ACK is broadcast back through the mesh to silence transmitters and save battery.
+### 1. Offline Radio Mesh (Tier 3)
+- **Peer-to-Peer Broadcasting**: Messages are packed into compact binary frames and broadcast over Bluetooth Low Energy (BLE) peripheral advertising and Wi-Fi Neighbor 802.11 action frames.
+- **Multi-Hop Relay**: Neighboring devices continuously scan, verify checksums, and forward packets along the mesh toward any active gateway node.
+- **Delivery Acknowledgments (ACK)**: When a packet reaches an uplink or destination, an acknowledgment frame propagates through the mesh to silence retransmissions and conserve device battery.
 
-### 2. 🚨 1-Tap Emergency SOS Beacon
-- **Sub-100ms Instant Dispatch**: Single-tap distress beacon broadcasting emergency GPS coordinates, reverse-geocoded place names, and citizen callsigns.
-- **Pre-Typed Emergency Chips**: Quick-select rescue requests in regional languages:
-  - 🚑 *Medical Emergency* (`மருத்துவ அவசரம்`)
-  - 🍞 *Food & Drinking Water Needed* (`உணவு & குடிநீர் தேவை`)
-  - 🚤 *Flood Evacuation Boat Needed* (`வெள்ள மீட்பு படகு தேவை`)
-  - 🏠 *Trapped on Roof* (`கூரை மீது சிக்கியுள்ளோம்`)
-- **Full-Chunk Assembly Engine**: Reassembles multi-chunk regional distress payloads with packet loss recovery timers to ensure 100% message integrity.
+### 2. Emergency SOS Beacon
+- **Rapid Dispatch**: Single-tap distress beacon broadcasting current GPS coordinates, reverse-geocoded landmark references, and citizen identifier.
+- **Pre-Configured Emergency Chips**: Quick-select emergency status chips in regional Indian languages:
+  - Medical Emergency (மருத்துவ அவசரம் / तत्काल चिकित्सा सहायता)
+  - Food & Drinking Water Needed (உணவு & குடிநீர் தேவை / भोजन और पानी की आवश्यकता)
+  - Flood Evacuation Boat Needed (வெள்ள மீட்பு படகு தேவை / बाढ़ बचाव नाव)
+  - Trapped on Roof (கூரை மீது சிக்கியுள்ளோம் / छत पर फंसे हुए हैं)
 
-### 3. 🔒 Mode 3 Local Mesh Chat (Private E2EE)
-- **Zero-Internet Peer Chat**: Talk directly to nearby friends, family, or rescue team members offline.
-- **AES-256-GCM End-to-End Encryption**: Locked direct messages can only be decrypted by the intended recipient callsign; intermediate relay nodes see only encrypted cipher payloads.
+### 3. Private Local Mesh Chat
+- **Direct Offline Messaging**: Exchange messages directly with nearby civilians or field responders over the local radio mesh.
+- **End-to-End Encryption**: Direct peer messages support AES-256-GCM authenticated encryption; intermediate relay nodes forward encrypted ciphertext without plaintext exposure.
 
-### 4. 🎙️ On-Device Offline AI Speech Recognition
-- **Zero Cloud Dependency**: Runs an on-device quantized **Sherpa-ONNX (Whisper-Tiny int8)** engine natively inside Android.
-- **Push-to-Talk (PTT) Walkie-Talkie**: Hold or tap to record speech, automatically transcribe to text, compact the payload, and fire across the mesh.
-- **Hardware Haptics & Chimes**: Tactile feedback and audio tones confirm air transmission and incoming emergency alerts.
+### 4. On-Device Offline Speech Recognition
+- **Zero Cloud Requirement**: Built with an on-device quantized **Sherpa-ONNX (Whisper-Tiny int8)** engine natively integrated into Android.
+- **Push-to-Talk (PTT)**: Hold or tap to record speech, transcribe locally on device, compact the payload, and transmit over the mesh.
+- **Haptic & Audio Feedback**: Tactile vibrations and chimes confirm packet dispatch and incoming alert delivery.
 
-### 5. 🌐 10 Indian Regional Disaster Languages
-Field civilians and disaster responders can operate the entire app and receive alerts in 10 languages:
+### 5. Multilingual Support (10 Indian Languages)
+Full UI localization and emergency phrase packs across 10 languages:
 - **தமிழ் (Tamil)**
 - **English**
 - **हिंदी (Hindi)**
@@ -81,143 +79,134 @@ Field civilians and disaster responders can operate the entire app and receive a
 - **ગુજરાતી (Gujarati)**
 - **اردو (Urdu)**
 
-### 6. 🏢 Tactical Incident Command Center (Web Dashboard)
-- **Live Unified Feed**: Centralized incident stream aggregating distress beacons, voice notes, and citizen relays.
-- **Real-Time Telemetry Ticker**: Monitors all 4 radio tiers, active air nodes, and GPS coordinates.
-- **Automated Text-to-Speech (TTS) Replay**: Hear citizen voice alerts read aloud in authentic regional accents.
-- **Sliding-Window Deduplication**: Filters out redundant echoes and multi-path packet duplicates.
-- **One-Click Translation**: Instantly translate regional citizen distress messages to English for central disaster management teams.
+### 6. Incident Command Center (Web Dashboard)
+- **Aggregated Incident Stream**: Unified feed consolidating distress beacons, voice notes, and relay telemetry.
+- **Live Ticker**: Displays active radio tiers, discovered air nodes, and GPS coordinates.
+- **Sliding-Window Deduplication**: Filters multi-path packet duplicates and retransmissions.
+- **One-Click Translation**: Translates regional distress alerts to English for dispatch coordinators.
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ System Flow
 
-```
- [ Phone 1: Trapped Citizen ]
-           │
-           │ (Offline BLE / Wi-Fi Direct Beacon)
-           ▼
- [ Phone 2: Neighbor / Relay Node ]
-           │
-           │ (Uplink via cellular / satellite / LoRa edge node)
-           ▼
- [ FastAPI Backend Gateway (Render / Cloud / On-Premise) ]
-           │
-           │ (WebSocket / REST API)
-           ▼
- [ Disaster Management Command Center Dashboard ]
-```
+`
+ [ Field Node / Trapped Civilian ]
+               │
+               │ (Offline BLE / Wi-Fi Direct Mesh Frame)
+               ▼
+   [ Relay Node / Neighbor Device ]
+               │
+               │ (Uplink via Cellular, Satellite, or LoRa edge node)
+               ▼
+ [ FastAPI Gateway Server (Cloud or On-Premise) ]
+               │
+               │ (WebSocket & REST API)
+               ▼
+  [ Emergency Incident Command Center ]
+`
 
 ---
 
 ## 📁 Repository Structure
 
-```
+`
 itantra/
 ├── backend/                  # FastAPI Core Backend & Gateway
 │   ├── app/
-│   │   ├── api/              # Message and mesh ingestion endpoints
-│   │   ├── comms/            # Channel simulator and network adapters
-│   │   ├── database.py       # SQLite WAL database for high-throughput persistence
-│   │   └── main.py           # Application entrypoint & WebSocket hub
+│   │   ├── api/              # Message ingestion and telemetry endpoints
+│   │   ├── comms/            # Channel simulator and packet definitions
+│   │   ├── database.py       # SQLite WAL database for local persistence
+│   │   ├── models.py         # SQLAlchemy 2.0 data models
+│   │   └── main.py           # Application gateway & WebSocket router
 │   ├── requirements.txt      # Python dependencies
-│   └── dist/                 # Production SPA bundle served on Render
+│   └── dist/                 # Built frontend SPA bundle served by backend
 │
 ├── frontend/                 # React 18 + TypeScript Web Application
 │   ├── src/
 │   │   ├── pages/            # CommandCenterDashboard.tsx & FieldUserDashboard.tsx
 │   │   ├── components/       # UI widgets, PTT button, audio player
-│   │   └── utils/            # Encryption helpers, audio codecs, language packs
+│   │   └── utils/            # Codecs, language packs, and helpers
 │   ├── package.json          # Node dependencies
-│   └── tailwind.config.js    # Tactical disaster UI styling
+│   └── tailwind.config.js    # Styling configuration
 │
-├── mobile_app_apk/           # Native Android Studio Project
+├── mobile_app_apk/           # Native Android Project (Capacitor)
 │   ├── android/
 │   │   ├── app/src/main/
 │   │   │   ├── java/         # MainActivity.kt (BLE Mesh, Wi-Fi Direct, Sherpa-ONNX)
-│   │   │   ├── assets/       # Whisper-Tiny ONNX models & public web assets
+│   │   │   ├── assets/       # Whisper-Tiny ONNX models & web assets
 │   │   │   └── res/          # Launcher icons, app manifests, layout configs
-│   │   └── build.gradle      # Optimized build configuration (R8 minification, ABI filters)
-│   ├── capacitor.config.json # Native bridge configuration
-│   └── README_ANDROID_STUDIO.md # Android Studio compilation guide
+│   │   └── build.gradle      # Build configuration (R8 minification, ABI filters)
+│   └── capacitor.config.json # Native bridge configuration
 │
-├── .gitignore                # Production git exclusion rules
+├── .gitignore                # Git exclusion rules
 ├── LICENSE                   # MIT License
 └── README.md                 # Project documentation
-```
+`
 
 ---
 
-## 🚀 Quick Setup & Installation
+## 🚀 Setup & Installation
 
-### 1. Android Mobile App (APK)
+### 1. Android Mobile App
 
-#### Option A: Build and Install via Command Line
-1. Navigate to the Android project directory and assemble the debug APK:
-   ```bash
+#### Building with Gradle
+1. Navigate to the Android project directory:
+   `ash
    cd mobile_app_apk/android
    ./gradlew assembleDebug      # Linux / macOS
    gradlew.bat assembleDebug    # Windows
-   ```
-2. Install the APK to your connected test device:
-   ```bash
+   `
+2. Install the debug build on a connected device via ADB:
+   `ash
    adb install -r app/build/outputs/apk/debug/app-debug.apk
-   ```
+   `
 
-#### Option B: Build from Source in Android Studio
-1. Open Android Studio and select **Open Project** -> Choose `mobile_app_apk/android`.
-2. Let Gradle sync project dependencies and run directly on a physical device.
+#### Building in Android Studio
+1. Open Android Studio, select **Open Project**, and navigate to mobile_app_apk/android.
+2. Sync Gradle dependencies and run directly on a physical device.
 
 ---
 
-### 2. Backend Command Center (FastAPI)
+### 2. Backend Gateway (FastAPI)
 
-```bash
+`ash
 cd backend
 
 # Create and activate virtual environment
 python -m venv venv
-venv\Scripts\activate      # On Windows
-# source venv/bin/activate # On Linux/macOS
+venv\Scripts\activate      # Windows
+# source venv/bin/activate # Linux / macOS
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Start the server
+# Run the server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-The backend will be live at `http://localhost:8000`.
+`
+The API will be available at http://localhost:8000 with interactive Swagger docs at http://localhost:8000/docs.
 
 ---
 
 ### 3. Frontend Web Dashboard (React + TypeScript)
 
-```bash
+`ash
 cd frontend
 
-# Install Node packages
+# Install dependencies
 npm install
 
-# Start local development server
+# Start development server
 npm run dev
-```
-Open `http://localhost:5173` in your web browser.
+`
+Open http://localhost:5173 in your browser.
 
 ---
 
-## 🔒 Security & Privacy
+## 🔒 Security & Message Integrity
 
-- **Military-Grade Encryption**: All mesh payloads utilize `AES-256-GCM` with authenticated tags to prevent tampering and eavesdropping.
-- **Privacy By Design**: Location data is transmitted solely during emergency distress beacon activation.
-- **Deterministic Verification**: Packet signatures prevent replay attacks across intermediate radio relays.
-
----
-
-## 🏆 Smart India Hackathon (SIH) Presentation Notes
-
-- **Field Testing**: Validated across multiple physical Android hardware devices (Samsung Galaxy and Vivo test units) communicating purely over air mesh without active SIM cards.
-- **Low-Bitrate Efficiency**: Text compression achieves up to **92% bandwidth reduction** compared to raw audio streams.
-- **Deployment Ready**: Self-contained APK requires zero cloud setup for on-ground disaster response teams.
+- **End-to-End Encryption**: Direct peer messages support AES-256-GCM authenticated encryption to protect civilian privacy.
+- **Integrity Tags**: Authenticated tags verify payload integrity across multi-hop relays.
+- **Privacy Controls**: GPS coordinates are transmitted strictly when emergency beacons or explicit location shares are triggered.
 
 ---
 

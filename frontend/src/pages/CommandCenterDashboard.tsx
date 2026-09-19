@@ -293,9 +293,7 @@ export default function CommandCenterDashboard() {
 
     const endpoints = [
       '/api/translate/groq',
-      'https://symposium-desktops-identical-christopher.trycloudflare.com/api/translate/groq',
       'http://127.0.0.1:8000/api/translate/groq',
-      'http://10.64.235.76:8000/api/translate/groq',
     ];
     for (const ep of endpoints) {
       try {
@@ -331,9 +329,7 @@ export default function CommandCenterDashboard() {
     setTranslatingId(msgId);
     const endpoints = [
       '/api/stt/transcribe-for-translate',
-      'https://harbor-like-kings-greater.trycloudflare.com/api/stt/transcribe-for-translate',
       'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
-      'http://10.64.235.76:8000/api/stt/transcribe-for-translate',
     ];
     for (const ep of endpoints) {
       try {
@@ -359,8 +355,7 @@ export default function CommandCenterDashboard() {
     setTranslatingId(null);
   };
 
-  // 🧠 Groq Integrity Level Analysis
-  // 🧠 Groq Integrity Level Analysis (for Multi-message Disaster Clusters: 10, 20, 100 messages)
+  // Groq Integrity Level Analysis (auto-sorts message clusters by urgency)
   const analyzeIntegrity = async (autoSwitchToIntegrity = true) => {
     if (feed.length === 0 || isAnalyzingRef.current) return;
     isAnalyzingRef.current = true;
@@ -374,9 +369,7 @@ export default function CommandCenterDashboard() {
     }));
     const endpoints = [
       '/api/groq/analyze-integrity',
-      'https://harbor-like-kings-greater.trycloudflare.com/api/groq/analyze-integrity',
       'http://127.0.0.1:8000/api/groq/analyze-integrity',
-      'http://10.64.235.76:8000/api/groq/analyze-integrity',
     ];
     for (const ep of endpoints) {
       try {
@@ -560,9 +553,7 @@ export default function CommandCenterDashboard() {
         const endpoints = [
           `${apiBase}/api/messages/all`,
           '/api/messages/all',
-          'https://harbor-like-kings-greater.trycloudflare.com/api/messages/all',
           'http://127.0.0.1:8000/api/messages/all',
-          'http://10.64.235.76:8000/api/messages/all',
         ];
 
         let data: any = null;
@@ -1078,7 +1069,7 @@ export default function CommandCenterDashboard() {
             <div className="space-y-2 text-xs">
               <div className="p-2.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-rose-300">📱 Phone 1: Victim Citizen</span>
+                  <span className="font-bold text-rose-300">Field Node A</span>
                   <span className="text-[8px] bg-rose-950 text-rose-300 border border-rose-800 px-1.5 py-0.5 rounded font-bold">AIR MESH</span>
                 </div>
                 <div className="text-[9.5px] text-neutral-400">Offline BLE Mesh & Wi-Fi Direct Broadcast</div>
@@ -1086,7 +1077,7 @@ export default function CommandCenterDashboard() {
 
               <div className="p-2.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-purple-300">🔄 Phone 2: Relay Gateway</span>
+                  <span className="font-bold text-purple-300">Relay Gateway Alpha</span>
                   <span className="text-[8px] bg-purple-950 text-purple-300 border border-purple-800 px-1.5 py-0.5 rounded font-bold">CIVILIAN PIPE</span>
                 </div>
                 <div className="text-[9.5px] text-neutral-400">Zero-Display Encrypted Transit Node</div>
@@ -1186,7 +1177,7 @@ export default function CommandCenterDashboard() {
               <div className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl text-xs font-bold font-mono mb-2 bg-gradient-to-r from-red-950/90 via-amber-950/70 to-neutral-900 border-2 border-red-500 text-red-200 animate-pulse shadow-lg">
                 <div className="flex items-center gap-2">
                   <span className="text-base">⚡</span>
-                  <span>DISASTER BURST DETECTED: {clusterDetected} simultaneous field reports incoming!</span>
+                  <span>High-Volume Surge: {clusterDetected} simultaneous field reports incoming.</span>
                 </div>
                 <button
                   type="button"

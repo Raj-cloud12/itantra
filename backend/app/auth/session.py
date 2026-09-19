@@ -17,7 +17,6 @@ class SessionCreateRequest(BaseModel):
 
 @router.post('/api/session/create')
 async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(get_db)):
-    # Create or get field user
     result = await db.execute(select(User).where(User.username == req.field_username))
     field_user = result.scalar_one_or_none()
     if not field_user:
@@ -26,7 +25,6 @@ async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(g
         await db.commit()
         await db.refresh(field_user)
     
-    # Create or get command user
     result = await db.execute(select(User).where(User.username == req.command_username))
     command_user = result.scalar_one_or_none()
     if not command_user:
@@ -35,7 +33,6 @@ async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(g
         await db.commit()
         await db.refresh(command_user)
     
-    # Create session
     session_id = str(uuid.uuid4())
     encryption_key = generate_session_key()
     
@@ -48,7 +45,6 @@ async def create_session(req: SessionCreateRequest, db: AsyncSession = Depends(g
     db.add(new_session)
     await db.commit()
     
-    # Generate tokens
     field_token = create_token(session_id, 'field')
     command_token = create_token(session_id, 'command')
     

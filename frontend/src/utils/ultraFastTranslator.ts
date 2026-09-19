@@ -1,5 +1,5 @@
-// ⚡ ULTRA-FAST SUB-MILLISECOND (<0.01ms) O(1) 9-LANGUAGE TRANSLATION ENGINE
-// In-Memory direct hash matrix for instantaneous offline client-side translation
+// In-memory O(1) 9-language offline translation dictionary.
+// Provides instant client-side translation for common disaster phrases without network access.
 export interface Translations9 {
   ta: string;
   en: string;
@@ -42,7 +42,8 @@ const DICTIONARY_9: Record<string, Translations9> = {
 };
 
 /**
- * ⚡ Ultra-Fast Sub-Millisecond Tokenized 9-Language Translation Engine
+ * Looks up a phrase in the offline 9-language dictionary and returns all translations.
+ * Falls back to the original text when no match is found.
  */
 export function instantTranslate9(text: string): { translations: Translations9; latencyMs: number } {
   const t0 = performance.now();

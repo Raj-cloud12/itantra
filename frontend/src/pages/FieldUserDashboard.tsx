@@ -6,7 +6,7 @@ const INDIC_LANGUAGES_9 = [
   { code: 'ml',   name: 'മലയാളം',   label: 'Malayalam',   flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ml-IN' },
   { code: 'te',   name: 'తెలుగు',    label: 'Telugu',      flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'te-IN' },
   { code: 'kn',   name: 'ಕನ್ನಡ',     label: 'Kannada',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'kn-IN' },
-  { code: 'ur',   name: 'اردو',      label: 'Urdu',        flag: '🇵🇰', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ur-IN' },
+  { code: 'ur',   name: 'اردو',      label: 'Urdu',        flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'ur-IN' },
   { code: 'bn',   name: 'বাংলা',     label: 'Bengali',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'bn-IN' },
   { code: 'mr',   name: 'मराठी',     label: 'Marathi',     flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'mr-IN' },
   { code: 'gu',   name: 'ગુજરાતી',   label: 'Gujarati',    flag: '🇮🇳', packMB: 188,  modelName: 'AI4Bharat IndicConformer', webLang: 'gu-IN' },
@@ -21,8 +21,8 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     alertTab: 'எச்சரிக்கை',
     sosTab: 'அவசரம் (SOS)',
     meshTab: 'மெஷ் சாட்',
-    oneTapSos: '1-டேப் அவசர SOS டிஸ்ட்ரஸ் பீக்கன்',
-    sendOneTapSos: '1-டேப் SOS அனுப்பு',
+    oneTapSos: 'அவசர SOS டிஸ்ட்ரஸ் பீக்கன்',
+    sendOneTapSos: 'SOS அனுப்பு',
     holdToTalk: 'பேச அழுத்தவும்',
     holdToSpeakPrompt: 'வாய்ஸ் நோட் பேச பட்டனை அழுத்தவும்',
     voiceToText: 'குரல் வழி உரை',
@@ -46,7 +46,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     sosGatewayReady: 'அவசர SOS நுழைவாயில் தயார்',
     standbyGovt: 'அரசு அறிவிப்புகளுக்கு காத்திருக்கவும்',
     directChatRecipient: 'நேரடி சாட் பெறுநர்:',
-    enterCallsign: 'பெறுநர் பெயர் / கால்சைன்...',
+    enterCallsign: 'பெறுநர் பெயர் / பயனர் பெயர்...',
     set: 'அமை',
     iamSafe: 'நான் நலமாக உள்ளேன் 👍',
     needHelp: 'உதவி தேவை 🆘',
@@ -57,7 +57,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     you: 'நீங்கள்',
     decrypted: 'மறைகுறியீடு நீக்கப்பட்டது',
     lockedFor: 'பூட்டப்பட்டது',
-    satelliteDistressConnected: '1-டேப் சாட்டிலைட் டிஸ்ட்ரஸ் பீக்கன் (LoRa நேரடி நுழைவாயில்) பேரிடர் கட்டுப்பாட்டு அறையுடன் இணைக்கப்பட்டுள்ளது.',
+    satelliteDistressConnected: 'சாட்டிலைட் டிஸ்ட்ரஸ் பீக்கன் (LoRa நேரடி நுழைவாயில்) பேரிடர் கட்டுப்பாட்டு அறையுடன் இணைக்கப்பட்டுள்ளது.',
   },
   en: {
     settings: 'Settings',
@@ -66,8 +66,8 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     alertTab: 'Alert',
     sosTab: 'SOS',
     meshTab: 'Local Mesh',
-    oneTapSos: '1-Tap Emergency SOS Distress Beacon',
-    sendOneTapSos: 'Send 1-Tap SOS',
+    oneTapSos: 'Emergency SOS Distress Beacon',
+    sendOneTapSos: 'Send Distress Signal',
     holdToTalk: 'HOLD / TAP TO TALK',
     holdToSpeakPrompt: 'Hold or Tap button to speak voice note',
     voiceToText: 'Voice to Text',
@@ -77,7 +77,7 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     holdButtonAndSpeak: 'Hold button and speak...',
     typeAlertMsg: 'Type alert message...',
     sendAlert: 'Send Alert',
-    govtSosGateway: 'Government SOS Gateway',
+    govtSosGateway: 'Emergency Gateway',
     directToCommand: 'Direct to Disaster Command Center',
     loraDirect: 'LoRa Direct Gateway',
     medicalEmergency: 'Medical Emergency',
@@ -86,12 +86,12 @@ const UI_STRINGS: Record<string, Record<string, string>> = {
     trappedRoof: 'Trapped on Roof',
     typeCustomSos: 'Type custom SOS emergency details...',
     send: 'Send',
-    liveGovtSosLog: 'Live Govt SOS & Distress Log',
+    liveGovtSosLog: 'Live SOS & Distress Log',
     onlySosCommand: 'Only SOS & Command Center',
-    sosGatewayReady: 'Emergency SOS Gateway Ready',
-    standbyGovt: 'Standby for Govt Broadcasts',
+    sosGatewayReady: 'Emergency Gateway Ready',
+    standbyGovt: 'Standby for Official Broadcasts',
     directChatRecipient: 'Direct Chat Recipient:',
-    enterCallsign: 'Enter recipient callsign / username...',
+    enterCallsign: 'Enter recipient name or ID...',
     set: 'Set',
     iamSafe: 'I am safe 👍',
     needHelp: 'Need help 🆘',
@@ -593,7 +593,7 @@ export default function FieldUserDashboard() {
   const queryParams = new URLSearchParams(location.search);
   const token = queryParams.get('token') || sessionStorage.getItem('field_token');
 
-  // Navigation Tabs: talk (Main/Govt) | sos | relay (Air Relay & Judge Demo Hub) | mesh (Local Mesh Friends P2P)
+  // Navigation Tabs: talk (Main/Govt) | sos | relay (Air Relay) | mesh (Local Mesh P2P)
   const [activeTab, setActiveTab] = useState<'talk' | 'sos' | 'relay' | 'mesh'>('talk');
   const [textInput, setTextInput] = useState('');
   const [localMeshTextInput, setLocalMeshTextInput] = useState('');
@@ -825,7 +825,7 @@ export default function FieldUserDashboard() {
 
   // 🌐 Permanent Cloud Gateway on Render (24/7 Cloud Backend - Zero Cloudflare needed)
   const PERMANENT_RENDER_GATEWAY = 'https://itantra-4yzo.onrender.com';
-  const CURRENT_LAN_IP = 'http://10.64.235.76:8000';
+  const CURRENT_LAN_IP = 'http://localhost:8000';
   const [targetHost] = useState<string>('https://itantra-4yzo.onrender.com');
   const [showLangModal, setShowLangModal] = useState<boolean>(() => !localStorage.getItem('fixed_user_language'));
   const [lastDeliveryToast, setLastDeliveryToast] = useState<string>('');
@@ -910,7 +910,7 @@ export default function FieldUserDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // 📡 State for Mode 3 Air Relay Banner on Phone 2 (Judge Display)
+  // State for Mode 3 Air Relay Banner on relay nodes
   const [incomingAirRelay, setIncomingAirRelay] = useState<{
     id: string;
     sender: string;
@@ -977,7 +977,7 @@ export default function FieldUserDashboard() {
   const [currentMsgStats, setCurrentMsgStats] = useState<MessageStats | null>(null);
   const [activeCipherCode, setActiveCipherCode] = useState<string>('AUDIO#4G-HD');
 
-  // 🔐 Live Encryption & Mesh Hop Demonstration State for Judges
+  // Live Encryption & Mesh Hop Visualization State
   const [isEncryptingLive, setIsEncryptingLive] = useState<boolean>(false);
   const [liveEncStep, setLiveEncStep] = useState<number>(0);
   const [scrambledCipher, setScrambledCipher] = useState<string>('0x4954 015F 0141 4F67 AE42 A082 C502 448A');
@@ -1437,7 +1437,7 @@ export default function FieldUserDashboard() {
     }
   };
 
-  // 🚀 JUDGE DEMO: Trigger Phone 1 Air Toss (Simulate or Broadcast)
+  // Trigger Mode 3 Air Broadcast from this node
   const triggerPhone1AirToss = async (customMessage?: string) => {
     setNetworkMode('mode-3-ai-mesh');
     const randHex = Array.from(crypto.getRandomValues(new Uint8Array(6)))
@@ -1450,7 +1450,7 @@ export default function FieldUserDashboard() {
       id: packetId,
       session_id: 'DEMO_GLOBAL_SESSION_01',
       sender_role: 'field',
-      sender_username: myUsername || '@victim_phone_1',
+      sender_username: myUsername || '@field_node_a',
       target_username: '@command_center',
       type: 'voice_message',
       text: packetText,
@@ -1462,7 +1462,7 @@ export default function FieldUserDashboard() {
       longitude: coords.lng,
       address_name: addressName,
       cipher_code: dynamicKey,
-      gateway_node: '📱 Phone 2 (BLE Mesh Relay Node)',
+      gateway_node: 'BLE Mesh Relay Node',
       hop_count: 1,
       is_air_broadcast: true,
       display_time: formatTimeIST(),
@@ -1492,7 +1492,7 @@ export default function FieldUserDashboard() {
     }
   };
 
-  // 🔄 JUDGE DEMO: Trigger Phone 2 Air Capture & Relay
+  // Trigger relay node to capture and forward an incoming mesh packet
   const triggerPhone2AirCaptureAndRelay = (forcedPacket?: any) => {
     const packet = forcedPacket || {
       id: `AIR-${Date.now()}`,
@@ -1502,7 +1502,7 @@ export default function FieldUserDashboard() {
       network_mode: 'mode-3-ai-mesh',
       hop_count: 1
     };
-    handleIncomingMeshPacket(packet, 'MANUAL_JUDGE_DEMO');
+    handleIncomingMeshPacket(packet, 'SIMULATED_RELAY');
   };
 
   // 📍 REAL LIVE HIGH-ACCURACY HARDWARE GPS TRACKING
@@ -1513,7 +1513,7 @@ export default function FieldUserDashboard() {
     // Dynamic offline fallback
     let fallback = `Chennai Sector (${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E)`;
     if (Math.abs(lat - 12.8718) < 0.01 && Math.abs(lng - 80.2185) < 0.01) {
-      fallback = "St. Joseph's Institute of Technology, OMR, Chennai";
+      fallback = "Coastal Disaster Sector, Chennai";
     }
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
@@ -2043,7 +2043,7 @@ export default function FieldUserDashboard() {
                 session_id: 'LOCAL_MESH_PRIVATE',
                 is_local_mesh_private: true,
                 network_mode: parsed.network_mode || 'mode-3-ai-mesh',
-                gateway_node: `📱 Phone 2 (Silent Mesh Relay: ${myUsername || myNodeId})`,
+                gateway_node: `BLE Mesh Relay Node (${myUsername || myNodeId})`,
                 hop_count: (parsed.hop_count || 1) + 1
               };
               sendPayloadSingle(gatewayTargets, JSON.stringify(relayPayload));
@@ -2570,7 +2570,6 @@ export default function FieldUserDashboard() {
         const endpoints = [
           'http://127.0.0.1:8000/api/stt/transcribe-for-translate',
           'http://localhost:8000/api/stt/transcribe-for-translate',
-          'http://10.64.235.76:8000/api/stt/transcribe-for-translate',
           '/api/stt/transcribe-for-translate'
         ];
         for (const ep of endpoints) {

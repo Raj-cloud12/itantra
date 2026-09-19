@@ -1,7 +1,8 @@
+import os
 from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
 
-SECRET_KEY = "hackathon_super_secret_key"
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "itantra-mesh-jwt-session-secret-change-in-prod")
 ALGORITHM = "HS256"
 
 def create_token(session_id: str, role: str) -> str:
@@ -15,7 +16,7 @@ def verify_token(token: str) -> dict:
         session_id: str = payload.get("sub")
         role: str = payload.get("role")
         if session_id is None or role is None:
-            raise Exception("Invalid payload")
+            raise ValueError("Missing session_id or role in token payload")
         return {"session_id": session_id, "role": role}
     except JWTError:
-        raise Exception("Invalid token")
+        raise ValueError("Invalid or expired session token")

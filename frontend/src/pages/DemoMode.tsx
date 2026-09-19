@@ -10,7 +10,7 @@ export default function DemoMode() {
   
   const [statusToast, setStatusToast] = useState('🟢 Live Synced with Devices & Command Center');
   const [activeHost, setActiveHost] = useState<string>(() => {
-    return localStorage.getItem('tactical_host') || 'appendix-comparisons-delhi-extraction.trycloudflare.com';
+    return localStorage.getItem('tactical_host') || window.location.host || 'itantra-4yzo.onrender.com';
   });
   const [isEditingHost, setIsEditingHost] = useState(false);
   const [tempHost, setTempHost] = useState('');
@@ -54,7 +54,6 @@ export default function DemoMode() {
     return Array.from(new Set([
       customUrl,
       'https://itantra-4yzo.onrender.com/api/network/set-mode',
-      'http://10.64.235.76:8000/api/network/set-mode',
       `${apiBase}/api/network/set-mode`,
       'http://localhost:8000/api/network/set-mode',
       'http://127.0.0.1:8000/api/network/set-mode',
@@ -296,14 +295,14 @@ export default function DemoMode() {
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2.5 rounded-xl bg-slate-950 border border-emerald-800/80 flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-emerald-300">📱 Phone 1 (@raj)</div>
+                  <div className="font-bold text-emerald-300">Field Node A</div>
                   <div className="text-[8.5px] text-slate-400">1-to-1 Private Voice Sender</div>
                 </div>
                 <span className="text-[8px] bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-700">ONLINE</span>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-950 border border-cyan-800/80 flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-cyan-300">📱 Phone 2 (@kavya)</div>
+                  <div className="font-bold text-cyan-300">Field Node B</div>
                   <div className="text-[8.5px] text-slate-400">E2EE Voice Receiver</div>
                 </div>
                 <span className="text-[8px] bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-700">ONLINE</span>

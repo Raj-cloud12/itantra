@@ -1625,7 +1625,7 @@ class MainActivity : AppCompatActivity() {
             val packets = mutableListOf<ByteArray>()
 
             if (isEmergencyBeacon && isGenericFallback) {
-                // 🚀 ULTRA-FAST 1-TAP SOS: Single 1-Chunk Packet (Sub-100ms Instant Air Dispatch!)
+                // 1-tap SOS: sends a single compact packet for fastest possible dispatch
                 val beaconText = "🚨 SOS"
                 val compactBytes = TantraMeshCodec.encodeCompact(beaconText)
                 val packet = ByteArray(5 + compactBytes.size)
@@ -1889,7 +1889,7 @@ class MainActivity : AppCompatActivity() {
         val hasAll = (0 until totalChunks).all { chunkMap.containsKey(it) }
         val alreadyRelayed = compactRelayedCiphers[cipher] == true
 
-        // 🚀 FULL MESSAGE INTEGRITY: Wait for ALL chunks to arrive so the complete emergency text is preserved!
+        // Wait for all chunks before reassembling — ensures the complete message is preserved
         // Single-chunk 1-tap beacons (totalChunks == 1) have hasAll=true immediately (sub-100ms instant).
         if (hasAll && !alreadyRelayed) {
             triggerCompactRelay(cipher, cipherHi, cipherLo, totalChunks, rawEmerg, rssi)
@@ -1947,7 +1947,7 @@ class MainActivity : AppCompatActivity() {
         val fullText = if (decodedText.isNotBlank() && decodedText != "🚨 SOS" && !decodedText.startsWith("🚨 SOS: HELP!")) {
             decodedText
         } else {
-            "🚨 SOS: I am in emergency, kindly help me! [$place - GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
+            "EMERGENCY: Immediate rescue needed. Location: $place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
         }
 
         var senderUser = if (isGovt) "@command_center" else "@victim_phone_1"
@@ -2131,7 +2131,7 @@ class MainActivity : AppCompatActivity() {
                 val fullText = if (textPreview.isNotBlank()) {
                     textPreview
                 } else if (isEmerg) {
-                    "🚨 SOS: I am in emergency, kindly help me! [$place - GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
+                    "EMERGENCY: Immediate rescue needed. Location: $place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]"
                 } else {
                     "🎙️ Voice / Text Message (Mode 3 Radio Mesh)"
                 }
@@ -2146,7 +2146,7 @@ class MainActivity : AppCompatActivity() {
                     put("longitude", lon)
                     put("address_name", "$place [GPS: ${String.format(java.util.Locale.US, "%.5f", lat)}°N, ${String.format(java.util.Locale.US, "%.5f", lon)}°E]")
                     put("network_mode", if (isEmerg) "mode-4-satellite-beacon" else "mode-3-ai-mesh")
-                    put("gateway_node", "📱 Phone 2 (BLE Mesh Relay Node)")
+                    put("gateway_node", "BLE Mesh Relay Node")
                     put("timestamp", "${System.currentTimeMillis()}")
                     if (isEmerg) put("type", "emergency_alert") else put("type", "voice_message")
                     put("sender_role", "field")
@@ -2267,7 +2267,7 @@ class MainActivity : AppCompatActivity() {
         val jsCode = "if (window.onNativeMeshPacketReceived) { window.onNativeMeshPacketReceived(\"$safeJson\", \"$channel\"); }"
         webView.evaluateJavascript(jsCode, null)
 
-        // 🚀 Native Dual Relay: Phone 2 forwards intercepted mesh packet to Command Center over Internet / Hotspot
+        // Relay node: forward the intercepted mesh packet to Command Center over internet
         val isFromCommand = rawPayload.contains("\"sender_role\":\"command\"") || 
                             rawPayload.contains("\"sender_role\": \"command\"") || 
                             rawPayload.contains("\"sender_username\":\"@command_center\"") || 

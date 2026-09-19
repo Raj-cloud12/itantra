@@ -2,12 +2,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import os
 
 def generate_session_key() -> bytes:
-    """Generate a 256-bit (32-byte) random symmetric key.
-    
-    MVP simplification: This key is generated server-side and delivered to both
-    clients over authenticated WebSocket. In production, this should be replaced
-    with full end-to-end ECDH key exchange.
-    """
+    """Generate a 256-bit (32-byte) random symmetric key for AES-GCM session encryption."""
     return AESGCM.generate_key(bit_length=256)
 
 def encrypt(plaintext: bytes, key: bytes) -> tuple[bytes, bytes, bytes]:

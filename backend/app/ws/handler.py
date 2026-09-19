@@ -114,15 +114,11 @@ async def process_and_forward(session_id: str, sender_role: str, data: dict, web
     logging.info(f'[{session_id}] {sender_role} -> text="{text[:50]}" lang={language} emergency={is_emergency}')
 
     try:
-        # Step 1: Compress
         comp_result = compress(text)
-
-        # Direct clean transmission (Zero Encryption overhead across all modes)
         encrypted_payload = comp_result.compressed_data
         encryption_label = 'direct_cleartext'
         ciphertext_hex = 'CLEARTEXT_DIRECT_STREAM'
 
-        # Step 3: Pack binary packet
         flags = 0
         if is_emergency: flags |= FLAG_EMERGENCY
         if relayed_via_mesh: flags |= FLAG_MESH_RELAYED
@@ -130,7 +126,6 @@ async def process_and_forward(session_id: str, sender_role: str, data: dict, web
         seq_num = manager.get_next_seq(session_id)
         packet = pack_packet(session_id, flags, language, lat, lng, seq_num, encrypted_payload)
 
-        # Step 4: Transmit through simulated channel
         result = await channel.transmit(packet, priority=is_emergency)
 
         if result.dropped:
@@ -143,13 +138,8 @@ async def process_and_forward(session_id: str, sender_role: str, data: dict, web
             except: pass
             return
 
-        # Step 5: Unpack
         header, recv_payload = unpack_packet(result.data)
-
-        # Step 6: Direct payload (No decryption needed)
         decrypted_data = recv_payload
-
-        # Step 7: Decompress
         decoded_text = decompress(decrypted_data, comp_result.method)
 
         msg_stats = {
@@ -214,11 +204,11 @@ async def process_and_forward(session_id: str, sender_role: str, data: dict, web
                         'stats': msg_stats, 'sequence_number': seq_num,
                         'timestamp': str(asyncio.get_event_loop().time())
                     })
-                    logging.info(f'[{session_id}] ✅ Forwarded to target peer: "{decoded_text[:50]}"')
+                    logging.info(f'[{session_id}] Forwarded to target peer: "{decoded_text[:50]}"')
                 except Exception as e:
                     logging.error(f'[{session_id}] Forward to target peer failed: {e}')
         else:
-            logging.warning(f'[{session_id}] ⚠️ No target peer connected for {sender_role} - msg not forwarded')
+            logging.warning(f'[{session_id}] No target peer connected for {sender_role} - msg not forwarded')
 
         # Push live stats update to both ends
         session_stats = stats_engine.get_stats(session_id)
