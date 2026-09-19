@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link } from 'react-router-dom';
 
@@ -41,7 +41,7 @@ export default function DownloadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 font-sans selection:bg-cyan-500 selection:text-black flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen w-full bg-[#030712] text-slate-100 font-sans selection:bg-cyan-500 selection:text-black flex flex-col relative overflow-y-auto overflow-x-hidden">
       
       {/* Background Ambient Glows */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-to-b from-cyan-500/15 via-emerald-500/10 to-transparent blur-3xl pointer-events-none -z-0"></div>
@@ -50,7 +50,7 @@ export default function DownloadPage() {
       {/* Top Navigation Bar */}
       <header className="relative z-10 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-6 py-4 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link to="/download" className="flex items-center gap-3 group">
             <img
               src="/logo_round.png"
               alt="iTantra Logo"
@@ -70,25 +70,11 @@ export default function DownloadPage() {
 
         <div className="flex items-center gap-3 text-xs font-semibold">
           <Link
-            to="/command"
-            className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-cyan-500/50 hover:bg-slate-800 transition-all flex items-center gap-1.5"
-          >
-            🏢 <span className="hidden md:inline">Command Center</span>
-          </Link>
-          <Link
             to="/field"
-            className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-emerald-500/50 hover:bg-slate-800 transition-all flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-700/80 text-slate-200 hover:text-white hover:border-emerald-500/50 hover:bg-slate-800 transition-all flex items-center gap-2 shadow-sm"
           >
-            📱 <span className="hidden md:inline">Web Mobile App</span>
+            📱 <span>Web Mobile App</span>
           </Link>
-          <a
-            href="https://github.com/Raj-cloud12/itantra"
-            target="_blank"
-            rel="noreferrer"
-            className="px-3.5 py-1.5 rounded-xl bg-cyan-950/60 border border-cyan-700/60 text-cyan-300 hover:bg-cyan-900/60 hover:border-cyan-400 transition-all flex items-center gap-1.5"
-          >
-            ⭐ <span className="hidden md:inline">GitHub</span>
-          </a>
         </div>
       </header>
 
