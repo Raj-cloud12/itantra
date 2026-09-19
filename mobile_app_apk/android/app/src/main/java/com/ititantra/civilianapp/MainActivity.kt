@@ -26,9 +26,6 @@ import android.os.VibrationEffect
 import android.os.Environment
 import android.provider.Settings
 import android.content.Intent
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
@@ -209,7 +206,6 @@ class MainActivity : AppCompatActivity() {
     private val audioSamplesList = ArrayList<Float>()
     @Volatile
     private var activeSpeechLang: String = "ta"
-    private var nativeSpeechRecognizer: SpeechRecognizer? = null
     @Volatile
     private var lastRecognizedText: String = ""
 
@@ -1329,116 +1325,14 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun startSpeechRecognition(lang: String) {
             val localeTag = mapToLocaleTag(lang)
-            Log.i("NATIVE_ASR", "startSpeechRecognition for '$lang' -> locale '$localeTag'")
+            Log.i("NATIVE_ASR", "startSpeechRecognition for '$lang' -> locale '$localeTag' (using on-device Sherpa ONNX ASR)")
             activeSpeechLang = lang
             lastRecognizedText = ""
-
-            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                Log.e("NATIVE_ASR", "RECORD_AUDIO permission missing")
-                requestAllPermissions()
-                return
-            }
-
-            runOnUiThread {
-                try {
-                    if (nativeSpeechRecognizer != null) {
-                        try {
-                            nativeSpeechRecognizer?.stopListening()
-                            nativeSpeechRecognizer?.destroy()
-                        } catch (e: Exception) {}
-                        nativeSpeechRecognizer = null
-                    }
-
-                    val googleServices = listOf(
-                        android.content.ComponentName("com.google.android.googlequicksearchbox", "com.google.android.voicesearch.serviceapi.GoogleRecognitionService"),
-                        android.content.ComponentName("com.google.android.tts", "com.google.android.apps.speech.tts.googletts.service.GoogleTTSRecognitionService"),
-                        android.content.ComponentName("com.google.android.as", "com.google.android.apps.miphone.aiai.app.AiAiSpeechRecognitionService")
-                    )
-                    var recognizer: SpeechRecognizer? = null
-
-                    // 1. Bound Google Speech recognition services (full Tamil & Indic support)
-                    for (comp in googleServices) {
-                        try {
-                            val serviceIntent = Intent("android.speech.RecognitionService").setComponent(comp)
-                            val resolve = packageManager.queryIntentServices(serviceIntent, 0)
-                            if (resolve.isNotEmpty()) {
-                                recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity, comp)
-                                Log.i("NATIVE_ASR", "Successfully bound to verified SpeechService: ${comp.className}")
-                                break
-                            }
-                        } catch (e: Exception) {
-                            Log.w("NATIVE_ASR", "Could not check ${comp.className}: ${e.message}")
-                        }
-                    }
-
-                    if (recognizer == null) {
-                        recognizer = SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
-                        Log.i("NATIVE_ASR", "Using system default SpeechRecognizer")
-                    }
-                    nativeSpeechRecognizer = recognizer
-                    nativeSpeechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                        override fun onReadyForSpeech(params: Bundle?) {
-                            Log.i("NATIVE_ASR", "Ready for speech in $localeTag")
-                        }
-                        override fun onBeginningOfSpeech() {
-                            Log.i("NATIVE_ASR", "User started speaking in $localeTag")
-                        }
-                        override fun onRmsChanged(rmsdB: Float) {}
-                        override fun onBufferReceived(buffer: ByteArray?) {}
-                        override fun onEndOfSpeech() {
-                            Log.i("NATIVE_ASR", "User finished speaking in $localeTag")
-                        }
-                        override fun onError(error: Int) {
-                            Log.w("NATIVE_ASR", "SpeechRecognizer error code: $error")
-                        }
-                        override fun onResults(results: Bundle?) {
-                            val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                            if (!matches.isNullOrEmpty()) {
-                                val text = matches[0].trim()
-                                lastRecognizedText = text
-                                Log.i("NATIVE_ASR", "Final Recognized ($localeTag): '$text'")
-                                notifyWebviewSpeechResult(text, true)
-                            }
-                        }
-                        override fun onPartialResults(partialResults: Bundle?) {
-                            val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                            if (!matches.isNullOrEmpty()) {
-                                val text = matches[0].trim()
-                                lastRecognizedText = text
-                                Log.i("NATIVE_ASR", "Partial Interim ($localeTag): '$text'")
-                                notifyWebviewSpeechResult(text, false)
-                            }
-                        }
-                        override fun onEvent(eventType: Int, params: Bundle?) {}
-                    })
-
-                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeTag)
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
-                        putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(localeTag, "ta-IN", "en-IN"))
-                        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-                        putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
-                    }
-                    nativeSpeechRecognizer?.startListening(intent)
-                    Log.i("NATIVE_ASR", "Native SpeechRecognizer active for $localeTag")
-                } catch (e: Exception) {
-                    Log.e("NATIVE_ASR", "Failed to start native SpeechRecognizer: ${e.message}", e)
-                }
-            }
         }
 
         @JavascriptInterface
         fun stopSpeechRecognition(): String {
             Log.i("NATIVE_ASR", "stopSpeechRecognition called")
-            runOnUiThread {
-                try {
-                    nativeSpeechRecognizer?.stopListening()
-                } catch (e: Exception) {
-                    Log.w("NATIVE_ASR", "Error stopping SpeechRecognizer: ${e.message}")
-                }
-            }
             return lastRecognizedText
         }
 
@@ -2526,10 +2420,6 @@ class MainActivity : AppCompatActivity() {
             audioRecord?.stop()
             audioRecord?.release()
             audioRecord = null
-        } catch (e: Exception) {}
-        try {
-            nativeSpeechRecognizer?.destroy()
-            nativeSpeechRecognizer = null
         } catch (e: Exception) {}
         try {
             sherpaRecognizer?.release()

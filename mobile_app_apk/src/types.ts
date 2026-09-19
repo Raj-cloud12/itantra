@@ -22,6 +22,7 @@ export interface ChatMessage {
   audio_size?: number;
   local_mode?: string;
   network_mode?: string;
+  channel_type?: 'EMERGENCY_ALERT' | 'CIVILIAN_P2P';
   is_local_mesh_private?: boolean;
   display_time?: string;
   is_emergency: boolean;
@@ -40,6 +41,7 @@ export interface ChatMessage {
 
 export interface WsMessage {
   type: string;
+  channel_type?: 'EMERGENCY_ALERT' | 'CIVILIAN_P2P';
   text?: string;
   translated_text?: string;
   sender_role?: string;

@@ -681,6 +681,7 @@ export default function CommandCenterDashboard() {
           const cleanText = (item.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
           const timeBucket = Math.floor(new Date(item.timestamp).getTime() / 15000);
           const sig = `${cleanText}_${timeBucket}`;
+          if (cleanText && seenSignatures.has(sig)) continue;
           if (cleanText) seenSignatures.add(sig);
           uniqueFeed.push(item);
         }
@@ -901,21 +902,26 @@ export default function CommandCenterDashboard() {
     <div className="h-screen bg-black text-neutral-100 font-sans flex flex-col overflow-hidden">
       
       {/* 1. TOP HEADER */}
-      <header className="shrink-0 bg-neutral-950 border-b border-neutral-800 px-6 py-3 flex items-center justify-between shadow-2xl">
+      <header className="shrink-0 bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800 px-6 py-3 flex items-center justify-between shadow-2xl">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 via-rose-600 to-amber-500 flex items-center justify-center shadow-lg border border-red-400/40 text-lg">
-            🚨
-          </div>
+          <img
+            src="/logo_round.png"
+            alt="iTantra Logo"
+            className="w-11 h-11 rounded-full border-2 border-cyan-400/60 shadow-[0_0_20px_rgba(6,182,212,0.6)] object-cover bg-black"
+          />
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm lg:text-base font-black text-slate-100">
+              <h1 className="text-sm lg:text-base font-black text-slate-100 tracking-wide">
                 iTantra - Indian Multilingual Disaster Communication & Mesh Network
               </h1>
-              <span className="text-[9px] bg-red-950 text-rose-300 border border-red-800 px-2 py-0.5 rounded font-mono font-bold shrink-0">
+              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-600 px-2 py-0.5 rounded-full font-mono font-black shadow-[0_0_10px_rgba(6,182,212,0.3)] shrink-0">
+                v1.0
+              </span>
+              <span className="text-[9px] bg-red-950 text-rose-300 border border-red-800 px-2 py-0.5 rounded font-mono font-bold">
                 ISRO NavIC / GOVT SOS GATEWAY
               </span>
             </div>
-            <p className="text-[10px] text-slate-400">Emergency Distress Monitor & Real-Time Broadcast Control</p>
+            <p className="text-[10px] text-slate-400">Tactical Disaster Grid · Emergency Distress Monitor & Real-Time Broadcast Control</p>
           </div>
         </div>
 
@@ -940,6 +946,28 @@ export default function CommandCenterDashboard() {
           </button>
         </div>
       </header>
+
+      {/* TACTICAL LIVE TELEMETRY TICKER BAR */}
+      <div className="shrink-0 bg-[#080d19] border-b border-cyan-950/60 px-6 py-2 flex items-center justify-between text-[11px] font-mono shadow-inner">
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2 text-cyan-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-neutral-400 font-bold">DISASTER GRID:</span>
+            <span className="font-bold text-emerald-300">ACTIVE (v1.0)</span>
+          </div>
+          <div className="hidden md:flex items-center gap-1.5 text-neutral-300">
+            <span className="text-neutral-500 font-bold">COVERAGE:</span>
+            <span className="px-2 py-0.5 rounded-md bg-blue-950/80 text-blue-300 border border-blue-800 text-[10px] font-bold">Tier 1: 4G/5G</span>
+            <span className="px-2 py-0.5 rounded-md bg-indigo-950/80 text-indigo-300 border border-indigo-800 text-[10px] font-bold">Tier 2: 2G CELT</span>
+            <span className="px-2 py-0.5 rounded-md bg-emerald-950/80 text-emerald-300 border border-emerald-800 text-[10px] font-bold">Tier 3: BLE Mesh</span>
+            <span className="px-2 py-0.5 rounded-md bg-amber-950/80 text-amber-300 border border-amber-800 text-[10px] font-bold">Tier 4: LoRa/NavIC</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 text-[10.5px] text-neutral-400">
+          <div>ENCRYPTION: <span className="text-cyan-300 font-bold">AES-256-GCM E2EE</span></div>
+          <div>PROTOCOL: <span className="text-purple-300 font-bold">iTantra v1.0</span></div>
+        </div>
+      </div>
 
       {/* SOS SENT NOTIFICATION TOAST */}
       {sosSentToast && (
@@ -1093,7 +1121,7 @@ export default function CommandCenterDashboard() {
           <div className="pt-4 border-t border-neutral-800 text-[10px] text-neutral-500 space-y-1">
             <div className="text-cyan-400 font-bold">🏢 Government Control Centre</div>
             <div>Encryption: AES-GCM Compact Mesh Codec</div>
-            <div>Protocol: iTantra 4-Tier v2.4</div>
+            <div>Protocol: iTantra 4-Tier v1.0</div>
           </div>
         </aside>
 
