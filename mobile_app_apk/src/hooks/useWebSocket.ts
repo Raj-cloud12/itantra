@@ -69,39 +69,41 @@ export function useWebSocket(url: string | null): WebSocketHookResult {
 
           case 'voice_message':
           case 'text_message':
-          case 'emergency_alert': {
+          case 'emergency_alert':
+          case 'air_mesh_packet':
+          case 'voice':
+          case 'text':
+          case 'message': {
             // Backend sends flat JSON: {type, text, sender_role, is_emergency, stats: {...}, sequence_number, timestamp}
             const incomingMsg: ChatMessage = {
               id: data.id || crypto.randomUUID(),
-              type: data.type,
-              text: data.text,
+              type: data.type || 'text_message',
+              text: data.text || '',
               translated_text: data.translated_text,
-              sender_role: data.sender_role,
-              sender_username: data.sender_username,
-              target_username: data.target_username,
-              audio_url: data.audio_url,
+              sender_role: data.sender_role || 'field',
+              sender_username: data.sender_username || '@field',
+              target_username: data.target_username || '@command_center',
+              audio_url: data.audio_url || data.audioUrl,
               audio_size: data.audio_size,
               local_mode: data.local_mode,
-              network_mode: data.network_mode,
-              is_local_mesh_private: data.is_local_mesh_private,
-              is_emergency: data.is_emergency || false,
-              language: data.language || 'en',
+              network_mode: data.network_mode || 'mode-3-ai-mesh',
+              is_local_mesh_private: !!data.is_local_mesh_private,
+              is_emergency: !!data.is_emergency,
+              language: data.language || 'ta',
               latitude: data.latitude,
               longitude: data.longitude,
-              relayed_via_mesh: data.relayed_via_mesh || false,
+              relayed_via_mesh: data.relayed_via_mesh || data.is_air_broadcast || false,
               display_time: data.display_time,
               stats: data.stats || {
                 raw_bytes: 0, compressed_bytes: 0, encrypted_bytes: 0,
                 original_audio_bytes: 0, transit_time_ms: 0,
-                compression_method: '', ciphertext_hex: ''
+                compression_method: '', ciphertext_hex: data.cipher_code || ''
               },
               sequence_number: data.sequence_number || 0,
               timestamp: data.timestamp || new Date().toISOString(),
               status: 'delivered'
             };
             setMessages(prev => [...prev, incomingMsg]);
-
-            // Emergency alert received - no oscillator beep
             break;
           }
 

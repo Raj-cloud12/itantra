@@ -457,9 +457,9 @@ class ConnectionManager:
 
     async def broadcast(self, message: dict):
         is_private = (
-            message.get("is_local_mesh_private") or 
+            bool(message.get("is_local_mesh_private")) or 
             message.get("session_id") == "LOCAL_MESH_PRIVATE" or
-            (message.get("target_username") and message.get("target_username") != "@command_center" and not message.get("is_emergency") and message.get("sender_role") != "command")
+            (message.get("target_username") and message.get("target_username") not in ("@command_center", "@all_citizens", "@all_users", "@all") and not message.get("is_emergency") and message.get("sender_role") != "command")
         )
         target_u = (message.get("target_username") or "").lower().strip()
         sender_u = (message.get("sender_username") or "").lower().strip()
@@ -978,7 +978,13 @@ def get_all_messages():
     c.execute("""
     SELECT * FROM messages 
     WHERE (session_id IS NULL OR session_id != 'LOCAL_MESH_PRIVATE')
-      AND (is_emergency = 1 OR target_username = '@command_center' OR sender_role = 'command' OR target_username = '@all_citizens')
+      AND (
+        is_emergency = 1 
+        OR target_username IN ('@command_center', '@all_citizens', '@all_users', '@all')
+        OR sender_role = 'command'
+        OR target_username IS NULL
+        OR target_username = ''
+      )
     ORDER BY id DESC LIMIT 500
     """)
     rows = c.fetchall()

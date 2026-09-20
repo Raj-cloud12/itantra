@@ -409,18 +409,35 @@ export default function CommandCenterDashboard() {
 
 
   const getApiBase = () => {
-    if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') {
-      return `http://${window.location.hostname}:8000`;
+    if (typeof window === 'undefined') return 'http://localhost:8000';
+    if (window.location.protocol === 'file:') return 'http://localhost:8000';
+    if (window.location.port === '5173' || window.location.port === '3000') {
+      return `${window.location.protocol}//${window.location.hostname}:8000`;
     }
-    return 'http://localhost:8000';
+    return '';
   };
 
   const [wsUrl] = useState<string>(() => {
     const targetSession = sessionId || 'DEMO_GLOBAL_SESSION_01';
-    const host = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost')
-      ? window.location.hostname
-      : 'localhost';
-    return `ws://${host}:8000/ws/command/${targetSession}`;
+    if (typeof window === 'undefined') return `ws://localhost:8000/ws/command/${targetSession}`;
+    const isHttps = window.location.protocol === 'https:';
+    const proto = isHttps ? 'wss:' : 'ws:';
+    const hostname = window.location.hostname || 'localhost';
+    const port = window.location.port;
+
+    if (hostname.includes('.com') || hostname.includes('.org') || hostname.includes('.net') || hostname.includes('.io') || (!port && hostname !== 'localhost' && hostname !== '127.0.0.1')) {
+      return `${proto}//${hostname}/ws/command/${targetSession}`;
+    }
+
+    if (port === '5173' || port === '3000') {
+      return `${proto}//${hostname}:8000/ws/command/${targetSession}`;
+    }
+
+    if (port) {
+      return `${proto}//${hostname}:${port}/ws/command/${targetSession}`;
+    }
+
+    return `${proto}//${hostname}:8000/ws/command/${targetSession}`;
   });
 
   const { connected, stats, messages: wsMessages, send } = useWebSocket(wsUrl);
@@ -458,27 +475,28 @@ export default function CommandCenterDashboard() {
   useEffect(() => {
     if (wsMessages && wsMessages.length > 0) {
       const latest: any = wsMessages[wsMessages.length - 1];
-      if (latest && latest.text) {
+      if (latest && (latest.text || latest.audio_url || latest.audioUrl || latest.is_emergency)) {
         // 🛑 ABSOLUTE PRIVACY FIREWALL: Never show private Local Mesh in Command Center!
         const isPrivateLocalMesh = (
           latest.is_local_mesh_private ||
           latest.session_id === 'LOCAL_MESH_PRIVATE' ||
-          (latest.target_username && latest.target_username !== '@command_center' && latest.target_username !== '@all_users' && !latest.is_emergency && latest.sender_role !== 'command')
+          (latest.target_username && latest.target_username !== '@command_center' && latest.target_username !== '@all_users' && latest.target_username !== '@all_citizens' && !latest.is_emergency && latest.sender_role !== 'command')
         );
         if (isPrivateLocalMesh) return;
 
         // 🛑 Block system/node-registration messages by text pattern
         const WS_SYSTEM_PATTERNS = [/node registered/i, /node_register/i, /callsign locked/i, /🔔 node/i, /identity announcement/i, /device profile/i, /mesh_node_join/i, /ble_announce/i];
         const latestText = (latest.text || '').trim();
-        if (!latestText || latestText.length < 2 || WS_SYSTEM_PATTERNS.some(p => p.test(latestText))) return;
-
+        if (WS_SYSTEM_PATTERNS.some(p => p.test(latestText))) return;
 
         setFeed(prev => {
-          const cleanLatestText = (latest.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
           const exists = prev.some(m => {
-            if (m.id === latest.id) return true;
-            const cleanMText = (m.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
-            return cleanMText === cleanLatestText && m.sender_username === latest.sender_username;
+            if (m.id && latest.id && String(m.id) === String(latest.id)) return true;
+            if (latestText && (m.text || '').trim() === latestText) {
+              const tDiff = Math.abs(new Date(m.timestamp).getTime() - new Date(latest.timestamp || Date.now()).getTime());
+              if (tDiff < 5000) return true;
+            }
+            return false;
           });
           if (exists) return prev;
 
@@ -488,7 +506,7 @@ export default function CommandCenterDashboard() {
 
           const cipherCode = latest.cipher_code || (isMode4 ? '534F015F01414F67AE42A082C502448A' : `CIPHER#${((Date.now() * 1733 + 4919) % 65535).toString(16).toUpperCase().padStart(4, '0')}`);
 
-          // 🔔 Play Tactical Ding-Ding Notification on incoming message (NO auto-speaking voice!)
+          // 🔔 Play Tactical Ding-Ding Notification on incoming message
           const msgKey = String(latest.id || latest.text);
           if (!playedTtsRef.current.has(msgKey)) {
             playedTtsRef.current.add(msgKey);
@@ -507,7 +525,7 @@ export default function CommandCenterDashboard() {
             sender_role: latest.sender_role || 'field',
             sender_username: latest.sender_username || '@citizen_field',
             target_username: latest.target_username || '@command_center',
-            text: latest.text,
+            text: latest.text || (isEmergency ? '🚨 EMERGENCY SOS DISTRESS BEACON' : '🎙️ Voice Note'),
             is_emergency: isEmergency,
             language: latest.language || 'ta',
             latitude: latest.latitude || 12.8718,
@@ -531,35 +549,34 @@ export default function CommandCenterDashboard() {
               ciphertext_hex: cipherCode
             }
           };
-          // Deduplicate before adding to feed:
-          const cleanNewText = (newFeedItem.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
-          const isDuplicate = prev.some(m => 
-            m.id === newFeedItem.id || 
-            (cleanNewText && (m.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ') === cleanNewText && 
-             Math.abs(new Date(m.timestamp).getTime() - new Date(newFeedItem.timestamp).getTime()) < 15000)
-          );
-          if (isDuplicate) return prev;
-          return [newFeedItem, ...prev];
+
+          const updated = [newFeedItem, ...prev];
+          try {
+            localStorage.setItem('tantra_command_center_feed_v2', JSON.stringify(updated.slice(0, 200)));
+          } catch {}
+          return updated;
         });
       }
     }
   }, [wsMessages]);
 
-  // High-Frequency Live Polling (1s Interval)
+  // High-Frequency Live Polling (1.5s Interval) with Concurrency Guard
+  const isPollingRef = useRef(false);
   useEffect(() => {
     const poll = async () => {
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
       try {
         const apiBase = getApiBase();
         const endpoints = [
-          `${apiBase}/api/messages/all`,
           '/api/messages/all',
-          'http://127.0.0.1:8000/api/messages/all',
+          ...(apiBase ? [`${apiBase}/api/messages/all`] : []),
         ];
 
         let data: any = null;
         for (const ep of endpoints) {
           try {
-            const res = await fetch(ep, { signal: AbortSignal.timeout(3000) });
+            const res = await fetch(ep, { signal: AbortSignal.timeout(2000) });
             if (res.ok) {
               const json = await res.json();
               if (Array.isArray(json)) {
@@ -585,20 +602,16 @@ export default function CommandCenterDashboard() {
         const cleanData = data.filter((m: any) => {
           if (m.is_local_mesh_private || m.session_id === 'LOCAL_MESH_PRIVATE') return false;
           if (m.target_username && m.target_username !== '@command_center' && m.target_username !== '@all_users' && m.target_username !== '@all_citizens' && !m.is_emergency && m.sender_role !== 'command') return false;
-          // Block system/registration messages by text pattern
           const txt = (m.text || '').trim();
           if (SYSTEM_MSG_PATTERNS.some(p => p.test(txt))) return false;
-          // Must have meaningful user-generated text (not just a callsign or whitespace)
-          if (!txt || txt.length < 2) return false;
           return true;
         });
 
-        // If initial load, record all existing IDs so we don't replay history
+        // If initial load, record all existing IDs so we don't chime old history
         if (!hasInitialLoadedRef.current) {
           cleanData.forEach((m: any) => playedTtsRef.current.add(String(m.id || m.text)));
           hasInitialLoadedRef.current = true;
         } else {
-          // Check for newly arrived messages to trigger tactical ding-ding chime (NO auto-speaking voice!)
           let hasNewMessage = false;
           let burstArrivals = 0;
           cleanData.forEach((m: any) => {
@@ -612,12 +625,8 @@ export default function CommandCenterDashboard() {
           if (hasNewMessage) {
             playTacticalDingDing();
           }
-          // Multi-User Surge / Burst Detection:
-          // Activate AI ONLY when multiple users/systems send messages simultaneously!
           if (burstArrivals >= 5) {
             setClusterDetected(burstArrivals);
-            // Automatically invoke AI multi-incident triage to rank 1st, 2nd, 3rd...
-            analyzeIntegrity(true);
           }
         }
 
@@ -639,7 +648,7 @@ export default function CommandCenterDashboard() {
             sender_role: m.sender_role || 'field',
             sender_username: m.sender_username || (m.sender_role === 'command' ? '@command_center' : '@citizen_field'),
             target_username: m.target_username || (m.sender_role === 'command' ? '@all_users' : '@command_center'),
-            text: m.text || '',
+            text: m.text || (isEmergency ? '🚨 EMERGENCY SOS DISTRESS BEACON' : '🎙️ Voice Note'),
             is_emergency: isEmergency,
             language: m.language || 'ta',
             latitude: m.latitude,
@@ -665,47 +674,44 @@ export default function CommandCenterDashboard() {
           };
         });
 
-        // Robust UI Deduplication: Deduplicate by clean normalized text signature within 15s window
-        const seenSignatures = new Set<string>();
-        const uniqueFeed: FeedMsg[] = [];
-        for (const item of mapped) {
-          const cleanText = (item.text || '').trim().toLowerCase().replace(/[\s\W]+/g, ' ');
-          const timeBucket = Math.floor(new Date(item.timestamp).getTime() / 15000);
-          const sig = `${cleanText}_${timeBucket}`;
-          if (cleanText && seenSignatures.has(sig)) continue;
-          if (cleanText) seenSignatures.add(sig);
-          uniqueFeed.push(item);
-        }
-
-        // Incremental State Merge: Never wipe historical messages from state!
+        // Fast state merge: Check if new messages actually arrived to avoid unnecessary re-renders
         setFeed(prevFeed => {
-          const map = new Map<string, FeedMsg>();
-          prevFeed.forEach(m => {
-            const key = String(m.id || `${m.timestamp}_${m.text}`);
-            map.set(key, m);
+          const prevMap = new Map<string, FeedMsg>();
+          prevFeed.forEach(m => prevMap.set(String(m.id || `${m.timestamp}_${m.text}`), m));
+
+          let hasAnyNew = false;
+          mapped.forEach(m => {
+            const k = String(m.id || `${m.timestamp}_${m.text}`);
+            if (!prevMap.has(k)) {
+              hasAnyNew = true;
+              prevMap.set(k, m);
+            }
           });
-          uniqueFeed.forEach(m => {
-            const key = String(m.id || `${m.timestamp}_${m.text}`);
-            map.set(key, m);
-          });
-          const merged = Array.from(map.values()).sort((a, b) => {
+
+          if (!hasAnyNew && prevFeed.length > 0) {
+            return prevFeed; // Return same reference! NO re-render!
+          }
+
+          const merged = Array.from(prevMap.values()).sort((a, b) => {
             const tA = new Date(a.timestamp).getTime() || 0;
             const tB = new Date(b.timestamp).getTime() || 0;
             return tB - tA;
           });
-          // 🔒 ONLY save to localStorage if we have messages — NEVER overwrite with empty array
+
           if (merged.length > 0) {
             try {
-              localStorage.setItem('tantra_command_center_feed_v2', JSON.stringify(merged.slice(0, 500)));
+              localStorage.setItem('tantra_command_center_feed_v2', JSON.stringify(merged.slice(0, 200)));
             } catch {}
           }
           return merged;
         });
-      } catch {}
+      } catch {} finally {
+        isPollingRef.current = false;
+      }
     };
 
     poll();
-    const interval = setInterval(poll, 1000);
+    const interval = setInterval(poll, 1200);
     return () => clearInterval(interval);
   }, []);
 

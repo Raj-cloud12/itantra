@@ -956,15 +956,15 @@ export default function FieldUserDashboard() {
   };
 
   const getReliableEndpoints = (path: string) => {
-    const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && window.location.protocol !== 'file:') ? window.location.hostname : '';
     const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+    const hostFromWindow = (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost' && !isFileProtocol) ? window.location.hostname : '';
     return Array.from(new Set([
+      ...(isFileProtocol ? [] : [path]),
       `${PERMANENT_RENDER_GATEWAY}${path}`,
+      `http://localhost:8000${path}`,
       `http://127.0.0.1:8000${path}`,
       `${CURRENT_LAN_IP}${path}`,
-      `http://localhost:8000${path}`,
-      ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : []),
-      ...(isFileProtocol ? [] : [path])
+      ...(hostFromWindow ? [`http://${hostFromWindow}:8000${path}`] : [])
     ]));
   };
 
@@ -2459,6 +2459,12 @@ export default function FieldUserDashboard() {
       // Also try direct command center dispatch if connected
       const cmdTargets = getReliableEndpoints('/api/messages/send');
       sendPayloadSingle(cmdTargets, airPayloadStr);
+
+      if (send) {
+        try { send(airPayloadObj); } catch {}
+      }
+
+      setSentMessages((prev) => prev.map((m) => m.id === msgId ? { ...m, status: 'delivered' } : m));
 
       // Mode 3 Authentic Air Broadcast: Phone 1 broadcasts into the air (BLE / Wi-Fi / UDP).
       setOfflineMessages((prev: any) => [airPayloadObj, ...prev]);
